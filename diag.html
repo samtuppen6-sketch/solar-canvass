@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EPC Proxy Diagnostic v5</title>
+<title>EPC Proxy Diagnostic v6</title>
 <style>
 body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;font-size:13px;margin:0;word-break:break-all}
 h2{color:#f59e0b;margin-bottom:4px}
@@ -9,32 +9,42 @@ p{color:#6b7280;margin-bottom:16px;font-size:11px}
 .box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px}
 .ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}
 button{background:#f59e0b;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:16px}
-pre{white-space:pre-wrap;font-size:10px;max-height:300px;overflow-y:auto;background:#0d1117;padding:8px;border-radius:4px;margin-top:6px}
+.prop{border-bottom:1px solid #21262d;padding:8px 0;line-height:1.6}
+pre{white-space:pre-wrap;font-size:10px;max-height:200px;overflow-y:auto;background:#0d1117;padding:8px;border-radius:4px;margin-top:6px}
 </style></head>
 <body>
-<h2>☀ EPC Proxy Diagnostic v5</h2>
-<p>Old EPC service (opendatacommunities.org) confirmed working from Supabase. Testing JSON/CSV parsing.</p>
-<button onclick="run()">▶ Run Diagnostic</button>
+<h2>☀ EPC Proxy Diagnostic v6</h2>
+<p>Testing JSON + CSV + debug mode on old EPC service</p>
+<button onclick="run()">▶ Run (normal)</button>
+<button onclick="debug()" style="background:#374151;color:#c9d1d9;margin-top:-8px">▶ Run (debug - show raw)</button>
 <div id="out"></div>
 <script>
-async function run(){
-  const out = document.getElementById('out');
-  out.innerHTML = '<div class="box">Loading...</div>';
-  
+const P = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
+async function run(){ await test(P+"?postcode=PO1+1AN&size=5"); }
+async function debug(){ await test(P+"?postcode=PO1+1AN&size=5&debug=1"); }
+async function test(url){
+  document.getElementById('out').innerHTML='<div class="box">Loading...</div>';
   try{
-    const r = await fetch('https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy?postcode=PO1+1AN&size=5');
+    const r = await fetch(url);
     const d = await r.json();
-    out.innerHTML = '';
-    
-    if(d.rows && d.rows.length > 0){
-      out.innerHTML += '<div class="box ok">✓ SUCCESS! ' + d.rows.length + ' properties returned!</div>';
-      out.innerHTML += '<div class="box"><b>Properties:</b><pre>' + JSON.stringify(d.rows, null, 2) + '</pre></div>';
+    let h = '';
+    if(d.rows?.length > 0){
+      h += '<div class="box ok">✓ SUCCESS! '+d.rows.length+' properties!</div>';
+      h += '<div class="box"><b>Properties:</b>';
+      d.rows.forEach((p,i)=>{
+        h += '<div class="prop">'+(i+1)+'. <b>'+(p.address1||'?')+'</b>';
+        if(p.address2) h += ', '+p.address2;
+        h += '<br>EPC: <b>'+(p["current-energy-rating"]||'?')+'</b>';
+        h += ' | Tenure: '+(p.tenure||'unknown');
+        h += ' | Type: '+(p["property-type"]||'?')+'</div>';
+      });
+      h += '</div>';
     } else {
-      out.innerHTML += '<div class="box warn">⚠ No rows. Debug info:</div>';
-      out.innerHTML += '<div class="box"><pre>' + JSON.stringify(d, null, 2) + '</pre></div>';
+      h += '<div class="box warn">No rows. Full response:<pre>'+JSON.stringify(d,null,2)+'</pre></div>';
     }
-  } catch(e) {
-    out.innerHTML = '<div class="box fail">Error: ' + e.message + '</div>';
+    document.getElementById('out').innerHTML = h;
+  }catch(e){
+    document.getElementById('out').innerHTML='<div class="box fail">Error: '+e.message+'</div>';
   }
 }
 </script>
