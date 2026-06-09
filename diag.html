@@ -1,58 +1,40 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EPC Proxy Diagnostic v4</title>
+<title>EPC Proxy Diagnostic v5</title>
 <style>
-*{box-sizing:border-box}
-body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;font-size:12px;margin:0}
+body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;font-size:13px;margin:0;word-break:break-all}
 h2{color:#f59e0b;margin-bottom:4px}
 p{color:#6b7280;margin-bottom:16px;font-size:11px}
-.box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px;word-break:break-all}
-.ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}.info{color:#3b82f6}
+.box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px}
+.ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}
 button{background:#f59e0b;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:16px}
-.row{border-bottom:1px solid #21262d;padding:4px 0;line-height:1.6}
+pre{white-space:pre-wrap;font-size:10px;max-height:300px;overflow-y:auto;background:#0d1117;padding:8px;border-radius:4px;margin-top:6px}
 </style></head>
 <body>
-<h2>☀ EPC Proxy Diagnostic v4</h2>
-<p>Full log from all 7 endpoint attempts via Supabase London proxy</p>
+<h2>☀ EPC Proxy Diagnostic v5</h2>
+<p>Old EPC service (opendatacommunities.org) confirmed working from Supabase. Testing JSON/CSV parsing.</p>
 <button onclick="run()">▶ Run Diagnostic</button>
 <div id="out"></div>
 <script>
-const PROXY = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
-function log(html){document.getElementById('out').innerHTML+=html;}
 async function run(){
-  document.getElementById('out').innerHTML='<div class="box info">Running... please wait</div>';
+  const out = document.getElementById('out');
+  out.innerHTML = '<div class="box">Loading...</div>';
+  
   try{
-    const r = await fetch(PROXY+'?postcode=PO1+1AN&size=5');
+    const r = await fetch('https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy?postcode=PO1+1AN&size=5');
     const d = await r.json();
-    document.getElementById('out').innerHTML='';
+    out.innerHTML = '';
     
-    if(d.rows && d.rows.length>0){
-      log('<div class="box ok">✓ SUCCESS! '+d.rows.length+' properties found from: '+(d.source||'')+'<br>');
-      d.rows.forEach((row,i)=>{
-        log('<div class="row">'+(i+1)+'. '+(row.address1||row.ADDRESS1||JSON.stringify(row).slice(0,80))+'</div>');
-      });
-      log('</div>');
+    if(d.rows && d.rows.length > 0){
+      out.innerHTML += '<div class="box ok">✓ SUCCESS! ' + d.rows.length + ' properties returned!</div>';
+      out.innerHTML += '<div class="box"><b>Properties:</b><pre>' + JSON.stringify(d.rows, null, 2) + '</pre></div>';
+    } else {
+      out.innerHTML += '<div class="box warn">⚠ No rows. Debug info:</div>';
+      out.innerHTML += '<div class="box"><pre>' + JSON.stringify(d, null, 2) + '</pre></div>';
     }
-    
-    log('<div class="box"><b>Full proxy log ('+( d.log||[]).length+' attempts):</b><br>');
-    (d.log||[]).forEach(e=>{
-      const cls=e.status===200?'ok':e.error?'fail':'warn';
-      log('<div class="row"><span class="'+cls+'">'+e.status+(e.error?' ERR':'')+'</span> '+
-        (e.auth||'none')+' → '+(e.url||'').slice(-45)+
-        (e.bodyLen?' ['+e.bodyLen+'b]':'')+
-        (e.note?' <span class="warn">'+e.note+'</span>':'')+
-        (e.preview?'<br><small>'+(e.preview||'').slice(0,120)+'</small>':'')+
-        (e.error?'<br><span class="fail">'+e.error+'</span>':'')+
-        '</div>');
-    });
-    log('</div>');
-    
-    if(!d.rows?.length){
-      log('<div class="box warn">⚠ No properties returned. Check the log above for the highest status codes and body previews - that tells us which endpoint to fix.</div>');
-    }
-  }catch(e){
-    document.getElementById('out').innerHTML='<div class="box fail">FETCH ERROR: '+e.message+'</div>';
+  } catch(e) {
+    out.innerHTML = '<div class="box fail">Error: ' + e.message + '</div>';
   }
 }
 </script>
