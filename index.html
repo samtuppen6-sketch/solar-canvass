@@ -1261,7 +1261,7 @@ async function loadPC(pc){
   propC[nc]=parsed;
   allProps=parsed;
   renderList();
-  // Update map dots
+  // Update map dots - grey out postcodes with zero qualifying properties
   if(map.getZoom()>=15)loadVisiblePCs();
 }
 
@@ -1286,20 +1286,19 @@ async function fetchEPC(pc){
   return [];
 }
 function parseRow(r){
+  // Proxy already filters flats and A/B/C - just normalise the format
   const rating=(r['current-energy-rating']||r.currentEnergyRating||r['energy-rating']||'?').toUpperCase();
-  if(['A','B','C'].includes(rating)) return null;
   const tenure=(r.tenure||r.TENURE||'').toLowerCase();
-  if(tenure.includes('social')) return null;
   let tt='unknown',tl='Unknown tenure';
   if(tenure.includes('owner')){tt='owner';tl='Owner-occupied';}
   else if(tenure.includes('private')){tt='private';tl='Private rented';}
-  // Address: can be single string or split fields
+  else if(tenure.includes('social')){tt='social';tl='Social rented';}
+  // Build address from split fields or single field
   let addr='';
   if(r.address1||r.ADDRESS1){
-    addr=[r.address1||r.ADDRESS1||'',r.address2||r.ADDRESS2||'',r.address3||r.ADDRESS3||''].filter(Boolean).join(', ');
-  } else if(r.address){
-    addr=r.address;
-  }
+    addr=[r.address1||r.ADDRESS1||'',r.address2||r.ADDRESS2||'',r.address3||r.ADDRESS3||'']
+      .filter(Boolean).join(', ');
+  } else if(r.address){addr=r.address;}
   return{
     rating,tt,tl,
     addr:addr||r.postcode||'',
