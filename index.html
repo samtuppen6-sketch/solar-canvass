@@ -1267,46 +1267,29 @@ async function loadPC(pc){
 
 // ─── EPC API ─────────────────────────────────────────────────────────────────
 async function fetchEPC(pc){
-  if(!apiKey)return[];
   const enc=encodeURIComponent(pc);
-  
-  // New MHCLG EPC service (launched 2026)
-  // Tries multiple auth formats as the API documentation has varied
-  const attempts=[
-    {url:`https://get-energy-performance-data.communities.gov.uk/api/domestic/search?postcode=${enc}&size=500`,
-     auth:`Bearer ${apiKey}`},
-    {url:`https://get-energy-performance-data.communities.gov.uk/api/domestic/search?postcode=${enc}&size=500`,
-     auth:apiKey},
-    {url:`https://get-energy-performance-data.communities.gov.uk/domestic/search?postcode=${enc}&size=500`,
-     auth:`Bearer ${apiKey}`},
-  ];
-  
-  for(const {url,auth} of attempts){
-    try{
-      const r=await fetch(url,{
-        headers:{
-          'Accept':'application/json',
-          'Authorization':auth,
-          'Content-Type':'application/json'
-        }
-      });
-      if(r.ok){
-        const d=await r.json();
-        const rows=d.rows||d.certificates||d.data||d.results||[];
-        console.log('EPC success from',url,'rows:',rows.length);
-        return rows;
-      }
-      console.log('EPC attempt failed:',r.status,'from',url);
-      if(r.status===401||r.status===403){
-        const txt=await r.text().catch(()=>'');
-        console.log('Auth error detail:',txt);
-      }
-    }catch(e){
-      console.log('EPC fetch error:',e.message);
+  // Use Supabase Edge Function proxy - bypasses CORS restriction on EPC API
+  const proxyUrl=`https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy?postcode=${enc}&size=500`;
+  try{
+    const r=await fetch(proxyUrl);
+    if(r.ok){
+      const d=await r.json();
+      const rows=d.rows||d.certificates||d.data||d.results||[];
+      console.log('EPC proxy success:',rows.length,'rows for',pc);
+      return rows;
     }
+    console.log('EPC proxy status:',r.status);
+    const body=await r.text().catch(()=>'');
+    console.log('EPC proxy body:',body.slice(0,200));
+    if(r.status===401||r.status===403){
+      warn('EPC key error. Go to ⚙ Settings and check your API key.');
+    } else {
+      warn('Could not load EPC data for '+pc+' (status '+r.status+')');
+    }
+  }catch(e){
+    console.log('EPC proxy error:',e.message);
+    warn('Network error loading EPC data. Check your connection.');
   }
-  
-  warn('Could not load EPC data. Tap ⚙ Settings — check your EPC key is correct.');
   return [];
 }
 
