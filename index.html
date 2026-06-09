@@ -1268,52 +1268,46 @@ async function loadPC(pc){
 // ─── EPC API ─────────────────────────────────────────────────────────────────
 async function fetchEPC(pc){
   const enc=encodeURIComponent(pc);
-  // Use Supabase Edge Function proxy - bypasses CORS restriction on EPC API
   const proxyUrl=`https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy?postcode=${enc}&size=500`;
   try{
     const r=await fetch(proxyUrl);
     if(r.ok){
       const d=await r.json();
-      const rows=d.rows||d.certificates||d.data||d.results||[];
+      const rows=d.rows||[];
       console.log('EPC proxy success:',rows.length,'rows for',pc);
       return rows;
     }
     console.log('EPC proxy status:',r.status);
-    const body=await r.text().catch(()=>'');
-    console.log('EPC proxy body:',body.slice(0,200));
-    if(r.status===401||r.status===403){
-      warn('EPC key error. Go to ⚙ Settings and check your API key.');
-    } else {
-      warn('Could not load EPC data for '+pc+' (status '+r.status+')');
-    }
+    warn('Could not load EPC data for '+pc);
   }catch(e){
     console.log('EPC proxy error:',e.message);
     warn('Network error loading EPC data. Check your connection.');
   }
   return [];
 }
-
 function parseRow(r){
-  const rt=(r['current-energy-rating']||r.currentEnergyRating||r.currentEnergyBand||'?').toUpperCase();
-  if(['A','B','C'].includes(rt))return null;
-  const tn=(r.tenure||r.TENURE||'').toLowerCase();
-  if(tn.includes('social'))return null;
+  const rating=(r['current-energy-rating']||r.currentEnergyRating||r['energy-rating']||'?').toUpperCase();
+  if(['A','B','C'].includes(rating)) return null;
+  const tenure=(r.tenure||r.TENURE||'').toLowerCase();
+  if(tenure.includes('social')) return null;
   let tt='unknown',tl='Unknown tenure';
-  if(tn.includes('owner')){tt='owner';tl='Owner-occupied';}
-  else if(tn.includes('private')){tt='private';tl='Private rented';}
-  const a=[r.address1||r.ADDRESS1||r['address-line1']||'',
-           r.address2||r.ADDRESS2||r['address-line2']||'',
-           r.address3||r.ADDRESS3||r['address-line3']||''].filter(Boolean).join(', ');
+  if(tenure.includes('owner')){tt='owner';tl='Owner-occupied';}
+  else if(tenure.includes('private')){tt='private';tl='Private rented';}
+  // Address: can be single string or split fields
+  let addr='';
+  if(r.address1||r.ADDRESS1){
+    addr=[r.address1||r.ADDRESS1||'',r.address2||r.ADDRESS2||'',r.address3||r.ADDRESS3||''].filter(Boolean).join(', ');
+  } else if(r.address){
+    addr=r.address;
+  }
   return{
-    rating:rt,tt,tl,
-    addr:a||r.address||r.ADDRESS||'',
+    rating,tt,tl,
+    addr:addr||r.postcode||'',
     postcode:r.postcode||r.POSTCODE||'',
     propType:r['property-type']||r.propertyType||r.PROPERTY_TYPE||'',
     builtForm:r['built-form']||r.builtForm||r.BUILT_FORM||''
   };
 }
-
-// ─── LIST RENDER ─────────────────────────────────────────────────────────────
 function setF(f,el){curFilt=f;document.querySelectorAll('#chips .chip').forEach(c=>c.classList.toggle('on',c===el));renderList();}
 function setFon(f){document.querySelectorAll('#chips .chip').forEach(c=>c.classList.toggle('on',c.dataset.f===f));}
 
