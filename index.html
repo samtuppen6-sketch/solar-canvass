@@ -1035,10 +1035,10 @@ function initMap(){
   // Try multiple tile providers - the first one that loads will be used
   // Stadia maps has reliable CORS support for any origin including local files
   const tileLayers = [
-    {url:'https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}.png',attr:'© Stadia © OSM'},
-    {url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',attr:'© CartoDB © OSM',opts:{subdomains:'abcd'}},
-    {url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',attr:'© Esri'},
-    {url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap'},
+    {url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',attr:'© CartoDB © OSM',opts:{subdomains:'abcd',crossOrigin:true}},
+    {url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',attr:'© CartoDB © OSM',opts:{subdomains:'abcd',crossOrigin:true}},
+    {url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',attr:'© Esri',opts:{crossOrigin:true}},
+    {url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap',opts:{crossOrigin:true}},
   ];
 
   let tileLayerAdded = false;
