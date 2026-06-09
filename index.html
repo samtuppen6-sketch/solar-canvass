@@ -985,7 +985,7 @@ const isE=p=>EL.has(norm(p));
 const getLSOA=p=>EL.get(norm(p))||null;
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let apiKey=localStorage.getItem('ek')||'';
+let apiKey=localStorage.getItem('ek')||'fDuEL3O8Cq0mHbpeALVFxT680aof4xyKYRcSqJnxCQ9JDmy6Rwpr11MLKTIAGEkU';
 let jfURL=localStorage.getItem('jf')||'';
 let doors=JSON.parse(localStorage.getItem('dr')||'{}');
 let curPC=null,allProps=[],curFilt='all';
@@ -995,6 +995,10 @@ const SC={knocked:'#3b82f6',noanswer:'#9ca3af',interested:'#22c55e',notint:'#ef4
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
+  // Pre-load EPC key if not already set
+  if(!localStorage.getItem('ek')){
+    localStorage.setItem('ek','fDuEL3O8Cq0mHbpeALVFxT680aof4xyKYRcSqJnxCQ9JDmy6Rwpr11MLKTIAGEkU');
+  }
   const k=localStorage.getItem('ek')||'';
   const j=localStorage.getItem('jf')||'';
   document.getElementById('in-k').value=k;
@@ -1263,49 +1267,46 @@ async function loadPC(pc){
 
 // ─── EPC API ─────────────────────────────────────────────────────────────────
 async function fetchEPC(pc){
+  if(!apiKey)return[];
   const enc=encodeURIComponent(pc);
-  const bearer=`Bearer ${apiKey}`;
-
-  // Try 1: New MHCLG service
-  const newEndpoints=[
-    `https://get-energy-performance-data.communities.gov.uk/api/domestic/search?postcode=${enc}&size=500`,
-    `https://get-energy-performance-data.communities.gov.uk/domestic/search?postcode=${enc}&size=500`,
-    `https://get-energy-performance-data.communities.gov.uk/api/search?postcode=${enc}&size=500`,
+  
+  // New MHCLG EPC service (launched 2026)
+  // Tries multiple auth formats as the API documentation has varied
+  const attempts=[
+    {url:`https://get-energy-performance-data.communities.gov.uk/api/domestic/search?postcode=${enc}&size=500`,
+     auth:`Bearer ${apiKey}`},
+    {url:`https://get-energy-performance-data.communities.gov.uk/api/domestic/search?postcode=${enc}&size=500`,
+     auth:apiKey},
+    {url:`https://get-energy-performance-data.communities.gov.uk/domestic/search?postcode=${enc}&size=500`,
+     auth:`Bearer ${apiKey}`},
   ];
-
-  for(const url of newEndpoints){
+  
+  for(const {url,auth} of attempts){
     try{
-      const r=await fetch(url,{headers:{Accept:'application/json',Authorization:bearer}});
+      const r=await fetch(url,{
+        headers:{
+          'Accept':'application/json',
+          'Authorization':auth,
+          'Content-Type':'application/json'
+        }
+      });
       if(r.ok){
         const d=await r.json();
-        const rows=d.rows||d.certificates||d.data||[];
-        if(rows.length>0||r.ok) return rows;
+        const rows=d.rows||d.certificates||d.data||d.results||[];
+        console.log('EPC success from',url,'rows:',rows.length);
+        return rows;
       }
+      console.log('EPC attempt failed:',r.status,'from',url);
       if(r.status===401||r.status===403){
-        warn('EPC key rejected by new service. Check your Bearer Token in ⚙ Settings.');
-        return null;
+        const txt=await r.text().catch(()=>'');
+        console.log('Auth error detail:',txt);
       }
-    }catch(e){}
-  }
-
-  // Try 2: Old opendatacommunities service (may still work for some)
-  try{
-    const r=await fetch(
-      `https://epc.opendatacommunities.org/api/v1/domestic/search?postcode=${enc}&size=500`,
-      {headers:{Accept:'application/json',Authorization:`Basic ${btoa(apiKey+':')}`}}
-    );
-    if(r.ok){const d=await r.json();return d.rows||[];}
-    if(r.status===401||r.status===403){
-      warn('EPC key rejected. The old service (opendatacommunities.org) was retired May 2026. Get a new key from get-energy-performance-data.communities.gov.uk');
-      return null;
+    }catch(e){
+      console.log('EPC fetch error:',e.message);
     }
-    if(r.status===410||r.status===404){
-      warn('EPC service retired. Get your free key from get-energy-performance-data.communities.gov.uk and update in ⚙ Settings');
-      return null;
-    }
-  }catch(e){
-    warn('Cannot reach EPC service. Check your internet connection and try again.');
   }
+  
+  warn('Could not load EPC data. Tap ⚙ Settings — check your EPC key is correct.');
   return [];
 }
 
