@@ -1,51 +1,54 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EPC Proxy Diagnostic v6</title>
+<title>EPC Proxy Diagnostic v7</title>
 <style>
 body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;font-size:13px;margin:0;word-break:break-all}
-h2{color:#f59e0b;margin-bottom:4px}
-p{color:#6b7280;margin-bottom:16px;font-size:11px}
+h2{color:#f59e0b;margin-bottom:4px}p{color:#6b7280;margin-bottom:16px;font-size:11px}
 .box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px}
-.ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}
-button{background:#f59e0b;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:16px}
-.prop{border-bottom:1px solid #21262d;padding:8px 0;line-height:1.6}
-pre{white-space:pre-wrap;font-size:10px;max-height:200px;overflow-y:auto;background:#0d1117;padding:8px;border-radius:4px;margin-top:6px}
+.ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}.info{color:#3b82f6}
+button{background:#f59e0b;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:10px}
+.db{background:#374151;color:#c9d1d9}
+.prop{border-bottom:1px solid #21262d;padding:6px 0}
+pre{white-space:pre-wrap;font-size:10px;max-height:250px;overflow-y:auto;background:#0d1117;padding:8px;border-radius:4px;margin-top:6px}
 </style></head>
 <body>
-<h2>☀ EPC Proxy Diagnostic v6</h2>
-<p>Testing JSON + CSV + debug mode on old EPC service</p>
-<button onclick="run()">▶ Run (normal)</button>
-<button onclick="debug()" style="background:#374151;color:#c9d1d9;margin-top:-8px">▶ Run (debug - show raw)</button>
+<h2>☀ EPC Proxy Diagnostic v7</h2>
+<p>Scraping GOV.UK EPC finder (find-energy-certificate.service.gov.uk)</p>
+<button onclick="run()">▶ Run Normal</button>
+<button class="db" onclick="dbg()">▶ Debug (show raw HTML)</button>
 <div id="out"></div>
 <script>
-const P = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
-async function run(){ await test(P+"?postcode=PO1+1AN&size=5"); }
-async function debug(){ await test(P+"?postcode=PO1+1AN&size=5&debug=1"); }
-async function test(url){
-  document.getElementById('out').innerHTML='<div class="box">Loading...</div>';
+const P="https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
+async function run(){await go(P+"?postcode=PO1+1AN&size=10");}
+async function dbg(){await go(P+"?postcode=PO1+1AN&size=5&debug=1");}
+async function go(u){
+  document.getElementById('out').innerHTML='<div class="box info">Loading...</div>';
   try{
-    const r = await fetch(url);
-    const d = await r.json();
-    let h = '';
-    if(d.rows?.length > 0){
-      h += '<div class="box ok">✓ SUCCESS! '+d.rows.length+' properties!</div>';
-      h += '<div class="box"><b>Properties:</b>';
+    const r=await fetch(u);
+    const d=await r.json();
+    let h='';
+    if(d.rows?.length>0){
+      h+='<div class="box ok">✓ SUCCESS! '+d.rows.length+' properties from '+d.source+'</div>';
+      h+='<div class="box"><b>Properties:</b>';
       d.rows.forEach((p,i)=>{
-        h += '<div class="prop">'+(i+1)+'. <b>'+(p.address1||'?')+'</b>';
-        if(p.address2) h += ', '+p.address2;
-        h += '<br>EPC: <b>'+(p["current-energy-rating"]||'?')+'</b>';
-        h += ' | Tenure: '+(p.tenure||'unknown');
-        h += ' | Type: '+(p["property-type"]||'?')+'</div>';
+        h+='<div class="prop">'+(i+1)+'. <b>'+(p.address1||'?')+'</b>';
+        if(p.address2)h+=', '+p.address2;
+        h+='<br>EPC: <b>'+(p["current-energy-rating"]||'?')+'</b>';
+        h+=' | '+(p.tenure||'?');
+        h+=' | '+(p["property-type"]||'?')+'</div>';
       });
-      h += '</div>';
-    } else {
-      h += '<div class="box warn">No rows. Full response:<pre>'+JSON.stringify(d,null,2)+'</pre></div>';
+      h+='</div>';
+    }else{
+      h+='<div class="box warn">No properties parsed.<br>Count: '+d.count+' | Error: '+(d.error||'none')+'</div>';
+      if(d.html){
+        h+='<div class="box"><b>Raw HTML preview:</b><pre>'+d.html.replace(/</g,'&lt;').slice(0,2000)+'</pre></div>';
+      }else{
+        h+='<div class="box"><pre>'+JSON.stringify(d,null,2).slice(0,1000)+'</pre></div>';
+      }
     }
-    document.getElementById('out').innerHTML = h;
-  }catch(e){
-    document.getElementById('out').innerHTML='<div class="box fail">Error: '+e.message+'</div>';
-  }
+    document.getElementById('out').innerHTML=h;
+  }catch(e){document.getElementById('out').innerHTML='<div class="box fail">'+e.message+'</div>';}
 }
 </script>
 </body></html>
