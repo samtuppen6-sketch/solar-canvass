@@ -914,6 +914,54 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
   border-radius:var(--rad);color:var(--t);box-shadow:0 8px 32px rgba(0,0,0,.7);padding:0}
 .leaflet-popup-tip-container{display:none}
 .leaflet-popup-content{margin:0;padding:14px 16px}
+
+/* PROPERTY DETAIL PANEL */
+#prop-detail{position:fixed;inset:0;z-index:5000;background:var(--bg);
+  display:none;flex-direction:column;overflow:hidden}
+.pd-hd{background:var(--c1);border-bottom:1px solid var(--br);
+  padding:14px 16px;padding-top:calc(14px + var(--st));
+  display:flex;align-items:flex-start;gap:12px;flex-shrink:0}
+.pd-back{background:none;border:none;color:var(--a);font-size:22px;
+  cursor:pointer;padding:0;line-height:1;flex-shrink:0;margin-top:2px}
+.pd-hd-info{flex:1;min-width:0}
+.pd-addr{font-size:16px;font-weight:700;color:var(--t);line-height:1.3;margin-bottom:4px}
+.pd-meta{font-size:12px;color:var(--m);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pd-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 30px}
+.pd-section{background:var(--c1);border:1px solid var(--br);border-radius:var(--rad);
+  padding:16px;margin-bottom:12px}
+.pd-sec-title{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--a);margin-bottom:12px}
+.pd-status-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.pd-st-btn{padding:12px 6px;border-radius:10px;font-size:11px;font-weight:700;
+  cursor:pointer;border:1.5px solid var(--br);color:var(--m);background:transparent;
+  text-align:center;user-select:none;transition:all .15s;line-height:1.4}
+.pd-st-btn:active{opacity:.7}
+.pd-st-btn.active-st{box-shadow:0 0 0 2px currentColor}
+.notes-wrap{position:relative}
+.notes-ta{width:100%;background:var(--c2);border:1.5px solid var(--br);
+  border-radius:var(--rads);padding:12px 14px;font-size:14px;color:var(--t);
+  outline:none;resize:none;min-height:100px;font-family:inherit;
+  -webkit-appearance:none;line-height:1.6}
+.notes-ta:focus{border-color:var(--a)}
+.notes-ta::placeholder{color:var(--m)}
+.notes-save{position:absolute;bottom:8px;right:8px;background:var(--a);border:none;
+  border-radius:7px;padding:6px 14px;font-size:11px;font-weight:700;
+  color:#000;cursor:pointer;opacity:0;transition:opacity .2s}
+.notes-save.show{opacity:1}
+.pd-signup-btn{width:100%;background:linear-gradient(135deg,#10b981,#059669);
+  border:none;border-radius:var(--rad);padding:16px;font-size:15px;font-weight:700;
+  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:10px;letter-spacing:.02em;box-shadow:0 4px 20px rgba(16,185,129,.3)}
+.pd-signup-btn:active{opacity:.85}
+.pd-signup-btn.no-form{background:linear-gradient(135deg,var(--s),var(--br));
+  box-shadow:none;color:var(--m)}
+.pd-hist{display:flex;flex-direction:column;gap:6px}
+.pd-hist-item{display:flex;align-items:center;gap:8px;padding:6px 0;
+  border-bottom:1px solid var(--br);font-size:12px;color:var(--m)}
+.pd-hist-item:last-child{border-bottom:none}
+.pd-hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pd-hist-txt{flex:1}
+.pd-hist-time{font-size:10px;color:var(--s)}
 </style></head><body><div id="root">
 <div id="landing">
   <div class="land-hd">
@@ -1095,7 +1143,54 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
     <div style="height:30px"></div>
   </div>
 </div>
-</div><div id="toast"></div><script>/* @preserve
+</div>
+<!-- PROPERTY DETAIL PANEL -->
+<div id="prop-detail">
+  <div class="pd-hd">
+    <button class="pd-back" onclick="closePropDetail()">‹</button>
+    <div class="pd-hd-info">
+      <div class="pd-addr" id="pd-addr">Address</div>
+      <div class="pd-meta">
+        <span id="pd-epc"></span>
+        <span id="pd-tenure"></span>
+        <span id="pd-type"></span>
+      </div>
+    </div>
+  </div>
+  <div class="pd-body">
+    <!-- Status -->
+    <div class="pd-section">
+      <div class="pd-sec-title">Door Status</div>
+      <div class="pd-status-grid" id="pd-status-grid"></div>
+    </div>
+    <!-- Notes -->
+    <div class="pd-section">
+      <div class="pd-sec-title">Notes</div>
+      <div class="notes-wrap">
+        <textarea class="notes-ta" id="pd-notes" placeholder="Add notes… e.g. Speak to husband, call back Tuesday, has solar already…" 
+          oninput="notesChanged()" onblur="saveNotes()"></textarea>
+        <button class="notes-save" id="notes-save-btn" onclick="saveNotes()">Save</button>
+      </div>
+    </div>
+    <!-- Sign Up -->
+    <div class="pd-section">
+      <div class="pd-sec-title">Customer Sign Up</div>
+      <button class="pd-signup-btn" id="pd-signup-btn" onclick="openSignup()">
+        <span style="font-size:20px">📋</span>
+        <span id="pd-signup-txt">Complete Sign Up Form</span>
+      </button>
+      <div style="font-size:11px;color:var(--m);margin-top:10px;text-align:center" id="pd-signup-note">
+        Opens the customer registration form with address pre-filled
+      </div>
+    </div>
+    <!-- History -->
+    <div class="pd-section" id="pd-hist-section" style="display:none">
+      <div class="pd-sec-title">Activity Log</div>
+      <div class="pd-hist" id="pd-hist-list"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div><script>/* @preserve
  * Leaflet 1.9.4, a JS library for interactive maps. https://leafletjs.com
  * (c) 2010-2023 Vladimir Agafonkin, (c) 2010-2011 CloudMade
  */
@@ -1495,8 +1590,10 @@ function pCard(i,p,nc) {
   const tc=p.tt==='owner'?'to':p.tt==='private'?'tp':'tu';
   const ec=p.rating==='?'?'epc eQ':'epc e'+p.rating;
   const badge=st?'<div class="status-badge '+SC[st].badge+'">'+SC[st].label+'</div>':'';
+  const notesTxt=getNotes(uid);
+  const notesDot=notesTxt?'<div style="width:6px;height:6px;border-radius:50%;background:#a855f7;flex-shrink:0;margin-top:4px" title="Has notes"></div>':'';
   const jb=jfURL?'<div class="db2 dJ" onclick="openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">📋 Form</div>':'';
-  return '<div class="pc2"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='?'?'?':p.rating)+'</div></div>'
+  return '<div class="pc2" onclick="openPropDetail(\''+esc(uid)+'\',\''+esc(JSON.stringify(p))+'\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='?'?'?':p.rating)+'</div></div>'
     +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+'</div>'
     +badge
     +'<div class="drow">'
@@ -1581,6 +1678,175 @@ function warn(m){ document.getElementById('wmsg').textContent=m; document.getEle
 function hideHint(){ const h=document.getElementById('mhint'); h.style.opacity='0'; setTimeout(()=>h.style.display='none',400); }
 function saveSets(){ apiKey=document.getElementById('sk').value.trim(); jfURL=document.getElementById('sj').value.trim(); localStorage.setItem('ek',apiKey); localStorage.setItem('jf',jfURL); toast('Saved ✓'); }
 let tt; function toast(m){ clearTimeout(tt); const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); tt=setTimeout(()=>t.classList.remove('show'),2600); }
+
+
+// ── PROPERTY DETAIL PANEL ────────────────────────────────────────────────────
+let curPropUID = null;
+let curPropData = null;
+let notesDirty = false;
+
+function openPropDetail(uid, propJson) {
+  curPropUID = uid;
+  try { curPropData = JSON.parse(propJson); } catch(e) { return; }
+  const p = curPropData;
+  const st = doors[uid] || '';
+
+  // Header
+  document.getElementById('pd-addr').textContent = p.addr || p.postcode || 'Address';
+  
+  const epcEl = document.getElementById('pd-epc');
+  const rating = p.rating || '?';
+  const epcColors = {D:'#d97706',E:'#ea580c',F:'#dc2626',G:'#7f1d1d','?':'#334155'};
+  epcEl.innerHTML = '<span style="background:' + (epcColors[rating]||'#334155') + ';color:' + (rating==='D'?'#000':'#fff') + ';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">' + rating + '</span>';
+  
+  document.getElementById('pd-tenure').textContent = p.tl || '';
+  document.getElementById('pd-type').textContent = p.propType || '';
+
+  // Status grid
+  const grid = document.getElementById('pd-status-grid');
+  const statuses = ['knocked','noanswer','callback','interested','notint','qualified'];
+  grid.innerHTML = statuses.map(s => {
+    const active = st === s;
+    const sc2 = SC[s];
+    return '<button class="pd-st-btn '+(active?'active-st':'')+'" style="'+(active?'color:'+sc2.col+';border-color:'+sc2.col+';background:'+sc2.col+'22':'')+'" onclick="setPropStatus(\''+s+'\')">'+sc2.label+'</button>';
+  }).join('');
+
+  // Notes
+  const notes = getNotes(uid);
+  document.getElementById('pd-notes').value = notes;
+  document.getElementById('notes-save-btn').classList.remove('show');
+  notesDirty = false;
+
+  // Sign up button
+  const hasForm = !!jfURL;
+  const signupBtn = document.getElementById('pd-signup-btn');
+  const signupNote = document.getElementById('pd-signup-note');
+  signupBtn.className = 'pd-signup-btn' + (hasForm ? '' : ' no-form');
+  document.getElementById('pd-signup-txt').textContent = hasForm ? 'Complete Sign Up Form' : 'No form URL set — add in Settings';
+  signupNote.textContent = hasForm 
+    ? 'Opens registration form with this address pre-filled'
+    : 'Add your form URL in ⚙ Settings to enable sign-up';
+
+  // Activity log
+  const hist = getHistory(uid);
+  const histSection = document.getElementById('pd-hist-section');
+  if (hist.length > 0) {
+    histSection.style.display = '';
+    document.getElementById('pd-hist-list').innerHTML = hist.reverse().map(h =>
+      '<div class="pd-hist-item">' +
+      '<div class="pd-hist-dot" style="background:'+(SC[h.status]||{col:var_m}).col+'"></div>' +
+      '<div class="pd-hist-txt">'+(SC[h.status]||{label:h.status}).label+'</div>' +
+      '<div class="pd-hist-time">'+formatTime(h.ts)+'</div>' +
+      '</div>'
+    ).join('');
+  } else {
+    histSection.style.display = 'none';
+  }
+
+  document.getElementById('prop-detail').style.display = 'flex';
+}
+
+function closePropDetail() {
+  if (notesDirty) saveNotes();
+  document.getElementById('prop-detail').style.display = 'none';
+  curPropUID = null;
+  curPropData = null;
+}
+
+function setPropStatus(st) {
+  if (!curPropUID) return;
+  const prev = doors[curPropUID];
+  doors[curPropUID] = prev === st ? null : st;
+  if (!doors[curPropUID]) delete doors[curPropUID];
+  // Log to history
+  if (doors[curPropUID]) addHistory(curPropUID, st);
+  localStorage.setItem('dr', JSON.stringify(doors));
+  // Re-render the status grid
+  const grid = document.getElementById('pd-status-grid');
+  const statuses = ['knocked','noanswer','callback','interested','notint','qualified'];
+  const newSt = doors[curPropUID] || '';
+  grid.innerHTML = statuses.map(s => {
+    const active = newSt === s;
+    const sc2 = SC[s];
+    return '<button class="pd-st-btn '+(active?'active-st':'')+'" style="'+(active?'color:'+sc2.col+';border-color:'+sc2.col+';background:'+sc2.col+'22':'')+'" onclick="setPropStatus(\''+s+'\')">'+sc2.label+'</button>';
+  }).join('');
+  toast(doors[curPropUID] ? (SC[doors[curPropUID]]||{label:'Status'}).label + ' saved' : 'Status cleared');
+  renderList();
+  renderCallbacks();
+  if (map && map.getZoom() >= 15) loadVis();
+}
+
+function notesChanged() {
+  notesDirty = true;
+  document.getElementById('notes-save-btn').classList.add('show');
+}
+
+function saveNotes() {
+  if (!curPropUID || !notesDirty) return;
+  const val = document.getElementById('pd-notes').value.trim();
+  const notes = JSON.parse(localStorage.getItem('notes') || '{}');
+  if (val) notes[curPropUID] = val;
+  else delete notes[curPropUID];
+  localStorage.setItem('notes', JSON.stringify(notes));
+  notesDirty = false;
+  document.getElementById('notes-save-btn').classList.remove('show');
+  toast('Note saved ✓');
+}
+
+function getNotes(uid) {
+  const notes = JSON.parse(localStorage.getItem('notes') || '{}');
+  return notes[uid] || '';
+}
+
+function openSignup() {
+  if (!jfURL) { toast('Add your form URL in ⚙ Settings'); return; }
+  if (!curPropData) return;
+  const p = curPropData;
+  const pc = p.postcode || curPC || '';
+  const addr = p.addr || '';
+  const url = jfURL + (jfURL.includes('?') ? '&' : '?') 
+    + 'postcode=' + encodeURIComponent(pc)
+    + '&address=' + encodeURIComponent(addr)
+    + '&epc=' + encodeURIComponent(p.rating || '?')
+    + '&tenure=' + encodeURIComponent(p.tl || '');
+  window.open(url, '_blank');
+  // Auto-mark as qualified when they sign up
+  if (curPropUID && doors[curPropUID] !== 'qualified') {
+    doors[curPropUID] = 'qualified';
+    addHistory(curPropUID, 'qualified');
+    localStorage.setItem('dr', JSON.stringify(doors));
+    toast('Marked as ⭐ Qualified');
+    renderList();
+  }
+}
+
+// Activity history
+function addHistory(uid, status) {
+  const hist = JSON.parse(localStorage.getItem('hist') || '{}');
+  if (!hist[uid]) hist[uid] = [];
+  hist[uid].push({ status, ts: Date.now() });
+  // Keep last 10 entries per property
+  if (hist[uid].length > 10) hist[uid] = hist[uid].slice(-10);
+  localStorage.setItem('hist', JSON.stringify(hist));
+}
+
+function getHistory(uid) {
+  const hist = JSON.parse(localStorage.getItem('hist') || '{}');
+  return hist[uid] || [];
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffH = Math.floor((now - d) / 3600000);
+  if (diffH < 1) return 'Just now';
+  if (diffH < 24) return diffH + 'h ago';
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7) return diffD + 'd ago';
+  return d.toLocaleDateString('en-GB', {day:'numeric',month:'short'});
+}
+
+// Also show notes indicator on cards if notes exist
 
 if('serviceWorker' in navigator){
   const sw='const V=\'sc-v10\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));});';
