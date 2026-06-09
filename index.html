@@ -1064,13 +1064,22 @@ async function loadPC(pc){
   document.getElementById('pl').innerHTML='<div class="lr"><div class="spin"></div>Loading properties for '+pc+'…</div>';
   document.getElementById('lcnt').textContent='Loading…';
   const rows=await fetchEPC(pc);
-  const parsed=rows.map(r=>({
-    rating:(r['current-energy-rating']||'?').toUpperCase(),
-    tt:r.tenure&&r.tenure.includes('owner')?'owner':r.tenure&&r.tenure.includes('private')?'private':'unknown',
-    tl:r.tenure&&r.tenure.includes('owner')?'Owner-occupied':r.tenure&&r.tenure.includes('private')?'Private rented':'Unknown tenure',
-    addr:[r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||'',
-    postcode:r.postcode||pc,propType:r['property-type']||'',builtForm:r['built-form']||''
-  })).filter(p=>p.addr&&p.addr.length>2);
+  const parsed=rows.map(r=>{
+    const rating=(r['current-energy-rating']||'?').toUpperCase();
+    const propType=(r['property-type']||r.propertyType||'').trim();
+    const tenure=(r.tenure||'').toLowerCase();
+    const addr=[r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||'';
+    // CLIENT-SIDE FILTERS (belt and braces on top of proxy filtering)
+    const pt=propType.toLowerCase();
+    if(pt.includes('flat')||pt.includes('maisonette'))return null;
+    if(['A','B','C'].includes(rating))return null;
+    if(tenure.includes('social'))return null;
+    if(!addr||addr.length<3)return null;
+    let tt='unknown',tl='Unknown tenure';
+    if(tenure.includes('owner')){tt='owner';tl='Owner-occupied';}
+    else if(tenure.includes('private')){tt='private';tl='Private rented';}
+    return{rating,tt,tl,addr,postcode:r.postcode||pc,propType,builtForm:r['built-form']||''};
+  }).filter(Boolean);
   parsed.sort((a,b)=>({'owner':0,'private':1,'unknown':2}[a.tt]||2)-({'owner':0,'private':1,'unknown':2}[b.tt]||2));
   propC[nc]=parsed;allProps=parsed;renderList();
   if(map.getZoom()>=15)loadVis();
@@ -1079,7 +1088,13 @@ async function loadPC(pc){
 async function fetchEPC(pc){
   try{
     const r=await fetch(PROXY+'?postcode='+encodeURIComponent(pc)+'&size=500');
-    if(r.ok){const d=await r.json();return d.rows||[];}
+    if(r.ok){
+      const d=await r.json();
+      // Store totalFound on the postcode data for empty-state messaging
+      const nc2=norm(pc);
+      if(d.totalFound!==undefined) window._epcTotal=window._epcTotal||{};window._epcTotal&&(window._epcTotal[nc2]=d.totalFound||0);
+      return d.rows||[];
+    }
     warn('Could not load EPC data ('+r.status+')');
   }catch(e){warn('Network error — check your connection');}
   return[];
@@ -1100,7 +1115,11 @@ function renderList(){
   else if(df.includes(curChip))props=props.filter(p=>doors[dk(nc,p)]===curChip);
   cnt.innerHTML='<strong>'+props.length+'</strong> qualifying properties';
   if(props.length===0&&allProps.length===0){
-    body.innerHTML='<div class="empty"><div class="ei">🏠</div><div class="eh">No qualifying houses</div><div class="ep">No houses rated D–G in '+curPC+'.<br>Flats and A–C properties are excluded.<br><br><span style="color:#f59e0b">Unregistered homes may still qualify if owner-occupied.</span></div></div>';return;
+    const total=(window._epcTotal&&window._epcTotal[nc])||0;
+    const msg=total>0
+      ?'All '+total+' EPC records in '+curPC+' are flats or rated A–C — none qualify.<br><br><span style="color:#f59e0b">Try neighbouring postcodes on the map.</span>'
+      :'No EPC records found for '+curPC+'.<br><br><span style="color:#f59e0b">Unregistered homes may still qualify — knock and ask.</span>';
+    body.innerHTML='<div class="empty"><div class="ei">🏠</div><div class="eh">No qualifying properties</div><div class="ep">'+msg+'</div></div>';return;
   }
   if(props.length===0){body.innerHTML='<div class="empty"><div class="ep">No properties match this filter.</div></div>';return;}
   body.innerHTML=props.map((p,i)=>pCard(i,p,nc)).join('');
