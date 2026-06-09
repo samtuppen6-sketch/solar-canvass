@@ -1,66 +1,78 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EPC Proxy Diagnostic</title>
+<title>EPC Proxy Diagnostic v3</title>
 <style>
-body{font-family:monospace;background:#111;color:#0f0;padding:16px;font-size:12px;word-break:break-all}
-h2{color:#f59e0b}
-.box{background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:10px}
-.ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}
-button{background:#f59e0b;border:none;border-radius:8px;padding:12px 20px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:12px}
-pre{white-space:pre-wrap;font-size:11px;margin-top:8px}
+*{box-sizing:border-box}
+body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;font-size:12px;margin:0}
+h2{color:#f59e0b;margin-bottom:4px}
+p{color:#6b7280;margin-bottom:16px;font-size:12px}
+.box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px;word-break:break-all}
+.ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}.info{color:#3b82f6}
+button{background:#f59e0b;border:none;border-radius:8px;padding:14px 20px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:16px;display:block}
+pre{white-space:pre-wrap;font-size:10px;margin-top:8px;max-height:200px;overflow-y:auto}
 </style></head>
 <body>
-<h2>☀ EPC Proxy Diagnostic v2</h2>
-<p style="color:#9ca3af">Tests the Supabase proxy against the EPC API</p>
-<br>
+<h2>☀ EPC Proxy Diagnostic v3</h2>
+<p>Tests Supabase proxy against all EPC endpoints</p>
 <button onclick="run()">▶ Run Diagnostic</button>
 <div id="out"></div>
 <script>
 const PROXY = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
 
-function log(html) {
-  document.getElementById('out').innerHTML += html;
-}
+function log(html) { document.getElementById('out').innerHTML += html; }
 
 async function run() {
   document.getElementById('out').innerHTML = '';
-  log('<div class="box"><b class="warn">Testing proxy: ' + PROXY + '</b></div>');
   
-  const postcodes = ['PO1 1AN', 'PO5 1NU', 'PO6 3LX'];
+  log('<div class="box"><b class="info">Proxy URL: ' + PROXY + '</b></div>');
   
-  for(const pc of postcodes) {
-    log(`<div class="box"><b>Postcode: ${pc}</b>`);
+  // Test 1: Proxy with diagnostic mode (shows all attempts)
+  log('<div class="box"><b>Test: Proxy diagnostic mode for PO1 1AN</b>');
+  try {
+    const url = PROXY + '?postcode=PO1+1AN&size=3&diag=1';
+    log('<br><span class="info">Calling: ' + url + '</span>');
+    const r = await fetch(url);
+    const body = await r.text();
+    log('<br><span class="' + (r.ok?'ok':'warn') + '">HTTP ' + r.status + '</span>');
+    
     try {
-      const url = PROXY + '?postcode=' + encodeURIComponent(pc) + '&size=3';
-      log(`<br>URL: ${url}`);
-      
-      const r = await fetch(url);
-      const body = await r.text();
-      
-      log(`<br><span class="${r.ok ? 'ok' : 'fail'}">Status: ${r.status} ${r.statusText}</span>`);
-      log(`<br>Content-Type: ${r.headers.get('content-type') || 'none'}`);
-      log(`<pre>${body.slice(0, 800)}</pre>`);
-      
-      if(r.ok) {
-        try {
-          const d = JSON.parse(body);
-          const rows = d.rows || d.certificates || d.data || [];
-          log(`<br><span class="ok">✓ PARSED OK - ${rows.length} rows found</span>`);
-          if(rows.length > 0) {
-            log(`<br>First row keys: ${Object.keys(rows[0]).join(', ')}`);
-            log(`<br>Sample: ${JSON.stringify(rows[0]).slice(0,200)}`);
-          }
-        } catch(e) {
-          log(`<br><span class="warn">JSON parse failed: ${e.message}</span>`);
-        }
+      const d = JSON.parse(body);
+      if(d.rows && d.rows.length > 0) {
+        log('<br><span class="ok">✓✓✓ SUCCESS! Found ' + d.rows.length + ' properties!</span>');
+        log('<br>Source: ' + (d.source||'unknown'));
+        log('<br>First property: ' + JSON.stringify(d.rows[0]).slice(0,200));
+      } else if(d.log) {
+        log('<br><span class="warn">No data found. Proxy log:</span>');
+        d.log.forEach(entry => {
+          const cls = entry.status === 200 ? 'ok' : entry.error ? 'fail' : 'warn';
+          log('<br><span class="' + cls + '">' + (entry.auth||'') + ' → ' + (entry.url||'').slice(-40) + ' = ' + (entry.status||entry.error||'?') + '</span>');
+          if(entry.preview) log('<br>  Preview: ' + entry.preview.slice(0,100));
+        });
+      } else {
+        log('<pre>' + body.slice(0,600) + '</pre>');
       }
     } catch(e) {
-      log(`<br><span class="fail">FETCH ERROR: ${e.message}</span>`);
+      log('<pre>' + body.slice(0,600) + '</pre>');
     }
-    log('</div>');
+  } catch(e) {
+    log('<br><span class="fail">FETCH ERROR: ' + e.message + '</span>');
   }
-  log('<div class="box ok">✓ Diagnostic complete</div>');
+  log('</div>');
+  
+  // Test 2: Direct proxy call (normal mode)
+  log('<div class="box"><b>Test: Normal proxy call for PO5 1NU</b>');
+  try {
+    const r = await fetch(PROXY + '?postcode=PO5+1NU&size=5');
+    const body = await r.text();
+    log('<br>Status: <span class="' + (r.ok?'ok':'warn') + '">' + r.status + '</span>');
+    log('<pre>' + body.slice(0,400) + '</pre>');
+  } catch(e) {
+    log('<br><span class="fail">ERROR: ' + e.message + '</span>');
+  }
+  log('</div>');
+  
+  log('<div class="box ok">✓ Diagnostic complete — send screenshot to Claude</div>');
 }
 </script>
 </body></html>
