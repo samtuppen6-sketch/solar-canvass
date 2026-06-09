@@ -1,78 +1,59 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EPC Proxy Diagnostic v3</title>
+<title>EPC Proxy Diagnostic v4</title>
 <style>
 *{box-sizing:border-box}
 body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;font-size:12px;margin:0}
 h2{color:#f59e0b;margin-bottom:4px}
-p{color:#6b7280;margin-bottom:16px;font-size:12px}
+p{color:#6b7280;margin-bottom:16px;font-size:11px}
 .box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px;word-break:break-all}
 .ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}.info{color:#3b82f6}
-button{background:#f59e0b;border:none;border-radius:8px;padding:14px 20px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:16px;display:block}
-pre{white-space:pre-wrap;font-size:10px;margin-top:8px;max-height:200px;overflow-y:auto}
+button{background:#f59e0b;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:16px}
+.row{border-bottom:1px solid #21262d;padding:4px 0;line-height:1.6}
 </style></head>
 <body>
-<h2>☀ EPC Proxy Diagnostic v3</h2>
-<p>Tests Supabase proxy against all EPC endpoints</p>
+<h2>☀ EPC Proxy Diagnostic v4</h2>
+<p>Full log from all 7 endpoint attempts via Supabase London proxy</p>
 <button onclick="run()">▶ Run Diagnostic</button>
 <div id="out"></div>
 <script>
 const PROXY = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
-
-function log(html) { document.getElementById('out').innerHTML += html; }
-
-async function run() {
-  document.getElementById('out').innerHTML = '';
-  
-  log('<div class="box"><b class="info">Proxy URL: ' + PROXY + '</b></div>');
-  
-  // Test 1: Proxy with diagnostic mode (shows all attempts)
-  log('<div class="box"><b>Test: Proxy diagnostic mode for PO1 1AN</b>');
-  try {
-    const url = PROXY + '?postcode=PO1+1AN&size=3&diag=1';
-    log('<br><span class="info">Calling: ' + url + '</span>');
-    const r = await fetch(url);
-    const body = await r.text();
-    log('<br><span class="' + (r.ok?'ok':'warn') + '">HTTP ' + r.status + '</span>');
+function log(html){document.getElementById('out').innerHTML+=html;}
+async function run(){
+  document.getElementById('out').innerHTML='<div class="box info">Running... please wait</div>';
+  try{
+    const r = await fetch(PROXY+'?postcode=PO1+1AN&size=5');
+    const d = await r.json();
+    document.getElementById('out').innerHTML='';
     
-    try {
-      const d = JSON.parse(body);
-      if(d.rows && d.rows.length > 0) {
-        log('<br><span class="ok">✓✓✓ SUCCESS! Found ' + d.rows.length + ' properties!</span>');
-        log('<br>Source: ' + (d.source||'unknown'));
-        log('<br>First property: ' + JSON.stringify(d.rows[0]).slice(0,200));
-      } else if(d.log) {
-        log('<br><span class="warn">No data found. Proxy log:</span>');
-        d.log.forEach(entry => {
-          const cls = entry.status === 200 ? 'ok' : entry.error ? 'fail' : 'warn';
-          log('<br><span class="' + cls + '">' + (entry.auth||'') + ' → ' + (entry.url||'').slice(-40) + ' = ' + (entry.status||entry.error||'?') + '</span>');
-          if(entry.preview) log('<br>  Preview: ' + entry.preview.slice(0,100));
-        });
-      } else {
-        log('<pre>' + body.slice(0,600) + '</pre>');
-      }
-    } catch(e) {
-      log('<pre>' + body.slice(0,600) + '</pre>');
+    if(d.rows && d.rows.length>0){
+      log('<div class="box ok">✓ SUCCESS! '+d.rows.length+' properties found from: '+(d.source||'')+'<br>');
+      d.rows.forEach((row,i)=>{
+        log('<div class="row">'+(i+1)+'. '+(row.address1||row.ADDRESS1||JSON.stringify(row).slice(0,80))+'</div>');
+      });
+      log('</div>');
     }
-  } catch(e) {
-    log('<br><span class="fail">FETCH ERROR: ' + e.message + '</span>');
+    
+    log('<div class="box"><b>Full proxy log ('+( d.log||[]).length+' attempts):</b><br>');
+    (d.log||[]).forEach(e=>{
+      const cls=e.status===200?'ok':e.error?'fail':'warn';
+      log('<div class="row"><span class="'+cls+'">'+e.status+(e.error?' ERR':'')+'</span> '+
+        (e.auth||'none')+' → '+(e.url||'').slice(-45)+
+        (e.bodyLen?' ['+e.bodyLen+'b]':'')+
+        (e.note?' <span class="warn">'+e.note+'</span>':'')+
+        (e.preview?'<br><small>'+(e.preview||'').slice(0,120)+'</small>':'')+
+        (e.error?'<br><span class="fail">'+e.error+'</span>':'')+
+        '</div>');
+    });
+    log('</div>');
+    
+    if(!d.rows?.length){
+      log('<div class="box warn">⚠ No properties returned. Check the log above for the highest status codes and body previews - that tells us which endpoint to fix.</div>');
+    }
+  }catch(e){
+    document.getElementById('out').innerHTML='<div class="box fail">FETCH ERROR: '+e.message+'</div>';
   }
-  log('</div>');
-  
-  // Test 2: Direct proxy call (normal mode)
-  log('<div class="box"><b>Test: Normal proxy call for PO5 1NU</b>');
-  try {
-    const r = await fetch(PROXY + '?postcode=PO5+1NU&size=5');
-    const body = await r.text();
-    log('<br>Status: <span class="' + (r.ok?'ok':'warn') + '">' + r.status + '</span>');
-    log('<pre>' + body.slice(0,400) + '</pre>');
-  } catch(e) {
-    log('<br><span class="fail">ERROR: ' + e.message + '</span>');
-  }
-  log('</div>');
-  
-  log('<div class="box ok">✓ Diagnostic complete — send screenshot to Claude</div>');
 }
 </script>
 </body></html>
