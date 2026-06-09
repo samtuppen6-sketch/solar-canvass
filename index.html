@@ -1232,10 +1232,10 @@ function launchRegion(rid) {
   document.getElementById('in-pc').placeholder = 'Full postcode in ' + reg.name;
 
   if (!map) {
-    initMap(reg.center, reg.zoom, reg.cents);
+    initMap(reg.center, reg.zoom, typeof reg.cents==='string'?JSON.parse(reg.cents):reg.cents);
   } else {
     map.setView(reg.center, reg.zoom);
-    redrawCircles(reg.cents);
+    redrawCircles(typeof reg.cents==='string'?JSON.parse(reg.cents):reg.cents);
   }
 }
 
@@ -1277,7 +1277,7 @@ function drawCircles(cents) {
 
     L.circle([lat, lng], {
       radius: r, color: col, fillColor: col,
-      fillOpacity: 0.12 + heat*0.1, weight: 2, opacity: 0.6, dashArray:'5 4'
+      fillOpacity: 0.15, weight: 2, opacity: 0.65, dashArray:'5 4'
     }).addTo(circleLayer).on('click', e => {
       L.DomEvent.stopPropagation(e);
       map.flyTo([lat, lng], 15, {duration:.8});
