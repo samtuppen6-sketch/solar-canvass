@@ -1032,30 +1032,12 @@ function saveSet(){
 function initMap(){
   map=L.map('map',{center:[50.82,-1.07],zoom:12,zoomControl:false,attributionControl:true});
 
-  // Try multiple tile providers - the first one that loads will be used
-  // Stadia maps has reliable CORS support for any origin including local files
-  const tileLayers = [
-    {url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',attr:'© CartoDB © OSM',opts:{subdomains:'abcd',crossOrigin:true}},
-    {url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',attr:'© CartoDB © OSM',opts:{subdomains:'abcd',crossOrigin:true}},
-    {url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',attr:'© Esri',opts:{crossOrigin:true}},
-    {url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap',opts:{crossOrigin:true}},
-  ];
-
-  let tileLayerAdded = false;
-  function tryNextTile(idx){
-    if(idx >= tileLayers.length) return;
-    const {url, attr, opts={}} = tileLayers[idx];
-    const layer = L.tileLayer(url, {maxZoom:19, attribution:attr, ...opts});
-    layer.on('tileerror', ()=>{
-      if(!tileLayerAdded){
-        map.removeLayer(layer);
-        tryNextTile(idx+1);
-      }
-    });
-    layer.on('tileload', ()=>{ tileLayerAdded=true; });
-    layer.addTo(map);
-  }
-  tryNextTile(0);
+  // CartoDB Voyager tiles - free, no API key, works from HTTPS
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
 
   L.control.zoom({position:'bottomright'}).addTo(map);
 
