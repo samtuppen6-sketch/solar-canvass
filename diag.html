@@ -1,54 +1,52 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EPC Proxy Diagnostic v7</title>
+<title>EPC Proxy v9 Test</title>
 <style>
-body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;font-size:13px;margin:0;word-break:break-all}
-h2{color:#f59e0b;margin-bottom:4px}p{color:#6b7280;margin-bottom:16px;font-size:11px}
-.box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px}
-.ok{color:#22c55e}.fail{color:#ef4444}.warn{color:#f59e0b}.info{color:#3b82f6}
-button{background:#f59e0b;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:10px}
-.db{background:#374151;color:#c9d1d9}
-.prop{border-bottom:1px solid #21262d;padding:6px 0}
-pre{white-space:pre-wrap;font-size:10px;max-height:250px;overflow-y:auto;background:#0d1117;padding:8px;border-radius:4px;margin-top:6px}
+body{font-family:monospace;background:#0a0e1a;color:#f1f5f9;padding:16px;font-size:13px;margin:0;word-break:break-all}
+h2{color:#f59e0b;margin-bottom:4px}p{color:#64748b;margin-bottom:12px;font-size:11px}
+.box{background:#111827;border:1px solid #1f2d45;border-radius:10px;padding:12px;margin-bottom:8px}
+.ok{color:#10b981}.fail{color:#ef4444}.warn{color:#f59e0b}
+button{background:#f59e0b;border:none;border-radius:9px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;color:#000;width:100%;margin-bottom:10px}
+.p{border-bottom:1px solid #1f2d45;padding:8px 0;line-height:1.7}
+pre{white-space:pre-wrap;font-size:10px;max-height:200px;overflow-y:auto;background:#0a0e1a;padding:8px;border-radius:6px;margin-top:6px}
 </style></head>
 <body>
-<h2>☀ EPC Proxy Diagnostic v7</h2>
-<p>Scraping GOV.UK EPC finder (find-energy-certificate.service.gov.uk)</p>
-<button onclick="run()">▶ Run Normal</button>
-<button class="db" onclick="dbg()">▶ Debug (show raw HTML)</button>
+<h2>☀ EPC Proxy v9 — Property Type Filter Test</h2>
+<p>Tests individual cert page fetching for accurate property type</p>
+<button onclick="run()">▶ Run Test (PO6 3BT — known mix of houses)</button>
+<button onclick="run2()" style="background:#334155;color:#f1f5f9;margin-top:-6px">▶ Test PO1 1AN (flats area — should return 0)</button>
 <div id="out"></div>
 <script>
-const P="https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
-async function run(){await go(P+"?postcode=PO1+1AN&size=10");}
-async function dbg(){await go(P+"?postcode=PO1+1AN&size=5&debug=1");}
-async function go(u){
-  document.getElementById('out').innerHTML='<div class="box info">Loading...</div>';
+const P = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/epc-proxy";
+async function run(){ await test(P+"?postcode=PO6+3BT&size=500"); }
+async function run2(){ await test(P+"?postcode=PO1+1AN&size=500"); }
+async function test(url){
+  document.getElementById('out').innerHTML='<div class="box warn">Loading… (fetching individual cert pages, may take 5-10s)</div>';
   try{
-    const r=await fetch(u);
-    const d=await r.json();
-    let h='';
-    if(d.rows?.length>0){
-      h+='<div class="box ok">✓ SUCCESS! '+d.rows.length+' properties from '+d.source+'</div>';
-      h+='<div class="box"><b>Properties:</b>';
+    const r = await fetch(url);
+    const d = await r.json();
+    let h = '';
+    if(d.error) h += '<div class="box fail">Error: '+d.error+'</div>';
+    h += '<div class="box"><b class="ok">'+d.afterFilter+' qualifying houses</b> / '+d.totalFound+' total certs found</div>';
+    if(d.rows?.length > 0){
+      h += '<div class="box"><b>Properties:</b>';
       d.rows.forEach((p,i)=>{
-        h+='<div class="prop">'+(i+1)+'. <b>'+(p.address1||'?')+'</b>';
-        if(p.address2)h+=', '+p.address2;
-        h+='<br>EPC: <b>'+(p["current-energy-rating"]||'?')+'</b>';
-        h+=' | '+(p.tenure||'?');
-        h+=' | '+(p["property-type"]||'?')+'</div>';
+        h += '<div class="p">'+(i+1)+'. <b>'+(p.address1||'?')+'</b>'+(p.address2?', '+p.address2:'')+
+          '<br>EPC: <b class="'+(p["current-energy-rating"]==='?'?'warn':'ok')+'">'+p["current-energy-rating"]+'</b>'+
+          ' | Type: <b>'+(p["property-type"]||'UNKNOWN')+'</b>'+
+          ' | Tenure: '+(p.tenure||'?')+'</div>';
       });
-      h+='</div>';
-    }else{
-      h+='<div class="box warn">No properties parsed.<br>Count: '+d.count+' | Error: '+(d.error||'none')+'</div>';
-      if(d.html){
-        h+='<div class="box"><b>Raw HTML preview:</b><pre>'+d.html.replace(/</g,'&lt;').slice(0,2000)+'</pre></div>';
-      }else{
-        h+='<div class="box"><pre>'+JSON.stringify(d,null,2).slice(0,1000)+'</pre></div>';
-      }
+      h += '</div>';
+    } else if(d.totalFound > 0){
+      h += '<div class="box warn">'+d.totalFound+' certs found but all filtered out (all flats or A-C rated)</div>';
+    } else {
+      h += '<div class="box warn">No certificates found for this postcode</div>';
     }
-    document.getElementById('out').innerHTML=h;
-  }catch(e){document.getElementById('out').innerHTML='<div class="box fail">'+e.message+'</div>';}
+    document.getElementById('out').innerHTML = h;
+  }catch(e){
+    document.getElementById('out').innerHTML='<div class="box fail">'+e.message+'</div>';
+  }
 }
 </script>
 </body></html>
