@@ -1034,11 +1034,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
     <button class="mfab" id="fab" onclick="locate()">📍</button>
     <div id="mhint">Tap a circle to load walk list</div>
     <div id="map-legend">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin-bottom:6px">CIRCLES — Opportunity</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#ef4444"></div><div class="leg-txt">200+ postcodes 🔥</div></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f59e0b"></div><div class="leg-txt">80–199 postcodes</div></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#10b981"></div><div class="leg-txt">30–79 postcodes</div></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#3b82f6"></div><div class="leg-txt">Under 30 postcodes</div></div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:8px 0 6px">DOTS — Door status</div>
       <div class="leg-row"><div class="leg-dot" style="background:#10b981"></div><div class="leg-txt">Not visited</div></div>
       <div class="leg-row"><div class="leg-dot" style="background:#3b82f6"></div><div class="leg-txt">Knocked</div></div>
       <div class="leg-row"><div class="leg-dot" style="background:#a855f7"></div><div class="leg-txt">Callback</div></div>
-      <div class="leg-row"><div class="leg-dot" style="background:#10b981;box-shadow:0 0 6px #10b981"></div><div class="leg-txt">Interested</div></div>
-      <div class="leg-row"><div class="leg-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b"></div><div class="leg-txt">Qualified</div></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f59e0b"></div><div class="leg-txt">Qualified ⭐</div></div>
       <div class="leg-row"><div class="leg-dot" style="background:#ef4444"></div><div class="leg-txt">Not interested</div></div>
     </div>
   </div>
@@ -1195,13 +1200,10 @@ let curPC=null, allProps=[], curChip='all';
 window.addEventListener('load', () => {
   apiKey = localStorage.getItem('ek')||'';
   jfURL  = localStorage.getItem('jf')||'';
-  curRegionId = localStorage.getItem('curRegion')||null;
   document.getElementById('sk').value = apiKey;
   document.getElementById('sj').value = jfURL;
-  if (curRegionId && REGIONS[curRegionId]) {
-    launchRegion(curRegionId);
-  }
-  // else stay on landing
+  // Always show region selector on launch - fresh start every time
+  curRegionId = null;
 });
 
 function selectRegion(rid) {
@@ -1269,8 +1271,8 @@ function drawCircles(cents) {
   Object.entries(cents).forEach(([code, [lat, lng]]) => {
     const cnt = (BO[code]||[]).length;
     // Colour circles by density: high = warmer
-    const heat = Math.min(1, cnt / 20); // 20+ postcodes = max heat
-    const col = heatColor(heat);
+    if (cnt === 0) return; // Skip outward codes with no eligible postcodes
+    const col = heatColor(cnt);
     const r = Math.min(1800, Math.max(400, cnt * 60));
 
     L.circle([lat, lng], {
@@ -1299,11 +1301,13 @@ function redrawCircles(cents) {
   drawCircles(cents);
 }
 
-function heatColor(t) {
-  // Green -> Amber -> Red based on density
-  if (t < 0.4) return '#10b981'; // green - low density
-  if (t < 0.7) return '#f59e0b'; // amber - medium
-  return '#ef4444';              // red   - high density (lots to knock!)
+function heatColor(cnt) {
+  // Colour by absolute postcode count within the district
+  // More postcodes = more opportunity = WARMER colour
+  if (cnt >= 200) return '#ef4444'; // red    - 200+ postcodes, prime territory
+  if (cnt >= 80)  return '#f59e0b'; // amber  - 80-199 postcodes, strong area
+  if (cnt >= 30)  return '#10b981'; // green  - 30-79 postcodes, good area
+  return '#3b82f6';                 // blue   - under 30, smaller zone
 }
 
 function onMU() {
