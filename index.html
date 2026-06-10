@@ -1292,6 +1292,7 @@ let EL, BO, curRegion;
 let map, gpsMk, srMk, pcMks=[];
 let geoC={}, propC={};
 let coordsLoaded = {};
+let accurateCentroids = {};
 let curPC=null, allProps=[], curChip='all';
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -1416,6 +1417,7 @@ function onMU() {
 
 // Load baked-in coordinates for the region, populate geoC instantly
 async function loadRegionCoords(rid) {
+  loadAccurateCentroids(rid);
   if (coordsLoaded[rid]) { applyCoords(coordsLoaded[rid]); return; }
   try {
     const r = await fetch('./coords/'+rid+'.json');
@@ -1424,7 +1426,7 @@ async function loadRegionCoords(rid) {
       coordsLoaded[rid] = c;
       applyCoords(c);
       // Refresh dots if we're zoomed in
-      if (map && map.getZoom()>=15) loadVis();
+      if (map && map.getZoom()>=12) loadVis();
     }
   } catch(e) { /* fallback to live geocoding in loadVis */ }
 }
@@ -1432,6 +1434,44 @@ function applyCoords(c) {
   for (const pc in c) {
     if (!geoC[pc]) geoC[pc] = {lat: c[pc][0], lng: c[pc][1]};
   }
+}
+
+async function loadAccurateCentroids(rid) {
+  if (accurateCentroids[rid]) { drawCirclesAccurate(accurateCentroids[rid]); return; }
+  try {
+    const r = await fetch('./centroids/'+rid+'.json');
+    if (r.ok) {
+      accurateCentroids[rid] = await r.json();
+      drawCirclesAccurate(accurateCentroids[rid]);
+    }
+  } catch(e) { /* keep existing circles */ }
+}
+
+function drawCirclesAccurate(ac) {
+  if (circleLayer) { circleLayer.clearLayers(); }
+  else { circleLayer = L.layerGroup().addTo(map); }
+  Object.entries(ac).forEach(([code, info]) => {
+    const cnt = info.count || 0;
+    if (cnt === 0) return;
+    const [lat, lng] = info.center;
+    const col = heatColor(cnt);
+    const r = info.radius_m || 800;
+    L.circle([lat, lng], {
+      radius: r, color: col, fillColor: col,
+      fillOpacity: 0.12, weight: 2, opacity: 0.6, dashArray:'5 4'
+    }).addTo(circleLayer).on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      map.flyTo([lat, lng], 15, {duration:.8});
+      hideHint();
+      const pcs = BO[code]||[];
+      if (pcs.length) loadPC(fmt(pcs[Math.floor(pcs.length/4)]));
+    });
+    L.marker([lat, lng], {icon: L.divIcon({
+      className: 'heat-label',
+      html: '<div style="background:rgba(10,14,26,.88);border:1.5px solid '+col+'55;border-radius:8px;padding:3px 8px;text-align:center;line-height:1.3"><div style="font-size:11px;font-weight:700;color:'+col+'">'+code+'</div><div style="font-size:9px;color:#64748b">'+cnt+'</div></div>',
+      iconAnchor:[24,13]
+    }), interactive:false}).addTo(circleLayer);
+  });
 }
 
 async function loadVis() {
