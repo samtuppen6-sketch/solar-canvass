@@ -1737,10 +1737,10 @@ function pCard(i,p,nc) {
     +'<div class="drow">'
     +'<div class="db2 '+(st==='knocked'?'dK':'')+'" onclick="setD(\''+esc(uid)+'\',\'knocked\')">🚪 Knocked</div>'
     +'<div class="db2 '+(st==='noanswer'?'dN':'')+'" onclick="setD(\''+esc(uid)+'\',\'noanswer\')">😴 No Answer</div>'
-    +'<div class="db2 '+(st==='callback'?'dC':'')+'" onclick="setD(\''+esc(uid)+'\',\'callback\')">📞 Callback</div>'
-    +'<div class="db2 '+(st==='interested'?'dI':'')+'" onclick="setD(\''+esc(uid)+'\',\'interested\')">✅ Interested</div>'
+    +'<div class="db2 '+(st==='callback'?'dC':'')+'" onclick="setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
+    +'<div class="db2 '+(st==='interested'?'dI':'')+'" onclick="setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
     +'<div class="db2 '+(st==='notint'?'dX':'')+'" onclick="setD(\''+esc(uid)+'\',\'notint\')">❌ Not Int.</div>'
-    +'<div class="db2 '+(st==='qualified'?'dQ':'')+'" onclick="setD(\''+esc(uid)+'\',\'qualified\')">⭐ Qualified</div>'
+    +'<div class="db2 '+(st==='qualified'?'dQ':'')+'" onclick="setD(\''+esc(uid)+'\',\'qualified\',\''+esc(p.addr||'')+'\')">⭐ Qualified</div>'
     +jb+'</div></div>';
 }
 
@@ -1770,8 +1770,8 @@ function renderCallbacks() {
       +'<div class="pc2-a">'+prop.addr+'</div>'
       +'</div><div class="'+ec+'">'+(prop.rating==='?'?'?':prop.rating)+'</div></div>'
       +'<div class="drow">'
-      +'<div class="db2 dI" onclick="setD(\''+esc(uid)+'\',\'interested\')">✅ Interested</div>'
-      +'<div class="db2 dQ" onclick="setD(\''+esc(uid)+'\',\'qualified\')">⭐ Qualified</div>'
+      +'<div class="db2 dI" onclick="setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
+      +'<div class="db2 dQ" onclick="setD(\''+esc(uid)+'\',\'qualified\',\''+esc(p.addr||'')+'\')">⭐ Qualified</div>'
       +'<div class="db2 dX" onclick="setD(\''+esc(uid)+'\',\'notint\')">❌ Not Int.</div>'
       +'<div class="db2 dN" onclick="setD(\''+esc(uid)+'\',\'noanswer\')">😴 No Answer</div>'
       +'</div></div>';
@@ -1781,7 +1781,7 @@ function renderCallbacks() {
 // ── DOOR STATUS ───────────────────────────────────────────────────────────────
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
-function setD(uid, st) {
+function setD(uid, st, addr) {
   doors[uid] = doors[uid]===st ? null : st;
   if (!doors[uid]) delete doors[uid];
   localStorage.setItem('dr', JSON.stringify(doors));
@@ -1789,9 +1789,58 @@ function setD(uid, st) {
   renderCallbacks();
   toast(doors[uid] ? SC[st].label+' saved' : 'Cleared');
   if (map.getZoom()>=12) loadVis();
+  // For outcomes that benefit from a note, pop the quick-note box
+  if (doors[uid] && (st==='callback'||st==='interested'||st==='qualified')) {
+    openQuickNote(uid, st, addr||'');
+  }
 }
 
-function openJF(uid,pc,addr){ if(!jfURL){toast('Add JotForm URL in Settings');return;} window.open(jfURL+(jfURL.includes('?')?'&':'?')+'postcode='+encodeURIComponent(pc)+'&address='+encodeURIComponent(addr),'_blank'); }
+// ── QUICK NOTE POPUP ──────────────────────────────────────────────────────────
+let qnUID = null;
+function openQuickNote(uid, st, addr) {
+  qnUID = uid;
+  const existing = getNotes(uid);
+  document.getElementById('qn-title').textContent = SC[st] ? SC[st].label.replace(/^[^ ]+ /,'') : 'Note';
+  document.getElementById('qn-addr').textContent = addr || '';
+  const ta = document.getElementById('qn-text');
+  ta.value = existing;
+  // Helpful placeholder per status
+  ta.placeholder = st==='callback' ? 'e.g. Speak to husband, back after 6pm Tue' :
+                   st==='interested' ? 'e.g. Wants a quote, south-facing roof' :
+                   st==='qualified' ? 'e.g. Ready to book survey, owns outright' : 'Add a note…';
+  document.getElementById('qn-overlay').classList.add('show');
+  setTimeout(()=>ta.focus(), 100);
+}
+function saveQuickNote() {
+  if (!qnUID) return;
+  const val = document.getElementById('qn-text').value.trim();
+  const notes = JSON.parse(localStorage.getItem('notes') || '{}');
+  if (val) notes[qnUID] = val; else delete notes[qnUID];
+  localStorage.setItem('notes', JSON.stringify(notes));
+  closeQuickNote();
+  renderList(); renderCallbacks();
+  toast(val ? 'Note saved ✓' : 'Note cleared');
+}
+function closeQuickNote() {
+  document.getElementById('qn-overlay').classList.remove('show');
+  qnUID = null;
+}
+
+function openJF(uid,pc,addr){ if(!jfURL){toast('Add your form URL in Settings');return;}
+  // Look up the property to pre-fill EPC rating and tenure
+  let rating='', tenure='', ptype='';
+  const nc=norm(curPC||''); const list=propC[nc]||allProps||[];
+  const prop=list.find(x=>dk(nc,x)===uid);
+  if(prop){ rating=prop.rating==='NE'?'No EPC':(prop.rating||''); tenure=prop.tl||''; ptype=prop.propType||''; }
+  const sep=jfURL.includes('?')?'&':'?';
+  const url=jfURL+sep+'postcode='+encodeURIComponent(pc)
+    +'&address='+encodeURIComponent(addr)
+    +'&epc='+encodeURIComponent(rating)
+    +'&tenure='+encodeURIComponent(tenure)
+    +'&type='+encodeURIComponent(ptype);
+  window.open(url,'_blank');
+  toast('Opening sign-up form…');
+}
 function clearDoors(){ if(!confirm('Clear all records?'))return; doors={}; localStorage.removeItem('dr'); renderList(); renderCallbacks(); toast('Cleared'); }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
@@ -1991,4 +2040,25 @@ if('serviceWorker' in navigator){
   const blob=new Blob([sw],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
-</script></body></html>
+</script>
+<!-- QUICK NOTE POPUP -->
+<div id="qn-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center">
+  <div style="background:#0f172a;border:1px solid #1f2d45;border-radius:18px 18px 0 0;width:100%;max-width:560px;padding:20px;box-shadow:0 -8px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-size:17px;font-weight:800;color:#f59e0b" id="qn-title">Note</div>
+      <div onclick="closeQuickNote()" style="font-size:24px;color:#64748b;cursor:pointer;padding:0 8px">×</div>
+    </div>
+    <div id="qn-addr" style="font-size:13px;color:#94a3b8;margin-bottom:12px"></div>
+    <textarea id="qn-text" style="width:100%;min-height:90px;background:#111827;border:1px solid #334155;border-radius:12px;padding:12px;color:#f1f5f9;font-size:15px;font-family:inherit;resize:vertical;box-sizing:border-box" placeholder="Add a note…"></textarea>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button onclick="closeQuickNote()" style="flex:1;background:#1f2d45;border:none;border-radius:12px;padding:14px;color:#cbd5e1;font-size:15px;font-weight:700;cursor:pointer">Skip</button>
+      <button onclick="saveQuickNote()" style="flex:2;background:#f59e0b;border:none;border-radius:12px;padding:14px;color:#000;font-size:15px;font-weight:800;cursor:pointer">Save Note</button>
+    </div>
+  </div>
+</div>
+<style>
+#qn-overlay.show{display:flex !important}
+#qn-overlay{animation:qnfade .15s ease}
+@keyframes qnfade{from{opacity:0}to{opacity:1}}
+</style>
+</body></html>
