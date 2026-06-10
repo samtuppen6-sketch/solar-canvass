@@ -1222,6 +1222,7 @@ window.addEventListener('load', async () => {
     <div class="tab on" id="t-map" onclick="showTab('map')">🗺 Map</div>
     <div class="tab" id="t-list" onclick="showTab('list')">📋 Walk List</div>
     <div class="tab" id="t-cb" onclick="showTab('cb')">📞 Callbacks</div>
+    <div class="tab" id="t-deals" onclick="showTab('deals')">📅 Deals</div>
     <div class="tab" id="t-set" onclick="showTab('set')">⚙ Settings</div>
   </div>
 
@@ -1267,6 +1268,16 @@ window.addEventListener('load', async () => {
   <div id="pcb">
     <div class="cb-hd"><strong id="cb-count">0</strong> properties awaiting callback</div>
     <div id="cbscroll"><div id="cb-list"></div></div>
+  </div>
+
+    <div id="pdeals" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0">
+    <div style="padding:14px 16px;background:rgba(10,14,26,.8);border-bottom:1px solid var(--br);flex-shrink:0">
+      <div style="font-size:16px;font-weight:800;color:#f59e0b">📅 My Deals</div>
+      <div style="font-size:12px;color:#64748b">Your sign-up record — daily, weekly, monthly</div>
+    </div>
+    <div id="deals-scroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px">
+      <div id="deals-body"><div style="color:#64748b;text-align:center;padding:30px">Loading…</div></div>
+    </div>
   </div>
 
   <div id="pset">
@@ -1992,26 +2003,12 @@ function closeQuickNote() {
   qnUID = null;
 }
 
-function openJF(uid,pc,addr){ if(!jfURL){toast('Add your form URL in Settings');return;}
-  // Look up the property to pre-fill EPC rating and tenure
-  let rating='', tenure='', ptype='';
-  const nc=norm(curPC||''); const list=propC[nc]||allProps||[];
-  const prop=list.find(x=>dk(nc,x)===uid);
-  if(prop){ rating=prop.rating==='NE'?'No EPC':(prop.rating||''); tenure=prop.tl||''; ptype=prop.propType||''; }
-  const sep=jfURL.includes('?')?'&':'?';
-  const url=jfURL+sep+'postcode='+encodeURIComponent(pc)
-    +'&address='+encodeURIComponent(addr)
-    +'&epc='+encodeURIComponent(rating)
-    +'&tenure='+encodeURIComponent(tenure)
-    +'&type='+encodeURIComponent(ptype);
-  window.open(url,'_blank');
-  toast('Opening sign-up form…');
-}
+// openJF is defined in the deals module (captures the deal first)
 function clearDoors(){ if(!confirm('Clear all records?'))return; doors={}; localStorage.removeItem('dr'); renderList(); renderCallbacks(); toast('Cleared'); }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function showTab(t) {
-  [['map','pmap'],['list','plist'],['cb','pcb'],['set','pset']].forEach(([id,panel])=>{
+  [['map','pmap'],['list','plist'],['cb','pcb'],['deals','pdeals'],['set','pset']].forEach(([id,panel])=>{
     document.getElementById('t-'+id).classList.toggle('on',id===t);
     const el=document.getElementById(panel);
     el.style.display=id===t?'flex':'none'; el.style.flexDirection='column';
@@ -2020,6 +2017,7 @@ function showTab(t) {
   if(t==='map') setTimeout(()=>map&&map.invalidateSize(),80);
   if(t==='list') renderList();
   if(t==='cb') renderCallbacks();
+  if(t==='deals') renderDeals();
 }
 
 // ── STATUS / UI ───────────────────────────────────────────────────────────────
@@ -2292,6 +2290,188 @@ async function syncDoorsFromCloud() {
     if (typeof renderList==='function') renderList();
     if (typeof renderCallbacks==='function') renderCallbacks();
   }
+}
+</script>
+<!-- DEAL CAPTURE POPUP -->
+<div id="deal-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center">
+  <div style="background:#0f172a;border:1px solid #1f2d45;border-radius:18px 18px 0 0;width:100%;max-width:560px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-size:17px;font-weight:800;color:#10b981">✍️ Record Sign-Up</div>
+      <div onclick="closeDeal()" style="font-size:24px;color:#64748b;cursor:pointer;padding:0 8px">×</div>
+    </div>
+    <div id="deal-addr" style="font-size:13px;color:#94a3b8;margin-bottom:14px"></div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600">Customer Name (optional)</div>
+    <input type="text" id="deal-name" placeholder="e.g. Mr Jones" style="width:100%;background:#111827;border:1px solid #334155;border-radius:10px;padding:13px;color:#f1f5f9;font-size:15px;box-sizing:border-box;margin-bottom:14px">
+    <div style="display:flex;gap:10px">
+      <button onclick="saveDealAndOpen()" style="flex:2;background:#10b981;border:none;border-radius:12px;padding:15px;color:#000;font-size:15px;font-weight:800;cursor:pointer">Save & Open Form →</button>
+    </div>
+    <button onclick="saveDealOnly()" style="width:100%;background:#1f2d45;border:none;border-radius:12px;padding:13px;color:#cbd5e1;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px">Save deal without opening form</button>
+  </div>
+</div>
+
+<script>
+let pendingDeal = null;
+
+// Intercept Sign Up: capture the deal first
+function openJF(uid, pc, addr) {
+  pendingDeal = { uid, pc, addr };
+  document.getElementById('deal-addr').textContent = addr || pc || '';
+  document.getElementById('deal-name').value = '';
+  document.getElementById('deal-overlay').style.display = 'flex';
+  setTimeout(()=>document.getElementById('deal-name').focus(), 100);
+}
+
+function closeDeal() {
+  document.getElementById('deal-overlay').style.display = 'none';
+  pendingDeal = null;
+}
+
+async function recordDeal() {
+  if (!pendingDeal || !sb || !currentUser) return;
+  const name = document.getElementById('deal-name').value.trim();
+  const nc = (pendingDeal.pc||'').replace(/\s+/g,'').toUpperCase();
+  try {
+    await sb.from('signups').insert({
+      property_key: pendingDeal.uid,
+      postcode_norm: nc,
+      address: pendingDeal.addr || '',
+      customer_name: name || null,
+      canvasser_id: currentUser.id,
+      canvasser_name: (currentProfile && currentProfile.full_name) || ''
+    });
+    // Also mark the door as qualified locally
+    if (pendingDeal.uid) { doors[pendingDeal.uid]='qualified'; localStorage.setItem('dr',JSON.stringify(doors)); }
+  } catch(e) {}
+}
+
+async function saveDealOnly() {
+  await recordDeal();
+  closeDeal();
+  renderList();
+  toast('Sign-up recorded ✓');
+}
+
+async function saveDealAndOpen() {
+  const deal = pendingDeal;
+  await recordDeal();
+  closeDeal();
+  renderList();
+  toast('Sign-up recorded ✓');
+  // Now open the actual form
+  if (!jfURL) { toast('Add your form URL in Settings'); return; }
+  let rating='', tenure='', ptype='';
+  const nc=norm(deal.pc||''); const list=propC[nc]||allProps||[];
+  const prop=list.find(x=>dk(nc,x)===deal.uid);
+  if(prop){ rating=prop.rating==='NE'?'No EPC':(prop.rating||''); tenure=prop.tl||''; ptype=prop.propType||''; }
+  const sep=jfURL.includes('?')?'&':'?';
+  const url=jfURL+sep+'postcode='+encodeURIComponent(deal.pc)+'&address='+encodeURIComponent(deal.addr)+'&epc='+encodeURIComponent(rating)+'&tenure='+encodeURIComponent(tenure)+'&type='+encodeURIComponent(ptype);
+  window.open(url,'_blank');
+}
+
+// ── DEALS DASHBOARD ───────────────────────────────────────────────────────────
+let dealsCache = [];
+let dealCalMonth = new Date();
+
+async function loadDeals() {
+  if (!sb || !currentUser) return [];
+  try {
+    const { data } = await sb.from('signups')
+      .select('*')
+      .order('signed_at', { ascending: false });
+    dealsCache = data || [];
+    return dealsCache;
+  } catch(e) { return []; }
+}
+
+async function renderDeals() {
+  await loadDeals();
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const startOfWeek = startOfDay - ((now.getDay()+6)%7)*86400000; // Monday
+  const startOfMonth = new Date(now.getFullYear(),now.getMonth(),1).getTime();
+
+  const today = dealsCache.filter(d=>new Date(d.signed_at).getTime()>=startOfDay).length;
+  const week = dealsCache.filter(d=>new Date(d.signed_at).getTime()>=startOfWeek).length;
+  const month = dealsCache.filter(d=>new Date(d.signed_at).getTime()>=startOfMonth).length;
+  const total = dealsCache.length;
+
+  let html = '<div style="padding:4px 0 16px">';
+  // Tally cards
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">';
+  html += dealStat('Today', today, '#10b981');
+  html += dealStat('This Week', week, '#f59e0b');
+  html += dealStat('This Month', month, '#3b82f6');
+  html += dealStat('All Time', total, '#a855f7');
+  html += '</div>';
+
+  // Calendar
+  html += renderDealCalendar();
+
+  // Selected day deals list
+  html += '<div id="deal-day-list" style="margin-top:16px"></div>';
+  html += '</div>';
+  document.getElementById('deals-body').innerHTML = html;
+  // Default show today's deals
+  showDealsForDay(new Date(startOfDay));
+}
+
+function dealStat(label, n, col) {
+  return '<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:14px;padding:16px">'
+    +'<div style="font-size:32px;font-weight:800;color:'+col+'">'+n+'</div>'
+    +'<div style="font-size:12px;color:#94a3b8;margin-top:2px">'+label+'</div></div>';
+}
+
+function renderDealCalendar() {
+  const y=dealCalMonth.getFullYear(), m=dealCalMonth.getMonth();
+  const monthName=dealCalMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const first=new Date(y,m,1); const startDay=(first.getDay()+6)%7; // Mon=0
+  const days=new Date(y,m+1,0).getDate();
+  // Count deals per day this month
+  const counts={};
+  dealsCache.forEach(d=>{ const dt=new Date(d.signed_at); if(dt.getFullYear()===y&&dt.getMonth()===m){ const day=dt.getDate(); counts[day]=(counts[day]||0)+1; } });
+
+  let h='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:14px;padding:14px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+  h+='<div onclick="changeDealMonth(-1)" style="cursor:pointer;color:#f59e0b;font-size:20px;padding:0 10px">‹</div>';
+  h+='<div style="font-size:15px;font-weight:700;color:#f1f5f9">'+monthName+'</div>';
+  h+='<div onclick="changeDealMonth(1)" style="cursor:pointer;color:#f59e0b;font-size:20px;padding:0 10px">›</div></div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center">';
+  ['M','T','W','T','F','S','S'].forEach(d=>h+='<div style="font-size:10px;color:#64748b;padding:4px 0">'+d+'</div>');
+  for(let i=0;i<startDay;i++) h+='<div></div>';
+  for(let day=1;day<=days;day++){
+    const c=counts[day]||0;
+    const bg=c>0?'#10b981':'#111827';
+    const tcol=c>0?'#000':'#64748b';
+    h+='<div onclick="showDealsForDay(new Date('+y+','+m+','+day+'))" style="aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:'+bg+';border-radius:8px;cursor:pointer;font-size:13px;color:'+tcol+';font-weight:'+(c>0?'700':'400')+'">'+day+(c>0?'<span style="font-size:9px">'+c+' deal'+(c>1?'s':'')+'</span>':'')+'</div>';
+  }
+  h+='</div></div>';
+  return h;
+}
+
+function changeDealMonth(delta) {
+  dealCalMonth = new Date(dealCalMonth.getFullYear(), dealCalMonth.getMonth()+delta, 1);
+  renderDeals();
+}
+
+function showDealsForDay(date) {
+  const start=new Date(date.getFullYear(),date.getMonth(),date.getDate()).getTime();
+  const end=start+86400000;
+  const dayDeals=dealsCache.filter(d=>{const t=new Date(d.signed_at).getTime();return t>=start&&t<end;});
+  const dateStr=date.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  let h='<div style="font-size:14px;font-weight:700;color:#f59e0b;margin-bottom:10px">'+dateStr+' — '+dayDeals.length+' sign-up'+(dayDeals.length!==1?'s':'')+'</div>';
+  if(dayDeals.length===0){ h+='<div style="color:#64748b;font-size:13px;padding:12px;text-align:center">No sign-ups this day</div>'; }
+  else {
+    dayDeals.forEach(d=>{
+      const time=new Date(d.signed_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      h+='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:12px;padding:13px;margin-bottom:8px">';
+      h+='<div style="display:flex;justify-content:space-between"><div style="font-weight:700;color:#f1f5f9;font-size:14px">'+(d.address||d.postcode_norm||'Property')+'</div><div style="color:#10b981;font-size:12px">'+time+'</div></div>';
+      if(d.customer_name) h+='<div style="color:#94a3b8;font-size:13px;margin-top:3px">👤 '+d.customer_name+'</div>';
+      h+='<div style="color:#64748b;font-size:11px;margin-top:3px">'+(d.canvasser_name||'')+'</div>';
+      h+='</div>';
+    });
+  }
+  const el=document.getElementById('deal-day-list');
+  if(el) el.innerHTML=h;
 }
 </script>
 </body></html>
