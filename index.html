@@ -1410,7 +1410,7 @@ function heatColor(cnt) {
 }
 
 function onMU() {
-  if (map.getZoom() >= 14) loadVis();
+  if (map.getZoom() >= 12) loadVis();
   else { pcMks.forEach(m=>m.remove()); pcMks=[]; }
 }
 
@@ -1464,21 +1464,26 @@ async function loadVis() {
   pcMks.forEach(m=>m.remove()); pcMks=[];
   const b2 = map.getBounds().pad(.05);
 
+  const z = map.getZoom();
+  // Dot size scales with zoom: visible when panned out, larger when zoomed in
+  const baseR = z>=16 ? 7 : z>=15 ? 6 : z>=14 ? 5 : z>=13 ? 4 : 3;
+  let shown = 0;
   Object.entries(geoC).forEach(([n, {lat, lng}]) => {
     if (!b2.contains([lat, lng]) || !EL.has(n)) return;
+    if (shown >= 1200) return; // safety cap for very dense views
     const st = topSt(n);
     const col = st ? SC[st].col : '#10b981';
     const hasProp = !!propC[n];
-    const glow = (st==='interested'||st==='qualified') ? `box-shadow:0 0 8px ${SC[st].col}` : '';
 
     const m = L.circleMarker([lat, lng], {
-      radius: hasProp ? 8 : 5,
-      fillColor: col, color:'rgba(0,0,0,.4)',
-      weight: 1.5, fillOpacity: hasProp ? .9 : .55
+      radius: hasProp ? baseR+2 : baseR,
+      fillColor: col, color:'rgba(0,0,0,.5)',
+      weight: 1, fillOpacity: hasProp ? .9 : .7
     }).bindTooltip(fmt(n), {sticky:true, offset:[8,0]}).addTo(map);
 
     m.on('click', e => { L.DomEvent.stopPropagation(e); loadPC(fmt(n)); });
     pcMks.push(m);
+    shown++;
   });
 }
 
@@ -1595,7 +1600,7 @@ async function loadPC(pc) {
   combined = sortStreetOrder(combined);
   propC[nc]=combined; allProps=combined;
   renderList();
-  if (map.getZoom()>=14) loadVis();
+  if (map.getZoom()>=12) loadVis();
 }
 
 // Fetch Land Registry private-sale houses for a postcode
@@ -1743,7 +1748,7 @@ function setD(uid, st) {
   renderList();
   renderCallbacks();
   toast(doors[uid] ? SC[st].label+' saved' : 'Cleared');
-  if (map.getZoom()>=14) loadVis();
+  if (map.getZoom()>=12) loadVis();
 }
 
 function openJF(uid,pc,addr){ if(!jfURL){toast('Add JotForm URL in Settings');return;} window.open(jfURL+(jfURL.includes('?')?'&':'?')+'postcode='+encodeURIComponent(pc)+'&address='+encodeURIComponent(addr),'_blank'); }
