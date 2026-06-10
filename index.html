@@ -1291,6 +1291,7 @@ let EL, BO, curRegion;
 // Map state
 let map, gpsMk, srMk, pcMks=[];
 let geoC={}, propC={};
+let coordsLoaded = {};
 let curPC=null, allProps=[], curChip='all';
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -1319,6 +1320,9 @@ function launchRegion(rid) {
   BO = {};
   reg.keys.forEach((k, i) => EL.set(k, reg.lsoas[reg.idx[i]]));
   reg.keys.forEach(k => { const o = k.slice(0,-3); (BO[o]=BO[o]||[]).push(k); });
+
+  // Load pre-computed postcode coordinates for this region (kills live-geocoding dependency)
+  loadRegionCoords(rid);
 
   // Update UI
   document.getElementById('landing').style.display = 'none';
@@ -1406,8 +1410,28 @@ function heatColor(cnt) {
 }
 
 function onMU() {
-  if (map.getZoom() >= 15) loadVis();
+  if (map.getZoom() >= 14) loadVis();
   else { pcMks.forEach(m=>m.remove()); pcMks=[]; }
+}
+
+// Load baked-in coordinates for the region, populate geoC instantly
+async function loadRegionCoords(rid) {
+  if (coordsLoaded[rid]) { applyCoords(coordsLoaded[rid]); return; }
+  try {
+    const r = await fetch('./coords/'+rid+'.json');
+    if (r.ok) {
+      const c = await r.json();
+      coordsLoaded[rid] = c;
+      applyCoords(c);
+      // Refresh dots if we're zoomed in
+      if (map && map.getZoom()>=15) loadVis();
+    }
+  } catch(e) { /* fallback to live geocoding in loadVis */ }
+}
+function applyCoords(c) {
+  for (const pc in c) {
+    if (!geoC[pc]) geoC[pc] = {lat: c[pc][0], lng: c[pc][1]};
+  }
 }
 
 async function loadVis() {
@@ -1423,7 +1447,7 @@ async function loadVis() {
   vis.forEach(o => (BO[o]||[]).forEach(n => { if (!geoC[n]) need.push(n); }));
 
   if (need.length) {
-    for (let i=0; i<Math.min(need.length, 300); i+=100) {
+    for (let i=0; i<Math.min(need.length, 600); i+=100) {
       const batch = need.slice(i, i+100).map(fmt);
       try {
         const r = await fetch('https://api.postcodes.io/postcodes', {
@@ -1571,7 +1595,7 @@ async function loadPC(pc) {
   combined = sortStreetOrder(combined);
   propC[nc]=combined; allProps=combined;
   renderList();
-  if (map.getZoom()>=15) loadVis();
+  if (map.getZoom()>=14) loadVis();
 }
 
 // Fetch Land Registry private-sale houses for a postcode
@@ -1599,11 +1623,18 @@ function normAddr(a) {
 
 // Sort by leading house number so the street reads in door order
 function sortStreetOrder(arr) {
-  const numOf = a => { const m=(a.addr||'').match(/\d+/); return m?parseInt(m[0]):99999; };
+  // Extract leading house number and the street name (strip number, town, postcode)
+  const numOf = a => { const m=(a.addr||'').match(/\b(\d+)\b/); return m?parseInt(m[1]):99999; };
+  const streetOf = a => {
+    let s = (a.addr||'');
+    // Remove a leading house number
+    s = s.replace(/^[^,]*?\b\d+[a-z]?\b\s*/i, '');
+    // Take the part before the first comma (the street), drop town/city after
+    s = s.split(',')[0];
+    return s.trim().toLowerCase();
+  };
   return arr.slice().sort((a,b) => {
-    // group by street name first, then house number
-    const sa=(a.addr||'').replace(/^\d+\s*/,'').toLowerCase();
-    const sb=(b.addr||'').replace(/^\d+\s*/,'').toLowerCase();
+    const sa=streetOf(a), sb=streetOf(b);
     if (sa<sb) return -1; if (sa>sb) return 1;
     return numOf(a)-numOf(b);
   });
@@ -1712,7 +1743,7 @@ function setD(uid, st) {
   renderList();
   renderCallbacks();
   toast(doors[uid] ? SC[st].label+' saved' : 'Cleared');
-  if (map.getZoom()>=15) loadVis();
+  if (map.getZoom()>=14) loadVis();
 }
 
 function openJF(uid,pc,addr){ if(!jfURL){toast('Add JotForm URL in Settings');return;} window.open(jfURL+(jfURL.includes('?')?'&':'?')+'postcode='+encodeURIComponent(pc)+'&address='+encodeURIComponent(addr),'_blank'); }
