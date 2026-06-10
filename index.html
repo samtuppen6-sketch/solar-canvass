@@ -1743,8 +1743,8 @@ async function loadPC(pc) {
   document.getElementById('lpc').textContent = pc;
   showTab('list');
   const nc = norm(pc);
-  // Pull shared cloud door history for this postcode (permanent records)
-  await loadDoorHistoryForPostcode(nc);
+  // Pull shared cloud door history for this postcode (permanent records) - fail-safe
+  try { await Promise.race([loadDoorHistoryForPostcode(nc), new Promise(r=>setTimeout(r,4000))]); } catch(e){}
   if (propC[nc]) { allProps=propC[nc]; renderList(); return; }
   document.getElementById('pl').innerHTML = '<div class="lr"><div class="spin"></div>Loading '+pc+'…</div>';
   document.getElementById('lcnt').textContent = 'Loading…';
@@ -1886,12 +1886,12 @@ function pCard(i,p,nc) {
     +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold?'<span>Sold '+p.lastSold+'</span>':'')+'</div>'
     +badge
     +'<div class="drow">'
-    +'<div class="db2 '+(st==='knocked'?'dK':'')+'" onclick="setD(\''+esc(uid)+'\',\'knocked\')">🚪 Knocked</div>'
-    +'<div class="db2 '+(st==='noanswer'?'dN':'')+'" onclick="setD(\''+esc(uid)+'\',\'noanswer\')">😴 No Answer</div>'
-    +'<div class="db2 '+(st==='callback'?'dC':'')+'" onclick="setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
-    +'<div class="db2 '+(st==='interested'?'dI':'')+'" onclick="setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
-    +'<div class="db2 '+(st==='notint'?'dX':'')+'" onclick="setD(\''+esc(uid)+'\',\'notint\')">❌ Not Int.</div>'
-    +'<div class="db2 '+(st==='qualified'?'dQ':'')+'" onclick="setD(\''+esc(uid)+'\',\'qualified\',\''+esc(p.addr||'')+'\')">⭐ Qualified</div>'
+    +'<div class="db2 '+(st==='knocked'?'dK':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'knocked\',\''+esc(p.addr||'')+'\')">🚪 Knocked</div>'
+    +'<div class="db2 '+(st==='noanswer'?'dN':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'noanswer\',\''+esc(p.addr||'')+'\')">😴 No Answer</div>'
+    +'<div class="db2 '+(st==='callback'?'dC':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
+    +'<div class="db2 '+(st==='interested'?'dI':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
+    +'<div class="db2 '+(st==='notint'?'dX':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notint\',\''+esc(p.addr||'')+'\')">❌ Not Int.</div>'
+    +'<div class="db2 '+(st==='qualified'?'dQ':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'qualified\',\''+esc(p.addr||'')+'\')">⭐ Qualified</div>'
     +jb+'</div></div>';
 }
 
@@ -1921,10 +1921,10 @@ function renderCallbacks() {
       +'<div class="pc2-a">'+prop.addr+'</div>'
       +'</div><div class="'+ec+'">'+(prop.rating==='?'?'?':prop.rating)+'</div></div>'
       +'<div class="drow">'
-      +'<div class="db2 dI" onclick="setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
-      +'<div class="db2 dQ" onclick="setD(\''+esc(uid)+'\',\'qualified\',\''+esc(p.addr||'')+'\')">⭐ Qualified</div>'
-      +'<div class="db2 dX" onclick="setD(\''+esc(uid)+'\',\'notint\')">❌ Not Int.</div>'
-      +'<div class="db2 dN" onclick="setD(\''+esc(uid)+'\',\'noanswer\')">😴 No Answer</div>'
+      +'<div class="db2 dI" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
+      +'<div class="db2 dQ" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'qualified\',\''+esc(p.addr||'')+'\')">⭐ Qualified</div>'
+      +'<div class="db2 dX" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notint\',\''+esc(p.addr||'')+'\')">❌ Not Int.</div>'
+      +'<div class="db2 dN" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'noanswer\',\''+esc(p.addr||'')+'\')">😴 No Answer</div>'
       +'</div></div>';
   }).join('');
 }
