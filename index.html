@@ -1956,21 +1956,19 @@ function renderCallbacks() {
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 function setD(uid, st, addr) {
-  // A tap always records a visit. Tapping the SAME status again does NOT clear it -
-  // instead it logs another timestamped visit (e.g. knocked twice in one day).
   const wasSame = doors[uid]===st;
-  doors[uid] = st;                       // current/most-recent status
-  localStorage.setItem('dr', JSON.stringify(doors));
-  addHistory(uid, st);                   // timestamped visit log - EVERY tap
-  saveDoorToCloud(uid, st, null, addr);  // permanent cloud record
-  renderList();
-  renderCallbacks();
-  toast(SC[st].label+' logged'+(wasSame?' again':''));
-  if (map.getZoom()>=12) loadVis();
-  // For outcomes that benefit from a note, pop the quick-note box every time
+  doors[uid] = st;
+  try { localStorage.setItem('dr', JSON.stringify(doors)); } catch(e){}
+  try { addHistory(uid, st); } catch(e){}
+  // Pop the note box FIRST (before anything that could error) for callback/interested/qualified
   if (st==='callback'||st==='interested'||st==='qualified') {
-    openQuickNote(uid, st, addr||'');
+    try { openQuickNote(uid, st, addr||''); } catch(e){ alert('Note box error: '+e.message); }
   }
+  try { saveDoorToCloud(uid, st, null, addr); } catch(e){}
+  try { renderList(); } catch(e){}
+  try { renderCallbacks(); } catch(e){}
+  try { toast(SC[st].label+' logged'+(wasSame?' again':'')); } catch(e){}
+  try { if (map.getZoom()>=12) loadVis(); } catch(e){}
 }
 
 // Clear a door's status entirely (long-press / explicit clear)
@@ -1986,17 +1984,23 @@ function clearD(uid) {
 let qnUID = null;
 function openQuickNote(uid, st, addr) {
   qnUID = uid;
-  const existing = getNotes(uid);
-  document.getElementById('qn-title').textContent = SC[st] ? SC[st].label.replace(/^[^ ]+ /,'') : 'Note';
-  document.getElementById('qn-addr').textContent = addr || '';
+  let existing = '';
+  try { existing = getNotes(uid); } catch(e){}
+  const ov = document.getElementById('qn-overlay');
+  if (!ov) { alert('Note box not found in page'); return; }
+  const title = document.getElementById('qn-title');
+  const addrEl = document.getElementById('qn-addr');
   const ta = document.getElementById('qn-text');
-  ta.value = existing;
-  // Helpful placeholder per status
-  ta.placeholder = st==='callback' ? 'e.g. Speak to husband, back after 6pm Tue' :
-                   st==='interested' ? 'e.g. Wants a quote, south-facing roof' :
-                   st==='qualified' ? 'e.g. Ready to book survey, owns outright' : 'Add a note…';
-  document.getElementById('qn-overlay').style.display='flex';
-  setTimeout(()=>ta.focus(), 100);
+  if (title) title.textContent = SC[st] ? SC[st].label.replace(/^[^ ]+ /,'') : 'Note';
+  if (addrEl) addrEl.textContent = addr || '';
+  if (ta) {
+    ta.value = existing;
+    ta.placeholder = st==='callback' ? 'e.g. Speak to husband, back after 6pm Tue' :
+                     st==='interested' ? 'e.g. Wants a quote, south-facing roof' :
+                     st==='qualified' ? 'e.g. Ready to book survey, owns outright' : 'Add a note…';
+  }
+  ov.style.display = 'flex';
+  if (ta) setTimeout(()=>ta.focus(), 100);
 }
 function saveQuickNote() {
   if (!qnUID) return;
