@@ -1730,7 +1730,9 @@ function pCard(i,p,nc) {
   const badge=st?'<div class="status-badge '+SC[st].badge+'">'+SC[st].label+'</div>':'';
   const notesTxt=getNotes(uid);
   const notesDot=notesTxt?'<div style="width:6px;height:6px;border-radius:50%;background:#a855f7;flex-shrink:0;margin-top:4px" title="Has notes"></div>':'';
-  const jb=jfURL?'<div class="db2 dJ" onclick="openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">📋 Form</div>':'';
+  const visits=getHistory(uid);
+  const visitBadge=visits.length>0?'<span style="background:#1f2d45;color:#94a3b8;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:6px">'+visits.length+'× visit'+(visits.length>1?'s':'')+' · last '+formatTime(visits[visits.length-1].ts)+'</span>':'';
+  const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
   return '<div class="pc2" onclick="openPropDetail(\''+esc(uid)+'\',\''+esc(JSON.stringify(p))+'\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'NE':(p.rating==='?'?'?':p.rating))+'</div></div>'
     +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold?'<span>Sold '+p.lastSold+'</span>':'')+'</div>'
     +badge
@@ -1782,17 +1784,29 @@ function renderCallbacks() {
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 function setD(uid, st, addr) {
-  doors[uid] = doors[uid]===st ? null : st;
-  if (!doors[uid]) delete doors[uid];
+  // A tap always records a visit. Tapping the SAME status again does NOT clear it -
+  // instead it logs another timestamped visit (e.g. knocked twice in one day).
+  const wasSame = doors[uid]===st;
+  doors[uid] = st;                       // current/most-recent status
   localStorage.setItem('dr', JSON.stringify(doors));
+  addHistory(uid, st);                   // timestamped visit log - EVERY tap
   renderList();
   renderCallbacks();
-  toast(doors[uid] ? SC[st].label+' saved' : 'Cleared');
+  toast(SC[st].label+' logged'+(wasSame?' again':''));
   if (map.getZoom()>=12) loadVis();
-  // For outcomes that benefit from a note, pop the quick-note box
-  if (doors[uid] && (st==='callback'||st==='interested'||st==='qualified')) {
+  // For outcomes that benefit from a note, pop the quick-note box every time
+  if (st==='callback'||st==='interested'||st==='qualified') {
     openQuickNote(uid, st, addr||'');
   }
+}
+
+// Clear a door's status entirely (long-press / explicit clear)
+function clearD(uid) {
+  delete doors[uid];
+  localStorage.setItem('dr', JSON.stringify(doors));
+  renderList(); renderCallbacks();
+  toast('Status cleared');
+  if (map.getZoom()>=12) loadVis();
 }
 
 // ── QUICK NOTE POPUP ──────────────────────────────────────────────────────────
@@ -2025,9 +2039,11 @@ function getHistory(uid) {
 function formatTime(ts) {
   const d = new Date(ts);
   const now = new Date();
+  const sameDay = d.toDateString()===now.toDateString();
+  const time = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  if (sameDay) return time;  // same-day visits show clock time e.g. 14:30
   const diffH = Math.floor((now - d) / 3600000);
-  if (diffH < 1) return 'Just now';
-  if (diffH < 24) return diffH + 'h ago';
+  if (diffH < 48) return 'Yesterday '+time;
   const diffD = Math.floor(diffH / 24);
   if (diffD < 7) return diffD + 'd ago';
   return d.toLocaleDateString('en-GB', {day:'numeric',month:'short'});
