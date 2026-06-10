@@ -13,111 +13,109 @@ button:disabled{opacity:.5}
 .fill{height:100%;background:#10b981;width:0%;transition:width .3s}
 .stat{display:flex;justify-content:space-between;font-size:13px;margin:6px 0}
 .stat b{color:#10b981}
+.eta{font-size:12px;color:#f59e0b;text-align:center;margin:4px 0}
 </style></head>
 <body>
 <h2>☀ Solpath — Land Registry Loader</h2>
-<p>Loads private-sale property data from HM Land Registry across all 645 districts. Takes 10–20 min. Keep this page open. If it stops, tap Resume.</p>
+<p>Loads private-sale property data across all 645 districts. This runs in the background — keep the page open and your screen awake. It's slow but thorough (roughly 15–40 sec per district). If it stops, tap Resume — it remembers progress.</p>
 
 <div class="stat"><span>Progress</span><span id="prog">— / — districts</span></div>
 <div class="bar"><div class="fill" id="fill"></div></div>
+<div class="eta" id="eta"></div>
 <div class="stat"><span>Properties loaded</span><b id="total">0</b></div>
 
 <button id="start" onclick="run(false)">▶ Start Loading</button>
 <button id="resume" onclick="run(true)" style="background:#334155;color:#f1f5f9">↻ Resume</button>
-<button onclick="testOne()" style="background:#1f2d45;color:#f1f5f9">🧪 Test one district (PO1)</button>
 
-<div class="log" id="log">Tap a button to begin.</div>
+<div class="log" id="log">Tap Start to begin. You can leave this running.</div>
 
 <script>
 const PROXY = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/lr-loader";
 const ELIGIBLE = "https://samtuppen6-sketch.github.io/solar-canvass/eligible_districts.json";
-let districts = [];
-let totalLoaded = 0, doneCount = 0;
+const TIMEOUT_MS = 90000; // generous per-district timeout
+let districts = [], totalLoaded = 0, doneCount = 0, times = [];
 
-function log(msg, cls) {
-  const el = document.getElementById('log');
-  const line = cls ? '<span class="'+cls+'">'+msg+'</span>' : msg;
-  el.innerHTML = line + "\n" + el.innerHTML;
-}
+function log(msg, cls){ const el=document.getElementById('log'); el.innerHTML=(cls?'<span class="'+cls+'">'+msg+'</span>':msg)+"\n"+el.innerHTML; }
+window.onerror=function(m,s,l,c,e){ log('JS ERROR: '+m+' @'+l, 'err'); };
 
-window.onerror = function(m,s,l,c,e){ log('JS ERROR: '+m+' @'+l+':'+c, 'err'); };
-
-async function loadDistricts() {
-  if (districts.length) return true;
-  log('Fetching district list…', 'dim');
-  try {
-    const r = await fetch(ELIGIBLE);
-    if (!r.ok) { log('Failed to load districts: HTTP '+r.status, 'err'); return false; }
-    const data = await r.json();
-    districts = Object.keys(data).sort();
-    log('Loaded '+districts.length+' districts ✓', 'ok');
-    document.getElementById('prog').textContent = '0 / '+districts.length+' districts';
+async function loadDistricts(){
+  if(districts.length) return true;
+  log('Fetching district list…','dim');
+  try{
+    const r=await fetch(ELIGIBLE);
+    if(!r.ok){ log('Failed: HTTP '+r.status,'err'); return false; }
+    districts=Object.keys(await r.json()).sort();
+    log('Loaded '+districts.length+' districts ✓','ok');
+    document.getElementById('prog').textContent='0 / '+districts.length+' districts';
     return true;
-  } catch(e) {
-    log('Failed to load districts: '+e.message, 'err');
-    return false;
-  }
-}
-
-async function testOne() {
-  log('Testing PO1…', 'warn');
-  try {
-    const r = await fetch(PROXY + "?district=PO1");
-    log('HTTP status: '+r.status, 'dim');
-    const t = await r.text();
-    log('Response: '+t, r.ok?'ok':'err');
-  } catch(e) {
-    log('Fetch failed: '+e.message, 'err');
-  }
+  }catch(e){ log('Failed to load districts: '+e.message,'err'); return false; }
 }
 
 function getProgress(){ return JSON.parse(localStorage.getItem('lr_progress')||'{"done":[],"total":0}'); }
 function saveProgress(p){ localStorage.setItem('lr_progress', JSON.stringify(p)); }
 
-async function run(resume) {
-  document.getElementById('start').disabled = true;
-  document.getElementById('resume').disabled = true;
-  const ok = await loadDistricts();
-  if (!ok) {
-    log('Cannot start — district list did not load. Check connection and retry.', 'err');
-    document.getElementById('start').disabled = false;
-    document.getElementById('resume').disabled = false;
-    return;
-  }
-
-  let progress = resume ? getProgress() : {done:[], total:0};
-  if (!resume) saveProgress(progress);
-  const doneSet = new Set(progress.done);
-  totalLoaded = progress.total; doneCount = progress.done.length;
-  document.getElementById('total').textContent = totalLoaded.toLocaleString();
-  log('Starting load…', 'warn');
-
-  for (const district of districts) {
-    if (doneSet.has(district)) continue;
-    try {
-      const r = await fetch(PROXY + "?district=" + encodeURIComponent(district));
-      const d = await r.json();
-      if (d.error) {
-        log('✗ '+district+': '+d.error, 'err');
-      } else {
-        totalLoaded += (d.inserted||0); doneCount++;
-        doneSet.add(district); progress.done.push(district); progress.total = totalLoaded;
-        saveProgress(progress);
-        log('✓ '+district+': '+(d.inserted||0)+' properties ('+(d.found||0)+' sales)', 'ok');
-        document.getElementById('total').textContent = totalLoaded.toLocaleString();
-      }
-    } catch(e) { log('✗ '+district+': '+e.message, 'err'); }
-    document.getElementById('prog').textContent = doneCount+' / '+districts.length+' districts';
-    document.getElementById('fill').style.width = (doneCount/districts.length*100)+'%';
-    await new Promise(r=>setTimeout(r,300));
-  }
-  log('━━━━━━━━━━', 'warn');
-  log('DONE. '+totalLoaded.toLocaleString()+' properties across '+doneCount+' districts.', 'ok');
-  document.getElementById('start').disabled = false;
-  document.getElementById('resume').disabled = false;
+async function fetchWithTimeout(url, ms){
+  const ctrl=new AbortController();
+  const id=setTimeout(()=>ctrl.abort(), ms);
+  try{ const r=await fetch(url,{signal:ctrl.signal}); clearTimeout(id); return r; }
+  catch(e){ clearTimeout(id); throw e; }
 }
 
-// Pre-load district list on open
+function updateETA(){
+  if(times.length<3) return;
+  const avg=times.reduce((a,b)=>a+b,0)/times.length;
+  const remaining=districts.length-doneCount;
+  const mins=Math.round(avg*remaining/60000);
+  document.getElementById('eta').textContent='~'+mins+' min remaining';
+}
+
+async function run(resume){
+  document.getElementById('start').disabled=true;
+  document.getElementById('resume').disabled=true;
+  if(!await loadDistricts()){
+    document.getElementById('start').disabled=false;
+    document.getElementById('resume').disabled=false;
+    return;
+  }
+  let progress=resume?getProgress():{done:[],total:0};
+  if(!resume) saveProgress(progress);
+  const doneSet=new Set(progress.done);
+  totalLoaded=progress.total; doneCount=progress.done.length;
+  document.getElementById('total').textContent=totalLoaded.toLocaleString();
+  log('Starting…','warn');
+
+  for(const district of districts){
+    if(doneSet.has(district)) continue;
+    const t0=Date.now();
+    try{
+      const r=await fetchWithTimeout(PROXY+"?district="+encodeURIComponent(district), TIMEOUT_MS);
+      const d=await r.json();
+      const dt=Date.now()-t0;
+      if(d.error){
+        log('✗ '+district+': '+d.error+' (will retry on Resume)','err');
+      }else{
+        totalLoaded+=(d.inserted||0); doneCount++;
+        doneSet.add(district); progress.done.push(district); progress.total=totalLoaded;
+        saveProgress(progress);
+        times.push(dt); if(times.length>20) times.shift();
+        const cap=d.capped?' ⚠capped':'';
+        log('✓ '+district+': '+(d.inserted||0)+' homes'+cap+' ('+Math.round(dt/1000)+'s)','ok');
+        document.getElementById('total').textContent=totalLoaded.toLocaleString();
+      }
+    }catch(e){
+      log('✗ '+district+': '+(e.name==='AbortError'?'timed out':e.message)+' (will retry on Resume)','err');
+    }
+    document.getElementById('prog').textContent=doneCount+' / '+districts.length+' districts';
+    document.getElementById('fill').style.width=(doneCount/districts.length*100)+'%';
+    updateETA();
+    await new Promise(r=>setTimeout(r,200));
+  }
+  log('━━━━━━━━━━','warn');
+  log('DONE. '+totalLoaded.toLocaleString()+' properties loaded.','ok');
+  log('If any districts failed above, tap Resume to retry just those.','warn');
+  document.getElementById('start').disabled=false;
+  document.getElementById('resume').disabled=false;
+}
 loadDistricts();
 </script>
 </body></html>
