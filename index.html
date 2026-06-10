@@ -1091,7 +1091,7 @@ async function onAuthed() {
   }
   // Hide auth, show app
   document.getElementById('auth-screen').classList.add('hidden');
-  // Load door records from cloud for any postcodes already cached
+  if (typeof setupManagerAccess === 'function') setupManagerAccess();
   if (typeof syncDoorsFromCloud === 'function') syncDoorsFromCloud();
 }
 
@@ -1223,6 +1223,7 @@ window.addEventListener('load', async () => {
     <div class="tab" id="t-list" onclick="showTab('list')">📋 Walk List</div>
     <div class="tab" id="t-cb" onclick="showTab('cb')">📞 Callbacks</div>
     <div class="tab" id="t-deals" onclick="showTab('deals')">📅 Deals</div>
+    <div class="tab" id="t-mgr" onclick="showTab('mgr')" style="display:none">👥 Team</div>
     <div class="tab" id="t-set" onclick="showTab('set')">⚙ Settings</div>
   </div>
 
@@ -1277,6 +1278,16 @@ window.addEventListener('load', async () => {
     </div>
     <div id="deals-scroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px">
       <div id="deals-body"><div style="color:#64748b;text-align:center;padding:30px">Loading…</div></div>
+    </div>
+  </div>
+
+    <div id="pmgr" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0">
+    <div style="padding:14px 16px;background:rgba(10,14,26,.8);border-bottom:1px solid var(--br);flex-shrink:0">
+      <div style="font-size:16px;font-weight:800;color:#f59e0b">👥 Team Overview</div>
+      <div style="font-size:12px;color:#64748b">Manager dashboard — all canvassers, live</div>
+    </div>
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px">
+      <div id="mgr-body"><div style="color:#64748b;text-align:center;padding:30px">Loading…</div></div>
     </div>
   </div>
 
@@ -1956,19 +1967,21 @@ function renderCallbacks() {
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 function setD(uid, st, addr) {
+  // A tap always records a visit. Tapping the SAME status again does NOT clear it -
+  // instead it logs another timestamped visit (e.g. knocked twice in one day).
   const wasSame = doors[uid]===st;
-  doors[uid] = st;
-  try { localStorage.setItem('dr', JSON.stringify(doors)); } catch(e){}
-  try { addHistory(uid, st); } catch(e){}
-  // Pop the note box FIRST (before anything that could error) for callback/interested/qualified
+  doors[uid] = st;                       // current/most-recent status
+  localStorage.setItem('dr', JSON.stringify(doors));
+  addHistory(uid, st);                   // timestamped visit log - EVERY tap
+  saveDoorToCloud(uid, st, null, addr);  // permanent cloud record
+  renderList();
+  renderCallbacks();
+  toast(SC[st].label+' logged'+(wasSame?' again':''));
+  if (map.getZoom()>=12) loadVis();
+  // For outcomes that benefit from a note, pop the quick-note box every time
   if (st==='callback'||st==='interested'||st==='qualified') {
-    try { openQuickNote(uid, st, addr||''); } catch(e){ alert('Note box error: '+e.message); }
+    openQuickNote(uid, st, addr||'');
   }
-  try { saveDoorToCloud(uid, st, null, addr); } catch(e){}
-  try { renderList(); } catch(e){}
-  try { renderCallbacks(); } catch(e){}
-  try { toast(SC[st].label+' logged'+(wasSame?' again':'')); } catch(e){}
-  try { if (map.getZoom()>=12) loadVis(); } catch(e){}
 }
 
 // Clear a door's status entirely (long-press / explicit clear)
@@ -1984,23 +1997,17 @@ function clearD(uid) {
 let qnUID = null;
 function openQuickNote(uid, st, addr) {
   qnUID = uid;
-  let existing = '';
-  try { existing = getNotes(uid); } catch(e){}
-  const ov = document.getElementById('qn-overlay');
-  if (!ov) { alert('Note box not found in page'); return; }
-  const title = document.getElementById('qn-title');
-  const addrEl = document.getElementById('qn-addr');
+  const existing = getNotes(uid);
+  document.getElementById('qn-title').textContent = SC[st] ? SC[st].label.replace(/^[^ ]+ /,'') : 'Note';
+  document.getElementById('qn-addr').textContent = addr || '';
   const ta = document.getElementById('qn-text');
-  if (title) title.textContent = SC[st] ? SC[st].label.replace(/^[^ ]+ /,'') : 'Note';
-  if (addrEl) addrEl.textContent = addr || '';
-  if (ta) {
-    ta.value = existing;
-    ta.placeholder = st==='callback' ? 'e.g. Speak to husband, back after 6pm Tue' :
-                     st==='interested' ? 'e.g. Wants a quote, south-facing roof' :
-                     st==='qualified' ? 'e.g. Ready to book survey, owns outright' : 'Add a note…';
-  }
-  ov.style.display = 'flex';
-  if (ta) setTimeout(()=>ta.focus(), 100);
+  ta.value = existing;
+  // Helpful placeholder per status
+  ta.placeholder = st==='callback' ? 'e.g. Speak to husband, back after 6pm Tue' :
+                   st==='interested' ? 'e.g. Wants a quote, south-facing roof' :
+                   st==='qualified' ? 'e.g. Ready to book survey, owns outright' : 'Add a note…';
+  document.getElementById('qn-overlay').style.display='flex';
+  setTimeout(()=>ta.focus(), 100);
 }
 function saveQuickNote() {
   if (!qnUID) return;
@@ -2024,7 +2031,7 @@ function clearDoors(){ if(!confirm('Clear all records?'))return; doors={}; local
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function showTab(t) {
-  [['map','pmap'],['list','plist'],['cb','pcb'],['deals','pdeals'],['set','pset']].forEach(([id,panel])=>{
+  [['map','pmap'],['list','plist'],['cb','pcb'],['deals','pdeals'],['mgr','pmgr'],['set','pset']].forEach(([id,panel])=>{
     document.getElementById('t-'+id).classList.toggle('on',id===t);
     const el=document.getElementById(panel);
     el.style.display=id===t?'flex':'none'; el.style.flexDirection='column';
@@ -2034,6 +2041,7 @@ function showTab(t) {
   if(t==='list') renderList();
   if(t==='cb') renderCallbacks();
   if(t==='deals') renderDeals();
+  if(t==='mgr') renderManager();
 }
 
 // ── STATUS / UI ───────────────────────────────────────────────────────────────
@@ -2346,16 +2354,25 @@ async function recordDeal() {
   if (!pendingDeal || !sb || !currentUser) return;
   const name = document.getElementById('deal-name').value.trim();
   const nc = (pendingDeal.pc||'').replace(/\s+/g,'').toUpperCase();
+  // Pull property details (EPC, type, tenure) from the loaded list
+  let epc='', ptype='', tenure='';
+  try {
+    const list = propC[norm(pendingDeal.pc||'')] || allProps || [];
+    const prop = list.find(x => dk(norm(pendingDeal.pc||''), x) === pendingDeal.uid);
+    if (prop) { epc = prop.rating==='NE'?'No EPC':(prop.rating||''); ptype = prop.propType||''; tenure = prop.tl||''; }
+  } catch(e){}
   try {
     await sb.from('signups').insert({
       property_key: pendingDeal.uid,
       postcode_norm: nc,
       address: pendingDeal.addr || '',
       customer_name: name || null,
+      epc_rating: epc,
+      property_type: ptype,
+      tenure: tenure,
       canvasser_id: currentUser.id,
       canvasser_name: (currentProfile && currentProfile.full_name) || ''
     });
-    // Also mark the door as qualified locally
     if (pendingDeal.uid) { doors[pendingDeal.uid]='qualified'; localStorage.setItem('dr',JSON.stringify(doors)); }
   } catch(e) {}
 }
@@ -2479,10 +2496,23 @@ function showDealsForDay(date) {
   else {
     dayDeals.forEach(d=>{
       const time=new Date(d.signed_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      h+='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:12px;padding:13px;margin-bottom:8px">';
-      h+='<div style="display:flex;justify-content:space-between"><div style="font-weight:700;color:#f1f5f9;font-size:14px">'+(d.address||d.postcode_norm||'Property')+'</div><div style="color:#10b981;font-size:12px">'+time+'</div></div>';
-      if(d.customer_name) h+='<div style="color:#94a3b8;font-size:13px;margin-top:3px">👤 '+d.customer_name+'</div>';
-      h+='<div style="color:#64748b;font-size:11px;margin-top:3px">'+(d.canvasser_name||'')+'</div>';
+      const epc=d.epc_rating||'';
+      const epcColors={'D':'#d97706','E':'#ea580c','F':'#dc2626','G':'#7f1d1d','No EPC':'#6d28d9'};
+      const epcBadge=epc?'<span style="background:'+(epcColors[epc]||'#334155')+';color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:5px">'+epc+'</span>':'';
+      h+='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:12px;padding:14px;margin-bottom:10px">';
+      // Header: address + EPC
+      h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
+      h+='<div style="font-weight:700;color:#f1f5f9;font-size:15px;flex:1">'+(d.address||d.postcode_norm||'Property')+'</div>'+epcBadge+'</div>';
+      // Meta row: type, tenure
+      h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#94a3b8">';
+      if(d.property_type) h+='<span>🏠 '+d.property_type+'</span>';
+      if(d.tenure) h+='<span>'+d.tenure+'</span>';
+      h+='<span style="color:#10b981">✓ '+time+'</span>';
+      h+='</div>';
+      // Customer name
+      if(d.customer_name) h+='<div style="margin-top:8px;padding:8px 10px;background:#064e3b;border-radius:8px;color:#6ee7b7;font-size:13px;font-weight:600">👤 '+d.customer_name+'</div>';
+      // Canvasser (shown to manager / useful context)
+      h+='<div style="color:#475569;font-size:11px;margin-top:6px">Signed by '+(d.canvasser_name||'—')+'</div>';
       h+='</div>';
     });
   }
@@ -2490,4 +2520,101 @@ function showDealsForDay(date) {
   if(el) el.innerHTML=h;
 }
 </script>
-</body></html>
+<script>
+// ── MANAGER DASHBOARD (managers only) ─────────────────────────────────────────
+function isManager() {
+  return currentProfile && currentProfile.role === 'manager';
+}
+function setupManagerAccess() {
+  const tab = document.getElementById('t-mgr');
+  if (tab) tab.style.display = isManager() ? 'flex' : 'none';
+}
+
+async function renderManager() {
+  if (!isManager()) { document.getElementById('mgr-body').innerHTML='<div style="color:#64748b;padding:30px;text-align:center">Managers only.</div>'; return; }
+  const body = document.getElementById('mgr-body');
+  body.innerHTML = '<div style="color:#64748b;text-align:center;padding:30px">Loading team data…</div>';
+  let team = [];
+  try {
+    const { data } = await sb.from('team_summary').select('*').order('deals_today', { ascending: false });
+    team = data || [];
+  } catch(e) { body.innerHTML='<div style="color:#ef4444;padding:20px">Could not load team data: '+e.message+'</div>'; return; }
+
+  const totDealsToday = team.reduce((a,t)=>a+(t.deals_today||0),0);
+  const totDealsWeek = team.reduce((a,t)=>a+(t.deals_week||0),0);
+  const totDoorsToday = team.reduce((a,t)=>a+(t.doors_today||0),0);
+  const activeToday = team.filter(t=>t.doors_today>0).length;
+
+  let h = '<div style="padding:4px 0 16px">';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">';
+  h += mgrStat('Deals Today', totDealsToday, '#10b981');
+  h += mgrStat('Deals This Week', totDealsWeek, '#f59e0b');
+  h += mgrStat('Doors Today', totDoorsToday, '#3b82f6');
+  h += mgrStat('Active Today', activeToday+'/'+team.length, '#a855f7');
+  h += '</div>';
+  h += '<div style="font-size:14px;font-weight:700;color:#f59e0b;margin-bottom:10px">Team Members</div>';
+
+  if (team.length===0) h += '<div style="color:#64748b;padding:12px">No team members yet.</div>';
+  team.forEach(t => {
+    const lastActive = t.last_active ? timeAgo(new Date(t.last_active)) : 'Never';
+    const dot = t.doors_today>0 ? '#10b981' : '#475569';
+    const mgrBadge = t.role==='manager' ? '<span style="background:#6d28d9;color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700">MANAGER</span>' : '';
+    const inactiveBadge = !t.active ? '<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;padding:2px 6px;border-radius:4px">INACTIVE</span>' : '';
+    const toggleLabel = t.active ? 'Disable' : 'Enable';
+    const toggleBg = t.active ? '#1f2d45' : '#10b981';
+    const toggleCol = t.active ? '#cbd5e1' : '#000';
+    h += '<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:12px;padding:14px;margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      + '<div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:'+dot+'"></span>'
+      + '<span style="font-weight:700;color:#f1f5f9;font-size:15px">'+(t.full_name||'Unnamed')+'</span>'+mgrBadge+inactiveBadge+'</div>'
+      + '<button data-id="'+t.canvasser_id+'" data-act="'+(t.active?'0':'1')+'" onclick="mgrToggle(this)" style="background:'+toggleBg+';border:none;border-radius:8px;padding:6px 12px;color:'+toggleCol+';font-size:11px;font-weight:700;cursor:pointer">'+toggleLabel+'</button>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;text-align:center">'
+      + mgrMini('Today', t.deals_today||0) + mgrMini('Week', t.deals_week||0)
+      + mgrMini('Total', t.total_deals||0) + mgrMini('Doors', t.doors_today||0)
+      + '</div>'
+      + '<div style="color:#475569;font-size:11px;margin-top:8px">Last active: '+lastActive+'</div>'
+      + '<button data-id="'+t.canvasser_id+'" data-name="'+(t.full_name||'').replace(/"/g,'')+'" onclick="mgrViewDeals(this)" style="width:100%;background:#1f2d45;border:none;border-radius:8px;padding:9px;color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;margin-top:10px">View their deals →</button>'
+      + '</div>';
+  });
+  h += '</div>';
+  body.innerHTML = h;
+}
+
+function mgrStat(label, val, col) {
+  return '<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:14px;padding:16px"><div style="font-size:30px;font-weight:800;color:'+col+'">'+val+'</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">'+label+'</div></div>';
+}
+function mgrMini(label, n) {
+  return '<div><div style="font-size:20px;font-weight:800;color:#f1f5f9">'+n+'</div><div style="font-size:9px;color:#64748b">'+label+'</div></div>';
+}
+function timeAgo(d) {
+  const diff = Date.now()-d.getTime();
+  const h = Math.floor(diff/3600000);
+  if (h<1) return Math.floor(diff/60000)+'m ago';
+  if (h<24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+async function mgrToggle(btn) {
+  const id = btn.getAttribute('data-id');
+  const makeActive = btn.getAttribute('data-act')==='1';
+  if (!confirm((makeActive?'Enable':'Disable')+' this canvasser?')) return;
+  try { await sb.from('profiles').update({ active: makeActive }).eq('id', id); toast('Updated'); renderManager(); }
+  catch(e){ toast('Failed: '+e.message); }
+}
+async function mgrViewDeals(btn) {
+  const id = btn.getAttribute('data-id');
+  const name = btn.getAttribute('data-name')||'Canvasser';
+  try {
+    const { data } = await sb.from('signups').select('*').eq('canvasser_id', id).order('signed_at',{ascending:false});
+    const deals = data||[];
+    let h='<div style="font-size:15px;font-weight:800;color:#f59e0b;margin-bottom:12px">'+name+' — '+deals.length+' deals</div>';
+    if(deals.length===0) h+='<div style="color:#64748b">No deals yet.</div>';
+    deals.forEach(d=>{
+      const dt=new Date(d.signed_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+      const tm=new Date(d.signed_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      h+='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:10px;padding:12px;margin-bottom:8px"><div style="font-weight:700;color:#f1f5f9;font-size:14px">'+(d.address||d.postcode_norm)+'</div><div style="font-size:12px;color:#94a3b8;margin-top:4px">'+dt+' at '+tm+(d.customer_name?' · 👤 '+d.customer_name:'')+'</div></div>';
+    });
+    document.getElementById('mgr-body').innerHTML = '<button onclick="renderManager()" style="background:#1f2d45;border:none;border-radius:8px;padding:9px 16px;color:#cbd5e1;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px">‹ Back to team</button>'+h;
+  } catch(e){ toast('Failed: '+e.message); }
+}
+</script></body></html>
