@@ -2440,12 +2440,9 @@ async function renderDeals() {
   // Calendar
   html += renderDealCalendar();
 
-  // Selected day deals list
-  html += '<div id="deal-day-list" style="margin-top:16px"></div>';
+
   html += '</div>';
   document.getElementById('deals-body').innerHTML = html;
-  // Default show today's deals
-  showDealsForDay(new Date(startOfDay));
 }
 
 function dealStat(label, n, col) {
@@ -2491,8 +2488,8 @@ function showDealsForDay(date) {
   const end=start+86400000;
   const dayDeals=dealsCache.filter(d=>{const t=new Date(d.signed_at).getTime();return t>=start&&t<end;});
   const dateStr=date.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-  let h='<div style="font-size:14px;font-weight:700;color:#f59e0b;margin-bottom:10px">'+dateStr+' — '+dayDeals.length+' sign-up'+(dayDeals.length!==1?'s':'')+'</div>';
-  if(dayDeals.length===0){ h+='<div style="color:#64748b;font-size:13px;padding:12px;text-align:center">No sign-ups this day</div>'; }
+  let h='';
+  if(dayDeals.length===0){ h+='<div style="color:#64748b;font-size:14px;padding:24px;text-align:center">No sign-ups recorded this day</div>'; }
   else {
     dayDeals.forEach(d=>{
       const time=new Date(d.signed_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
@@ -2500,25 +2497,24 @@ function showDealsForDay(date) {
       const epcColors={'D':'#d97706','E':'#ea580c','F':'#dc2626','G':'#7f1d1d','No EPC':'#6d28d9'};
       const epcBadge=epc?'<span style="background:'+(epcColors[epc]||'#334155')+';color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:5px">'+epc+'</span>':'';
       h+='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:12px;padding:14px;margin-bottom:10px">';
-      // Header: address + EPC
       h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
       h+='<div style="font-weight:700;color:#f1f5f9;font-size:15px;flex:1">'+(d.address||d.postcode_norm||'Property')+'</div>'+epcBadge+'</div>';
-      // Meta row: type, tenure
       h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#94a3b8">';
       if(d.property_type) h+='<span>🏠 '+d.property_type+'</span>';
       if(d.tenure) h+='<span>'+d.tenure+'</span>';
-      h+='<span style="color:#10b981">✓ '+time+'</span>';
-      h+='</div>';
-      // Customer name
+      h+='<span style="color:#10b981">✓ '+time+'</span></div>';
       if(d.customer_name) h+='<div style="margin-top:8px;padding:8px 10px;background:#064e3b;border-radius:8px;color:#6ee7b7;font-size:13px;font-weight:600">👤 '+d.customer_name+'</div>';
-      // Canvasser (shown to manager / useful context)
       h+='<div style="color:#475569;font-size:11px;margin-top:6px">Signed by '+(d.canvasser_name||'—')+'</div>';
       h+='</div>';
     });
   }
-  const el=document.getElementById('deal-day-list');
-  if(el) el.innerHTML=h;
+  // Populate and OPEN the modal
+  document.getElementById('daymodal-title').textContent = dateStr;
+  document.getElementById('daymodal-sub').textContent = dayDeals.length+' sign-up'+(dayDeals.length!==1?'s':'');
+  document.getElementById('daymodal-body').innerHTML = h;
+  document.getElementById('daymodal-overlay').style.display='flex';
 }
+function closeDayModal(){ document.getElementById('daymodal-overlay').style.display='none'; }
 </script>
 <script>
 // ── MANAGER DASHBOARD (managers only) ─────────────────────────────────────────
@@ -2617,4 +2613,31 @@ async function mgrViewDeals(btn) {
     document.getElementById('mgr-body').innerHTML = '<button onclick="renderManager()" style="background:#1f2d45;border:none;border-radius:8px;padding:9px 16px;color:#cbd5e1;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px">‹ Back to team</button>'+h;
   } catch(e){ toast('Failed: '+e.message); }
 }
-</script></body></html>
+</script><script>
+// Ensure popups escape any backdrop-filter/transform ancestor by moving them to <body>
+(function(){
+  function relocatePopups(){
+    ['qn-overlay','deal-overlay','daymodal-overlay'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el && el.parentNode!==document.body){ document.body.appendChild(el); }
+    });
+  }
+  if(document.readyState!=='loading') relocatePopups();
+  else document.addEventListener('DOMContentLoaded', relocatePopups);
+})();
+</script>
+
+<!-- DEALS DAY MODAL -->
+<div id="daymodal-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:16px">
+  <div style="background:#0a0e1a;border:1px solid #1f2d45;border-radius:18px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:18px 20px;border-bottom:1px solid #1f2d45;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div id="daymodal-title" style="font-size:18px;font-weight:800;color:#f59e0b">Day</div>
+        <div id="daymodal-sub" style="font-size:13px;color:#64748b;margin-top:2px">0 sign-ups</div>
+      </div>
+      <div onclick="closeDayModal()" style="font-size:26px;color:#64748b;cursor:pointer;line-height:1;padding:0 4px">×</div>
+    </div>
+    <div id="daymodal-body" style="padding:18px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+  </div>
+</div>
+</body></html>
