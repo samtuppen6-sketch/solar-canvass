@@ -7,7 +7,7 @@ h2{color:#f59e0b;font-size:18px}
 p{color:#64748b;font-size:13px;line-height:1.6}
 button{background:#f59e0b;border:none;border-radius:10px;padding:14px 20px;font-size:14px;font-weight:700;color:#000;cursor:pointer;width:100%;margin:8px 0}
 button:disabled{opacity:.5}
-.log{background:#111827;border:1px solid #1f2d45;border-radius:10px;padding:12px;margin-top:12px;font-family:monospace;font-size:11px;max-height:50vh;overflow-y:auto;white-space:pre-wrap;line-height:1.5}
+.log{background:#111827;border:1px solid #1f2d45;border-radius:10px;padding:12px;margin-top:12px;font-family:monospace;font-size:11px;max-height:50vh;overflow-y:auto;white-space:pre-wrap;line-height:1.5;word-break:break-all}
 .ok{color:#10b981}.err{color:#ef4444}.warn{color:#f59e0b}.dim{color:#64748b}
 .bar{height:8px;background:#1f2d45;border-radius:4px;overflow:hidden;margin:10px 0}
 .fill{height:100%;background:#10b981;width:0%;transition:width .3s}
@@ -15,56 +15,82 @@ button:disabled{opacity:.5}
 .stat b{color:#10b981}
 </style></head>
 <body>
-<h2>☀ Solpath — Land Registry Data Loader</h2>
-<p>This loads private-sale property data from HM Land Registry for all 645 postcode districts across your 8 regions. It runs district by district. Leave this page open until it completes — about 10–20 minutes.</p>
+<h2>☀ Solpath — Land Registry Loader</h2>
+<p>Loads private-sale property data from HM Land Registry across all 645 districts. Takes 10–20 min. Keep this page open. If it stops, tap Resume.</p>
 
-<div class="stat"><span>Progress</span><span id="prog">0 / 645 districts</span></div>
+<div class="stat"><span>Progress</span><span id="prog">— / — districts</span></div>
 <div class="bar"><div class="fill" id="fill"></div></div>
-<div class="stat"><span>Total properties loaded</span><b id="total">0</b></div>
+<div class="stat"><span>Properties loaded</span><b id="total">0</b></div>
 
-<button id="start" onclick="run()">▶ Start Loading</button>
-<button id="resume" onclick="run(true)" style="background:#334155;color:#f1f5f9">↻ Resume from where it stopped</button>
+<button id="start" onclick="run(false)">▶ Start Loading</button>
+<button id="resume" onclick="run(true)" style="background:#334155;color:#f1f5f9">↻ Resume</button>
+<button onclick="testOne()" style="background:#1f2d45;color:#f1f5f9">🧪 Test one district (PO1)</button>
 
-<div class="log" id="log">Ready.</div>
+<div class="log" id="log">Tap a button to begin.</div>
 
 <script>
 const PROXY = "https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/lr-loader";
 const ELIGIBLE = "https://samtuppen6-sketch.github.io/solar-canvass/eligible_districts.json";
 let districts = [];
-let totalLoaded = 0;
-let doneCount = 0;
+let totalLoaded = 0, doneCount = 0;
 
 function log(msg, cls) {
   const el = document.getElementById('log');
-  const line = cls ? `<span class="${cls}">${msg}</span>` : msg;
+  const line = cls ? '<span class="'+cls+'">'+msg+'</span>' : msg;
   el.innerHTML = line + "\n" + el.innerHTML;
 }
 
+window.onerror = function(m,s,l,c,e){ log('JS ERROR: '+m+' @'+l+':'+c, 'err'); };
+
 async function loadDistricts() {
-  const r = await fetch(ELIGIBLE);
-  const data = await r.json();
-  districts = Object.keys(data).sort();
-  log(`Loaded ${districts.length} districts to process`, 'dim');
+  if (districts.length) return true;
+  log('Fetching district list…', 'dim');
+  try {
+    const r = await fetch(ELIGIBLE);
+    if (!r.ok) { log('Failed to load districts: HTTP '+r.status, 'err'); return false; }
+    const data = await r.json();
+    districts = Object.keys(data).sort();
+    log('Loaded '+districts.length+' districts ✓', 'ok');
+    document.getElementById('prog').textContent = '0 / '+districts.length+' districts';
+    return true;
+  } catch(e) {
+    log('Failed to load districts: '+e.message, 'err');
+    return false;
+  }
 }
 
-function getProgress() {
-  return JSON.parse(localStorage.getItem('lr_progress') || '{"done":[],"total":0}');
+async function testOne() {
+  log('Testing PO1…', 'warn');
+  try {
+    const r = await fetch(PROXY + "?district=PO1");
+    log('HTTP status: '+r.status, 'dim');
+    const t = await r.text();
+    log('Response: '+t, r.ok?'ok':'err');
+  } catch(e) {
+    log('Fetch failed: '+e.message, 'err');
+  }
 }
-function saveProgress(p) {
-  localStorage.setItem('lr_progress', JSON.stringify(p));
-}
+
+function getProgress(){ return JSON.parse(localStorage.getItem('lr_progress')||'{"done":[],"total":0}'); }
+function saveProgress(p){ localStorage.setItem('lr_progress', JSON.stringify(p)); }
 
 async function run(resume) {
   document.getElementById('start').disabled = true;
   document.getElementById('resume').disabled = true;
-  if (!districts.length) await loadDistricts();
+  const ok = await loadDistricts();
+  if (!ok) {
+    log('Cannot start — district list did not load. Check connection and retry.', 'err');
+    document.getElementById('start').disabled = false;
+    document.getElementById('resume').disabled = false;
+    return;
+  }
 
   let progress = resume ? getProgress() : {done:[], total:0};
   if (!resume) saveProgress(progress);
   const doneSet = new Set(progress.done);
-  totalLoaded = progress.total;
-  doneCount = progress.done.length;
+  totalLoaded = progress.total; doneCount = progress.done.length;
   document.getElementById('total').textContent = totalLoaded.toLocaleString();
+  log('Starting load…', 'warn');
 
   for (const district of districts) {
     if (doneSet.has(district)) continue;
@@ -72,32 +98,26 @@ async function run(resume) {
       const r = await fetch(PROXY + "?district=" + encodeURIComponent(district));
       const d = await r.json();
       if (d.error) {
-        log(`✗ ${district}: ${d.error}`, 'err');
-        // don't mark done - can retry
+        log('✗ '+district+': '+d.error, 'err');
       } else {
-        totalLoaded += (d.inserted || 0);
-        doneCount++;
-        doneSet.add(district);
-        progress.done.push(district);
-        progress.total = totalLoaded;
+        totalLoaded += (d.inserted||0); doneCount++;
+        doneSet.add(district); progress.done.push(district); progress.total = totalLoaded;
         saveProgress(progress);
-        log(`✓ ${district}: ${d.inserted || 0} properties (${d.found || 0} sales found)`, 'ok');
+        log('✓ '+district+': '+(d.inserted||0)+' properties ('+(d.found||0)+' sales)', 'ok');
         document.getElementById('total').textContent = totalLoaded.toLocaleString();
       }
-    } catch(e) {
-      log(`✗ ${district}: ${e.message}`, 'err');
-    }
-    document.getElementById('prog').textContent = `${doneCount} / ${districts.length} districts`;
-    document.getElementById('fill').style.width = (doneCount/districts.length*100) + '%';
-    await new Promise(r => setTimeout(r, 300)); // be kind to the endpoint
+    } catch(e) { log('✗ '+district+': '+e.message, 'err'); }
+    document.getElementById('prog').textContent = doneCount+' / '+districts.length+' districts';
+    document.getElementById('fill').style.width = (doneCount/districts.length*100)+'%';
+    await new Promise(r=>setTimeout(r,300));
   }
-
-  log('━━━━━━━━━━━━━━━━━━━━', 'warn');
-  log(`DONE. ${totalLoaded.toLocaleString()} properties loaded across ${doneCount} districts.`, 'ok');
+  log('━━━━━━━━━━', 'warn');
+  log('DONE. '+totalLoaded.toLocaleString()+' properties across '+doneCount+' districts.', 'ok');
   document.getElementById('start').disabled = false;
   document.getElementById('resume').disabled = false;
 }
 
+// Pre-load district list on open
 loadDistricts();
 </script>
 </body></html>
