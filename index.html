@@ -963,7 +963,154 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .pd-hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .pd-hist-txt{flex:1}
 .pd-hist-time{font-size:10px;color:var(--s)}
-</style></head><body><div id="root">
+</style></head><body><!-- SUPABASE AUTH -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+#auth-screen{position:fixed;inset:0;z-index:10000;background:#0a0e1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+#auth-screen.hidden{display:none}
+.auth-card{width:100%;max-width:400px;background:#0f172a;border:1px solid #1f2d45;border-radius:18px;padding:28px}
+.auth-logo{font-size:40px;text-align:center;margin-bottom:4px}
+.auth-h1{font-size:24px;font-weight:800;color:#f59e0b;text-align:center;margin-bottom:4px}
+.auth-sub{font-size:13px;color:#64748b;text-align:center;margin-bottom:22px}
+.auth-field{margin-bottom:14px}
+.auth-field label{display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600}
+.auth-field input{width:100%;background:#111827;border:1px solid #334155;border-radius:10px;padding:13px;color:#f1f5f9;font-size:15px;box-sizing:border-box}
+.auth-field input:focus{outline:none;border-color:#f59e0b}
+.auth-btn{width:100%;background:#f59e0b;border:none;border-radius:10px;padding:15px;color:#000;font-size:16px;font-weight:800;cursor:pointer;margin-top:6px}
+.auth-btn:disabled{opacity:.5}
+.auth-toggle{text-align:center;margin-top:16px;font-size:13px;color:#94a3b8}
+.auth-toggle span{color:#f59e0b;cursor:pointer;font-weight:700}
+.auth-err{background:#7f1d1d33;border:1px solid #7f1d1d;color:#fca5a5;padding:10px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
+.auth-err.show{display:block}
+.auth-name-field{display:none}
+.auth-name-field.show{display:block}
+</style>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">☀️</div>
+    <div class="auth-h1">Solpath</div>
+    <div class="auth-sub" id="auth-mode-sub">Sign in to start canvassing</div>
+    <div class="auth-err" id="auth-err"></div>
+    <div class="auth-field auth-name-field" id="auth-name-wrap">
+      <label>Your Full Name</label>
+      <input type="text" id="auth-name" placeholder="e.g. John Smith" autocomplete="name">
+    </div>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="auth-btn" id="auth-submit" onclick="doAuth()">Sign In</button>
+    <div class="auth-toggle" id="auth-toggle">
+      New canvasser? <span onclick="toggleAuthMode()">Create an account</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://xdoqclrwdduncjaxtixp.supabase.co';
+const SB_KEY = 'sb_publishable_XWKfHKR1EdB_P2w1siERDg_37RWY3Nu';
+let sb = null, authMode = 'signin', currentUser = null, currentProfile = null;
+
+function initSupabase() {
+  if (window.supabase && !sb) {
+    sb = window.supabase.createClient(SB_URL, SB_KEY);
+  }
+  return sb;
+}
+
+function authErr(msg) {
+  const e = document.getElementById('auth-err');
+  e.textContent = msg; e.classList.add('show');
+}
+function clearAuthErr(){ document.getElementById('auth-err').classList.remove('show'); }
+
+function toggleAuthMode() {
+  authMode = authMode==='signin' ? 'signup' : 'signin';
+  clearAuthErr();
+  document.getElementById('auth-name-wrap').classList.toggle('show', authMode==='signup');
+  document.getElementById('auth-submit').textContent = authMode==='signup' ? 'Create Account' : 'Sign In';
+  document.getElementById('auth-mode-sub').textContent = authMode==='signup' ? 'Create your canvasser account' : 'Sign in to start canvassing';
+  document.getElementById('auth-toggle').innerHTML = authMode==='signup'
+    ? 'Already have an account? <span onclick="toggleAuthMode()">Sign in</span>'
+    : 'New canvasser? <span onclick="toggleAuthMode()">Create an account</span>';
+}
+
+async function doAuth() {
+  clearAuthErr();
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-pass').value;
+  const btn = document.getElementById('auth-submit');
+  if (!email || !pass) { authErr('Enter your email and password'); return; }
+  if (!initSupabase()) { authErr('Connection error — please refresh'); return; }
+  btn.disabled = true; btn.textContent = 'Please wait…';
+
+  try {
+    if (authMode==='signup') {
+      const name = document.getElementById('auth-name').value.trim();
+      if (!name) { authErr('Please enter your name'); btn.disabled=false; btn.textContent='Create Account'; return; }
+      const { data, error } = await sb.auth.signUp({
+        email, password: pass,
+        options: { data: { full_name: name } }
+      });
+      if (error) throw error;
+      if (data.user && !data.session) {
+        authErr('Account created. Check your email to confirm, then sign in.');
+        toggleAuthMode();
+        btn.disabled=false; btn.textContent='Sign In'; return;
+      }
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+    }
+    await onAuthed();
+  } catch(e) {
+    authErr(e.message || 'Authentication failed');
+    btn.disabled=false;
+    btn.textContent = authMode==='signup' ? 'Create Account' : 'Sign In';
+  }
+}
+
+async function onAuthed() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  currentUser = user;
+  // Fetch profile
+  const { data: prof } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  currentProfile = prof;
+  if (prof && prof.active === false) {
+    authErr('Your account is inactive. Contact your manager.');
+    await sb.auth.signOut();
+    document.getElementById('auth-submit').disabled=false;
+    document.getElementById('auth-submit').textContent='Sign In';
+    return;
+  }
+  // Hide auth, show app
+  document.getElementById('auth-screen').classList.add('hidden');
+  // Load door records from cloud for any postcodes already cached
+  if (typeof syncDoorsFromCloud === 'function') syncDoorsFromCloud();
+}
+
+async function doLogout() {
+  if (sb) await sb.auth.signOut();
+  location.reload();
+}
+
+// On load: check for existing session
+window.addEventListener('load', async () => {
+  // wait for supabase lib
+  let tries=0;
+  while(!window.supabase && tries<50){ await new Promise(r=>setTimeout(r,100)); tries++; }
+  if (!initSupabase()) return;
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) { await onAuthed(); }
+});
+</script>
+<div id="root">
 <div id="landing">
   <div class="land-hd">
     <div class="land-logo">☀️</div>
@@ -1596,6 +1743,8 @@ async function loadPC(pc) {
   document.getElementById('lpc').textContent = pc;
   showTab('list');
   const nc = norm(pc);
+  // Pull shared cloud door history for this postcode (permanent records)
+  await loadDoorHistoryForPostcode(nc);
   if (propC[nc]) { allProps=propC[nc]; renderList(); return; }
   document.getElementById('pl').innerHTML = '<div class="lr"><div class="spin"></div>Loading '+pc+'…</div>';
   document.getElementById('lcnt').textContent = 'Loading…';
@@ -1790,6 +1939,7 @@ function setD(uid, st, addr) {
   doors[uid] = st;                       // current/most-recent status
   localStorage.setItem('dr', JSON.stringify(doors));
   addHistory(uid, st);                   // timestamped visit log - EVERY tap
+  saveDoorToCloud(uid, st, null, addr);  // permanent cloud record
   renderList();
   renderCallbacks();
   toast(SC[st].label+' logged'+(wasSame?' again':''));
@@ -1831,6 +1981,8 @@ function saveQuickNote() {
   const notes = JSON.parse(localStorage.getItem('notes') || '{}');
   if (val) notes[qnUID] = val; else delete notes[qnUID];
   localStorage.setItem('notes', JSON.stringify(notes));
+  // Save note to cloud as a record update (attached to current status)
+  if (val) { const st = doors[qnUID]||'callback'; saveDoorToCloud(qnUID, st, val, ''); }
   closeQuickNote();
   renderList(); renderCallbacks();
   toast(val ? 'Note saved ✓' : 'Note cleared');
@@ -2077,4 +2229,69 @@ if('serviceWorker' in navigator){
 #qn-overlay{animation:qnfade .15s ease}
 @keyframes qnfade{from{opacity:0}to{opacity:1}}
 </style>
+<script>
+// ── CLOUD DOOR SYNC ───────────────────────────────────────────────────────────
+// Every door action writes to Supabase (permanent, shared). localStorage stays as
+// an instant cache. On opening a postcode we pull that postcode's full history.
+
+async function saveDoorToCloud(uid, status, note, addr) {
+  if (!sb || !currentUser) return;
+  const parts = uid.split('|');
+  const pcNorm = parts[0] || '';
+  try {
+    await sb.from('door_records').insert({
+      property_key: uid,
+      postcode_norm: pcNorm,
+      address: addr || '',
+      status: status,
+      note: note || null,
+      canvasser_id: currentUser.id,
+      canvasser_name: (currentProfile && currentProfile.full_name) || ''
+    });
+  } catch(e) { /* offline - localStorage still holds it */ }
+}
+
+// Pull all door records for a postcode and merge into local view
+async function loadDoorHistoryForPostcode(pcNorm) {
+  if (!sb || !currentUser) return {};
+  try {
+    const { data, error } = await sb.from('door_records')
+      .select('property_key,status,note,canvasser_name,created_at')
+      .eq('postcode_norm', pcNorm)
+      .order('created_at', { ascending: true });
+    if (error || !data) return {};
+    // Build per-property history + latest status
+    const byProp = {};
+    for (const r of data) {
+      if (!byProp[r.property_key]) byProp[r.property_key] = [];
+      byProp[r.property_key].push(r);
+    }
+    // Update local doors + hist caches so the UI shows cloud truth
+    const histStore = JSON.parse(localStorage.getItem('hist')||'{}');
+    const notesStore = JSON.parse(localStorage.getItem('notes')||'{}');
+    for (const pk in byProp) {
+      const recs = byProp[pk];
+      const latest = recs[recs.length-1];
+      doors[pk] = latest.status;
+      histStore[pk] = recs.map(r => ({ status:r.status, ts:new Date(r.created_at).getTime(), who:r.canvasser_name }));
+      // Most recent non-empty note
+      const noted = recs.filter(r=>r.note).pop();
+      if (noted) notesStore[pk] = noted.note;
+    }
+    localStorage.setItem('dr', JSON.stringify(doors));
+    localStorage.setItem('hist', JSON.stringify(histStore));
+    localStorage.setItem('notes', JSON.stringify(notesStore));
+    return byProp;
+  } catch(e) { return {}; }
+}
+
+// Called after login - refresh currently visible postcode
+async function syncDoorsFromCloud() {
+  if (typeof curPC !== 'undefined' && curPC) {
+    await loadDoorHistoryForPostcode(norm(curPC));
+    if (typeof renderList==='function') renderList();
+    if (typeof renderCallbacks==='function') renderCallbacks();
+  }
+}
+</script>
 </body></html>
