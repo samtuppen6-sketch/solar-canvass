@@ -200,33 +200,35 @@ button{font-family:inherit;cursor:pointer}
 .tstrip .tl{font-size:.72rem;color:var(--slate-2);font-weight:600;letter-spacing:.04em;white-space:nowrap}
 .tstrip .ti{font-size:.82rem;font-weight:600;color:var(--slate);font-family:'DM Sans',sans-serif;white-space:nowrap}
 .tstrip .sep{width:4px;height:4px;border-radius:50%;background:var(--border-2);flex-shrink:0}
-/* Coverage stats row */
-.cov-row{display:grid;grid-template-columns:repeat(3,auto) 1fr;align-items:center;justify-content:center;gap:0;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
-.cov-stat{display:flex;flex-direction:column;line-height:1.25;padding:0 22px;text-align:center}
-.cov-stat:first-child{padding-left:0}
-.cov-stat b{font-family:'DM Sans',sans-serif;font-size:1.02rem;font-weight:700;color:var(--ink);letter-spacing:-.02em}
-.cov-stat span{font-size:.72rem;color:var(--slate-2)}
-.cov-sep{width:1px;height:28px;background:var(--border);align-self:center}
-.cov-note{font-size:.74rem;color:var(--slate);line-height:1.5;padding-left:22px;border-left:1px solid var(--border);max-width:260px}
+/* Coverage stats row — desktop: flex, 3 stats centred, note below */
+.cov-row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+.cov-stat{display:flex;flex-direction:column;line-height:1.25;padding:0 36px;text-align:center;flex-shrink:0}
+.cov-stat b{font-family:'DM Sans',sans-serif;font-size:1.1rem;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+.cov-stat span{font-size:.73rem;color:var(--slate-2)}
+.cov-sep{width:1px;height:30px;background:var(--border);align-self:center;flex-shrink:0}
+/* hide the sep that sits between last stat and note so it doesn't orphan */
+.cov-row>div:nth-child(6){display:none}
+.cov-note{flex:0 0 100%;font-size:.74rem;color:var(--slate);line-height:1.5;padding-top:14px;margin-top:14px;border-top:1px solid var(--border);text-align:center}
 /* Tablet: stats in a row, note below */
 @media(min-width:768px) and (max-width:1023px){
-  .cov-row{grid-template-columns:repeat(3,1fr);grid-template-rows:auto auto}
+  .cov-row{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:auto auto}
   .cov-stat{border-right:1px solid var(--border);padding:0 20px;text-align:center}
   .cov-stat:last-of-type{border-right:none}
   .cov-sep{display:none}
-  .cov-note{grid-column:1/-1;padding-left:0;border-left:none;border-top:1px solid var(--border);padding-top:14px;text-align:center;max-width:100%}
+  .cov-row>div:nth-child(6){display:none}
+  .cov-note{grid-column:1/-1;flex:unset;padding-left:0;border-left:none;border-top:1px solid var(--border);padding-top:14px;margin-top:0;text-align:center;max-width:100%}
 }
-/* Mobile: clean 2-col grid for stats, note full width below */
+/* Mobile: 2-col grid, third stat centred, note full width */
 @media(max-width:767px){
   .tstrip-in{gap:5px 14px}
   .tstrip .sep{display:none}
   .tstrip .tl{width:100%;text-align:center;margin-bottom:2px}
-  .cov-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:16px;justify-items:center}
+  .cov-row{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:16px;justify-items:center}
   .cov-stat{padding:0;text-align:center}
-  .cov-stat:first-child{padding-left:0}
   .cov-stat:nth-child(5){grid-column:1/-1}
+  .cov-row>div:nth-child(6){display:none}
   .cov-sep{display:none}
-  .cov-note{grid-column:1/-1;padding-left:0;border-left:none;border-top:1px solid var(--border);padding-top:14px;text-align:center;max-width:100%}
+  .cov-note{grid-column:1/-1;flex:unset;padding-left:0;border-left:none;border-top:1px solid var(--border);padding-top:14px;margin-top:0;text-align:center;max-width:100%}
 }
 
 /* ── PAIN ─────────────────────────────────── */
