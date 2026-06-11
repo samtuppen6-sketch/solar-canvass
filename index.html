@@ -2159,40 +2159,70 @@ function pCard(i,p,nc) {
 
 // ── CALLBACKS TAB ─────────────────────────────────────────────────────────────
 function renderCallbacks() {
-  const list=document.getElementById('cb-list'), cnt=document.getElementById('cb-count');
-  const callbacks=[];
-  Object.entries(doors).forEach(([uid,st])=>{
-    if(st==='callback'){
-      const parts=uid.split('|');
-      const nc=parts[0], addrNorm=parts[1]||'';
-      const pc=nc.slice(0,-3)+' '+nc.slice(-3);
-      const props=propC[nc]||[];
-      const prop=props.find(p=>norm(p.addr||p.postcode||'')===addrNorm)||{addr:addrNorm,rating:'?',tt:'unknown',tl:'Unknown'};
-      callbacks.push({uid,nc,pc,prop});
+  const list = document.getElementById('cb-list'), cnt = document.getElementById('cb-count');
+  if (!list) return;
+  const callbacks = [];
+  Object.entries(doors).forEach(([uid, st]) => {
+    if (st === 'callback') {
+      const parts = uid.split('|');
+      const nc = parts[0], addrNorm = parts[1] || '';
+      const pc = nc.length >= 3 ? nc.slice(0, -3) + ' ' + nc.slice(-3) : nc;
+      const props = propC[nc] || [];
+      let prop = props.find(p => norm(p.addr || '') === addrNorm);
+      if (!prop) {
+        // Not in current cache - use stored callback metadata
+        const meta = getCbMeta(uid);
+        if (meta) prop = { addr: meta.addr, rating: meta.rating, epcPoints: meta.epcPoints, tl: meta.tl, propType: meta.propType, tt:'unknown' };
+        else prop = { addr: addrNorm.toUpperCase(), rating: '?', tt: 'unknown', tl: '' };
+      }
+      const note = getNotes(uid) || '';
+      callbacks.push({ uid, nc, pc, prop, note });
     }
   });
-  cnt.textContent=callbacks.length;
-  if(callbacks.length===0){
-    list.innerHTML='<div class="cb-empty"><div class="ei">📞</div><div class="eh">No callbacks</div><div class="ep">Properties marked for callback will appear here.</div></div>';
+  if (cnt) cnt.textContent = callbacks.length;
+  if (callbacks.length === 0) {
+    list.innerHTML = '<div class="cb-empty"><div class="ei">📞</div><div class="eh">No callbacks</div><div class="ep">Properties marked for callback will appear here.</div></div>';
     return;
   }
-  list.innerHTML=callbacks.map(({uid,pc,prop})=>{
-    const ec=prop.rating==='?'?'epc eQ':'epc e'+prop.rating;
-    return '<div class="pc2" style="margin:4px 12px"><div class="pc2-t"><div class="pc2-aw">'
-      +'<div class="pc2-n">'+pc
-    +'<div class="db2 '+(st==='notqualified'?'dNQ':'')+'" onclick="event.stopPropagation();setD(\\\''+esc(uid)+'\\\',\\\'notqualified\\\',\\\''+esc(p.addr||'')+'\\\')">🚫 Not Qualified</div>'
-    +'<div class="db2 '+(st==='notint'?'dX':'')+'" onclick="event.stopPropagation();setD(\\\''+esc(uid)+'\\\',\\\'notint\\\',\\\''+esc(p.addr||'')+'\\\')">❌ Not Interested</div>'
-    +'</div>'
-      +'<div class="pc2-a">'+prop.addr+'</div>'
-      +'</div><div class="'+ec+'">'+(prop.rating==='?'?'?':prop.rating)+'</div></div>'
-      +'<div class="drow">'
-      +'<div class="db2 dK" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'knocked\',\''+esc(p.addr||'')+'\')">🚪 Knocked</div>'
-      +'<div class="db2 dC" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
-      +'<div class="db2 dNQ" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notqualified\',\''+esc(p.addr||'')+'\')">🚫 Not Qualified</div>'
-      +'<div class="db2 dX" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notint\',\''+esc(p.addr||'')+'\')">❌ Not Interested</div>'
-      +'<div class="db2 dI" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
-      +'</div></div>';
+  list.innerHTML = callbacks.map(({ uid, pc, prop, note }) => {
+    const ec = prop.rating === '?' ? 'epc eQ' : (prop.rating === 'NE' ? 'epc eNE' : 'epc e' + prop.rating);
+    const ratingTxt = prop.rating === 'NE' ? 'No EPC' : (prop.rating === '?' ? '?' : prop.rating + (prop.epcPoints ? ' ' + prop.epcPoints : ''));
+    const pj = esc(JSON.stringify(prop));
+    let h = '<div class="pc2 cb-card" style="margin:8px 12px">';
+    // Header: tap to open the address card
+    h += '<div class="cb-head" onclick="openCallbackCard(\'' + esc(uid) + '\',\'' + pj + '\')" style="cursor:pointer">';
+    h += '<div class="pc2-t"><div class="pc2-aw">';
+    h += '<div class="pc2-n">' + pc + ' <span style="color:#a855f7;font-size:11px">📞 CALLBACK ›</span></div>';
+    h += '<div class="pc2-a">' + (prop.addr || '') + '</div>';
+    h += '</div><div class="' + ec + '">' + ratingTxt + '</div></div>';
+    h += '</div>';
+    // Note display
+    if (note) {
+      h += '<div class="cb-note" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:8px 10px;margin:8px 0;color:#c4b5fd;font-size:13px">📝 ' + note + '</div>';
+    }
+    // Outcome buttons - each resolves the callback and removes it from this list
+    h += '<div class="drow">';
+    h += '<div class="db2 dI" onclick="event.stopPropagation();resolveCallback(\'' + esc(uid) + '\',\'interested\',\'' + esc(prop.addr || '') + '\')">✅ Interested</div>';
+    h += '<div class="db2 dNQ" onclick="event.stopPropagation();resolveCallback(\'' + esc(uid) + '\',\'notqualified\',\'' + esc(prop.addr || '') + '\')">🚫 Not Qualified</div>';
+    h += '<div class="db2 dX" onclick="event.stopPropagation();resolveCallback(\'' + esc(uid) + '\',\'notint\',\'' + esc(prop.addr || '') + '\')">❌ Not Interested</div>';
+    h += '</div>';
+    // Sign Up button (full deal)
+    h += '<div class="db2 dSignup" style="margin-top:6px;border-color:#3b82f6;color:#3b82f6" onclick="event.stopPropagation();openJF(\'' + esc(uid) + '\',\'' + pj + '\')">✍️ Sign Up</div>';
+    h += '</div>';
+    return h;
   }).join('');
+}
+
+// Open the address card from a callback
+function openCallbackCard(uid, propJson) {
+  try { openPropDetail(uid, propJson); } catch(e) {}
+}
+
+// Resolve a callback: set the new outcome, which removes it from the callback list
+function resolveCallback(uid, outcome, addr) {
+  setD(uid, outcome, addr);   // logs the outcome + saves to cloud
+  renderCallbacks();          // refresh list - this callback is now gone
+  try { toast('Callback resolved: ' + (SC[outcome] ? SC[outcome].label : outcome)); } catch(e) {}
 }
 
 // ── DOOR STATUS ───────────────────────────────────────────────────────────────
@@ -2204,6 +2234,18 @@ function setD(uid, st, addr) {
   try { localStorage.setItem('dr', JSON.stringify(doors)); } catch(e){}
   try { addHistory(uid, st); } catch(e){}
   try { saveDoorToCloud(uid, st, null, addr); } catch(e){}
+  // Callback metadata: save a property snapshot when marking callback, clear it otherwise
+  try {
+    if (st==='callback') {
+      const nc=(uid.split('|'))[0], an=(uid.split('|'))[1]||'';
+      let prop=(propC[nc]||[]).find(p=>norm(p.addr||'')===an);
+      if(!prop && curPropData && curPropUID===uid) prop=curPropData;
+      if(!prop) prop={addr:addr||an.toUpperCase(),rating:'?'};
+      saveCbMeta(uid, prop);
+    } else {
+      delCbMeta(uid);  // resolved or changed - remove from callback metadata
+    }
+  } catch(e){}
   // Show note popup FIRST before any re-render
   if (st==='callback'||st==='interested'||st==='qualified') {
     setTimeout(function(){ openQuickNote(uid, st, addr||''); }, 50);
@@ -2477,6 +2519,21 @@ function addHistory(uid, status) {
   // Keep last 10 entries per property
   if (hist[uid].length > 10) hist[uid] = hist[uid].slice(-10);
   localStorage.setItem('hist', JSON.stringify(hist));
+}
+
+// Store a property snapshot for callbacks so they survive refresh / different postcodes
+function saveCbMeta(uid, prop) {
+  try {
+    const m = JSON.parse(localStorage.getItem('cbMeta') || '{}');
+    m[uid] = { addr: prop.addr||'', rating: prop.rating||'?', epcPoints: prop.epcPoints||'', tl: prop.tl||'', propType: prop.propType||'' };
+    localStorage.setItem('cbMeta', JSON.stringify(m));
+  } catch(e){}
+}
+function getCbMeta(uid) {
+  try { return (JSON.parse(localStorage.getItem('cbMeta')||'{}'))[uid] || null; } catch(e){ return null; }
+}
+function delCbMeta(uid) {
+  try { const m=JSON.parse(localStorage.getItem('cbMeta')||'{}'); delete m[uid]; localStorage.setItem('cbMeta', JSON.stringify(m)); } catch(e){}
 }
 
 function getHistory(uid) {
