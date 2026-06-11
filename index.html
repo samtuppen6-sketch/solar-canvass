@@ -2208,7 +2208,17 @@ function closeQuickNote() {
 }
 
 // openJF is defined in the deals module (captures the deal first)
-function clearDoors(){ if(!confirm('Clear all records?'))return; doors={}; localStorage.removeItem('dr'); renderList(); renderCallbacks(); toast('Cleared'); }
+function clearDoors(){
+  if(!confirm('Clear ALL door records, visit history and notes on this device? This cannot be undone.'))return;
+  doors={};
+  localStorage.removeItem('dr');
+  localStorage.removeItem('hist');
+  localStorage.removeItem('notes');
+  try{ renderList(); }catch(e){}
+  try{ renderCallbacks(); }catch(e){}
+  try{ if(map && map.getZoom()>=12) loadVis(); }catch(e){}
+  toast('All local records cleared');
+}
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function showTab(t) {
