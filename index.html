@@ -1971,13 +1971,14 @@ function sortStreetOrder(arr) {
   // "17 WOOFFERTON ROAD, PAULSGROVE, PORTSMOUTH" (EPC, with commas).
   const parse = a => {
     let raw = (a.addr || '').trim();
-    // Strip leading house number + optional letter from the very start
-    let nm = raw.match(/^(\d+)\s*([a-z])?\b/i);
-    let num = nm ? parseInt(nm[1]) : 99999;
+    // Match leading digits + optional attached letter (e.g. "12A"). No \\b — it broke matching.
+    let nm = raw.match(/^(\d+)([a-z])?/i);
+    let num = nm ? parseInt(nm[1], 10) : 99999;
     let suffix = nm && nm[2] ? nm[2].toLowerCase() : '';
-    // Street name = everything after the house number, up to the first comma,
-    // lowercased and stripped of extra spaces — so both formats normalise the same.
-    let rest = raw.replace(/^\d+\s*[a-z]?\s*/i, '');  // drop the number
+    // Remove the matched number+letter, then any leading space/comma separators
+    let rest = nm ? raw.slice(nm[0].length) : raw;
+    rest = rest.replace(/^[\s,]+/, '');
+    // Street name up to first comma, normalised so both address formats match
     let street = rest.split(',')[0].trim().toLowerCase().replace(/\s+/g, ' ');
     return { num, suffix, street };
   };
