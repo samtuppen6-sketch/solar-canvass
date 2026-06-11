@@ -1065,89 +1065,91 @@ let sb = null, authMode = 'signin', currentUser = null, currentProfile = null;
 
 function initSupabase() {
   if (window.supabase && !sb) {
-    sb = window.supabase.createClient(SB_URL, SB_KEY);
+    try { sb = window.supabase.createClient(SB_URL, SB_KEY); } catch(e){}
   }
   return sb;
 }
 
 function authErr(msg) {
-  const e = document.getElementById('auth-err');
-  e.textContent = msg; e.classList.add('show');
+  try {
+    const e = document.getElementById('auth-err');
+    if (e) { e.textContent = msg; e.classList.add('show'); }
+  } catch(e) { alert('Login error: ' + msg); }
 }
-function clearAuthErr(){ document.getElementById('auth-err').classList.remove('show'); }
+function clearAuthErr(){
+  try { const e = document.getElementById('auth-err'); if(e) e.classList.remove('show'); } catch(e){}
+}
 
 function toggleAuthMode() {
   authMode = authMode==='signin' ? 'signup' : 'signin';
   clearAuthErr();
-  document.getElementById('auth-name-wrap').classList.toggle('show', authMode==='signup');
-  document.getElementById('auth-submit').textContent = authMode==='signup' ? 'Create Account' : 'Sign In';
-  document.getElementById('auth-mode-sub').textContent = authMode==='signup' ? 'Create your canvasser account' : 'Sign in to start canvassing';
-  document.getElementById('auth-toggle').innerHTML = authMode==='signup'
-    ? 'Already have an account? <span onclick="toggleAuthMode()">Sign in</span>'
-    : 'New canvasser? <span onclick="toggleAuthMode()">Create an account</span>';
+  try {
+    document.getElementById('auth-name-wrap').classList.toggle('show', authMode==='signup');
+    document.getElementById('auth-submit').textContent = authMode==='signup' ? 'Create Account' : 'Sign In';
+    document.getElementById('auth-mode-sub').textContent = authMode==='signup' ? 'Create your canvasser account' : 'Sign in to start canvassing';
+    document.getElementById('auth-toggle').innerHTML = authMode==='signup'
+      ? 'Already have an account? <span onclick="toggleAuthMode()">Sign in</span>'
+      : 'New canvasser? <span onclick="toggleAuthMode()">Create an account</span>';
+  } catch(e){}
 }
 
 function togglePassVis() {
-  const inp = document.getElementById('auth-pass');
-  const btn = document.getElementById('pass-eye');
-  if (inp.type === 'password') {
-    inp.type = 'text';
-    btn.style.color = '#f59e0b';
-  } else {
-    inp.type = 'password';
-    btn.style.color = '#64748b';
-  }
+  try {
+    const inp = document.getElementById('auth-pass');
+    const btn = document.getElementById('pass-eye');
+    if (!inp) return;
+    inp.type = inp.type==='password' ? 'text' : 'password';
+    if (btn) btn.style.color = inp.type==='text' ? '#f59e0b' : '#64748b';
+  } catch(e){}
 }
 
 async function redeemToken() {
-  const token = (document.getElementById('auth-token').value||'').trim().toUpperCase();
-  const msg = document.getElementById('token-msg');
-  if (!token) { msg.textContent='Enter your token'; msg.style.color='#ef4444'; return; }
-  if (!sb) { msg.textContent='Connection error'; return; }
-  // Check token exists and is unused
-  const { data, error } = await sb.from('access_tokens')
-    .select('*').eq('token', token).single();
-  if (error || !data) { msg.textContent='Invalid token'; msg.style.color='#ef4444'; return; }
-  // Check not expired
-  if (data.expires_at && new Date(data.expires_at) < new Date()) {
-    msg.textContent='This token has expired'; msg.style.color='#ef4444'; return;
-  }
-  msg.textContent='✓ Valid token — now create your account below'; msg.style.color='#10b981';
-  // Store token to claim after signup
-  window._pendingToken = token;
-  // Auto-switch to signup mode
-  if (authMode!=='signup') toggleAuthMode();
+  try {
+    const tokenEl = document.getElementById('auth-token');
+    const msg = document.getElementById('token-msg');
+    const token = (tokenEl ? tokenEl.value : '').trim().toUpperCase();
+    if (!token) { if(msg){msg.textContent='Enter your token';msg.style.color='#ef4444';} return; }
+    if (!initSupabase()) { if(msg){msg.textContent='Connection error';msg.style.color='#ef4444';} return; }
+    const { data, error } = await sb.from('access_tokens').select('*').eq('token', token).single();
+    if (error || !data) { if(msg){msg.textContent='Invalid token';msg.style.color='#ef4444';} return; }
+    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+      if(msg){msg.textContent='Token expired';msg.style.color='#ef4444';} return;
+    }
+    if(msg){msg.textContent='✓ Valid — create your account below';msg.style.color='#10b981';}
+    window._pendingToken = token;
+    if (authMode!=='signup') toggleAuthMode();
+  } catch(e) { alert('Token error: '+e.message); }
 }
 
 async function claimToken(userId) {
-  if (!window._pendingToken) return;
-  await sb.from('access_tokens').update({ used_by: userId, used_at: new Date().toISOString() })
-    .eq('token', window._pendingToken).is('used_by', null);
-  window._pendingToken = null;
+  try {
+    if (!window._pendingToken || !sb) return;
+    await sb.from('access_tokens').update({ used_by: userId, used_at: new Date().toISOString() })
+      .eq('token', window._pendingToken);
+    window._pendingToken = null;
+  } catch(e){}
 }
 
 async function doAuth() {
   clearAuthErr();
-  const email = document.getElementById('auth-email').value.trim();
-  const pass = document.getElementById('auth-pass').value;
   const btn = document.getElementById('auth-submit');
-  if (!email || !pass) { authErr('Enter your email and password'); return; }
-  if (!initSupabase()) { authErr('Connection error — please refresh'); return; }
-  btn.disabled = true; btn.textContent = 'Please wait…';
-
   try {
+    const email = (document.getElementById('auth-email').value||'').trim();
+    const pass = document.getElementById('auth-pass').value||'';
+    if (!email || !pass) { authErr('Enter your email and password'); return; }
+    if (!initSupabase()) { authErr('Connection error — please refresh'); return; }
+    if (btn) { btn.disabled=true; btn.textContent='Please wait…'; }
     if (authMode==='signup') {
-      const name = document.getElementById('auth-name').value.trim();
-      if (!name) { authErr('Please enter your name'); btn.disabled=false; btn.textContent='Create Account'; return; }
-      const { data, error } = await sb.auth.signUp({
-        email, password: pass,
-        options: { data: { full_name: name } }
-      });
+      const nameEl = document.getElementById('auth-name');
+      const name = nameEl ? nameEl.value.trim() : '';
+      if (!name) { authErr('Please enter your name'); if(btn){btn.disabled=false;btn.textContent='Create Account';} return; }
+      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name } } });
       if (error) throw error;
       if (data.user && !data.session) {
-        authErr('Account created. Check your email to confirm, then sign in.');
+        authErr('Account created — check your email then sign in.');
         toggleAuthMode();
-        btn.disabled=false; btn.textContent='Sign In'; return;
+        if(btn){btn.disabled=false;btn.textContent='Sign In';}
+        return;
       }
     } else {
       const { error } = await sb.auth.signInWithPassword({ email, password: pass });
@@ -1155,47 +1157,46 @@ async function doAuth() {
     }
     await onAuthed();
   } catch(e) {
-    authErr(e.message || 'Authentication failed');
-    btn.disabled=false;
-    btn.textContent = authMode==='signup' ? 'Create Account' : 'Sign In';
+    authErr(e.message||'Authentication failed');
+    if(btn){btn.disabled=false;btn.textContent=authMode==='signup'?'Create Account':'Sign In';}
   }
 }
 
 async function onAuthed() {
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return;
-  currentUser = user;
-  // Fetch profile
-  const { data: prof } = await sb.from('profiles').select('*').eq('id', user.id).single();
-  currentProfile = prof;
-  if (prof && prof.active === false) {
-    authErr('Your account is inactive. Contact your manager.');
-    await sb.auth.signOut();
-    document.getElementById('auth-submit').disabled=false;
-    document.getElementById('auth-submit').textContent='Sign In';
-    return;
-  }
-  // Claim any pending access token
-  try { await claimToken(user.id); } catch(e){}
-  // Hide auth, show app
-  document.getElementById('auth-screen').classList.add('hidden');
-  if (typeof setupManagerAccess === 'function') setupManagerAccess();
-  if (typeof syncDoorsFromCloud === 'function') syncDoorsFromCloud();
+  try {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    currentUser = user;
+    const { data: prof } = await sb.from('profiles').select('*').eq('id', user.id).single();
+    currentProfile = prof;
+    if (prof && prof.active===false) {
+      authErr('Your account is inactive. Contact your manager.');
+      await sb.auth.signOut();
+      const btn = document.getElementById('auth-submit');
+      if(btn){btn.disabled=false;btn.textContent='Sign In';}
+      return;
+    }
+    try { await claimToken(user.id); } catch(e){}
+    const screen = document.getElementById('auth-screen');
+    if(screen) screen.classList.add('hidden');
+    if (typeof setupManagerAccess==='function') try{setupManagerAccess();}catch(e){}
+    if (typeof syncDoorsFromCloud==='function') try{syncDoorsFromCloud();}catch(e){}
+  } catch(e) { authErr('Login error: '+e.message); }
 }
 
 async function doLogout() {
-  if (sb) await sb.auth.signOut();
+  try { if (sb) await sb.auth.signOut(); } catch(e){}
   location.reload();
 }
 
-// On load: check for existing session
 window.addEventListener('load', async () => {
-  // wait for supabase lib
   let tries=0;
   while(!window.supabase && tries<50){ await new Promise(r=>setTimeout(r,100)); tries++; }
   if (!initSupabase()) return;
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) { await onAuthed(); }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await onAuthed();
+  } catch(e){}
 });
 </script>
 <div id="root">
