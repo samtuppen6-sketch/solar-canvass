@@ -1099,7 +1099,7 @@ function togglePassVis() {
   }
 }
 
-async async function redeemToken() {
+async function redeemToken() {
   const token = (document.getElementById('auth-token').value||'').trim().toUpperCase();
   const msg = document.getElementById('token-msg');
   if (!token) { msg.textContent='Enter your token'; msg.style.color='#ef4444'; return; }
