@@ -1915,13 +1915,13 @@ async function loadPC(pc) {
   // Merge in Land Registry private-sale houses that have NO EPC
   const lrHouses = await fetchLR(pc);
   // Build a set of normalised addresses already covered by EPC
-  const epcAddrs = new Set(parsed.map(p => normAddr(p.addr)));
+  const epcAddrs = new Set(parsed.map(p => dedupKey(p.addr)));
   const lrOnly = [];
   for (const h of lrHouses) {
     const addr = lrAddr(h);
     if (!addr || addr.length < 3) continue;
     if (/\bflat\b|\bapartment\b|\bapt\b/.test(addr.toLowerCase())) continue; // skip flats
-    if (epcAddrs.has(normAddr(addr))) continue; // already have an EPC for this house
+    if (epcAddrs.has(dedupKey(addr))) continue; // already have an EPC for this house
     const typeMap = {D:'Detached', S:'Semi-detached', T:'Terraced'};
     lrOnly.push({
       rating: 'NE',                         // No EPC
@@ -1963,6 +1963,19 @@ function lrAddr(h) {
 // Normalise an address for dedup matching
 function normAddr(a) {
   return (a||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,40);
+}
+
+// Dedup key = house number + first street segment only (ignores city/town),
+// so "1, HILSEA CRESCENT, PORTSMOUTH" (EPC) and "1 Hilsea Crescent" (LR) match.
+function dedupKey(a) {
+  let raw = (a||'').trim();
+  let nm = raw.match(/^(\d+)([a-z])?/i);
+  let num = nm ? nm[1] : '';
+  let suffix = nm && nm[2] ? nm[2].toLowerCase() : '';
+  let rest = nm ? raw.slice(nm[0].length) : raw;
+  rest = rest.replace(/^[\s,]+/, '');
+  let street = rest.split(',')[0].trim().toLowerCase().replace(/[^a-z]/g,'');
+  return num + suffix + '|' + street;
 }
 
 // Sort by leading house number so the street reads in door order
