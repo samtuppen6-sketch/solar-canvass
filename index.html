@@ -1196,6 +1196,11 @@ async function onAuthed() {
     if(screen) screen.classList.add('hidden');
     if (typeof setupManagerAccess==='function') try{setupManagerAccess();}catch(e){}
     if (typeof syncDoorsFromCloud==='function') try{syncDoorsFromCloud();}catch(e){}
+    try{ flushSaveQueue(); }catch(e){}
+    // Periodically retry any queued saves (every 30s)
+    if (!window._flushInterval) {
+      window._flushInterval = setInterval(function(){ try{ flushSaveQueue(); }catch(e){} }, 30000);
+    }
   } catch(e) { authErr('Login error: '+e.message); }
 }
 
@@ -2124,6 +2129,7 @@ function pCard(i,p,nc) {
     +'<div class="db2 '+(st==='knocked'?'dK':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'knocked\',\''+esc(p.addr||'')+'\')">🚪 Knocked</div>'
     +'<div class="db2 '+(st==='callback'?'dC':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
     +'<div class="db2 '+(st==='notqualified'?'dNQ':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notqualified\',\''+esc(p.addr||'')+'\')">🚫 Not Qualified</div>'
+    +'<div class="db2 '+(st==='notint'?'dX':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notint\',\''+esc(p.addr||'')+'\')">❌ Not Interested</div>'
     +'<div class="db2 '+(st==='interested'?'dI':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
     +jb+'</div></div>';
 }
@@ -2152,6 +2158,7 @@ function renderCallbacks() {
     return '<div class="pc2" style="margin:4px 12px"><div class="pc2-t"><div class="pc2-aw">'
       +'<div class="pc2-n">'+pc
     +'<div class="db2 '+(st==='notqualified'?'dNQ':'')+'" onclick="event.stopPropagation();setD(\\\''+esc(uid)+'\\\',\\\'notqualified\\\',\\\''+esc(p.addr||'')+'\\\')">🚫 Not Qualified</div>'
+    +'<div class="db2 '+(st==='notint'?'dX':'')+'" onclick="event.stopPropagation();setD(\\\''+esc(uid)+'\\\',\\\'notint\\\',\\\''+esc(p.addr||'')+'\\\')">❌ Not Interested</div>'
     +'</div>'
       +'<div class="pc2-a">'+prop.addr+'</div>'
       +'</div><div class="'+ec+'">'+(prop.rating==='?'?'?':prop.rating)+'</div></div>'
@@ -2159,6 +2166,7 @@ function renderCallbacks() {
       +'<div class="db2 dK" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'knocked\',\''+esc(p.addr||'')+'\')">🚪 Knocked</div>'
       +'<div class="db2 dC" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
       +'<div class="db2 dNQ" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notqualified\',\''+esc(p.addr||'')+'\')">🚫 Not Qualified</div>'
+      +'<div class="db2 dX" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notint\',\''+esc(p.addr||'')+'\')">❌ Not Interested</div>'
       +'<div class="db2 dI" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
       +'</div></div>';
   }).join('');
@@ -2500,20 +2508,73 @@ if('serviceWorker' in navigator){
 // an instant cache. On opening a postcode we pull that postcode's full history.
 
 async function saveDoorToCloud(uid, status, note, addr) {
-  if (!sb || !currentUser) return;
+  if (!sb) return;
+  // Make sure we have the live user id (session may have refreshed)
+  let userId = currentUser && currentUser.id;
+  let userName = (currentProfile && currentProfile.full_name) || '';
+  if (!userId) {
+    try {
+      const { data:{ user } } = await sb.auth.getUser();
+      if (user) { userId = user.id; currentUser = user; }
+    } catch(e){}
+  }
+  if (!userId) {
+    // Queue for retry when back online/authed
+    queueFailedSave({ uid, status, note, addr });
+    return;
+  }
   const parts = uid.split('|');
   const pcNorm = parts[0] || '';
   try {
-    await sb.from('door_records').insert({
+    const { error } = await sb.from('door_records').insert({
       property_key: uid,
       postcode_norm: pcNorm,
       address: addr || '',
       status: status,
       note: note || null,
-      canvasser_id: currentUser.id,
-      canvasser_name: (currentProfile && currentProfile.full_name) || ''
+      canvasser_id: userId,
+      canvasser_name: userName
     });
-  } catch(e) { /* offline - localStorage still holds it */ }
+    if (error) { queueFailedSave({ uid, status, note, addr }); }
+  } catch(e) {
+    queueFailedSave({ uid, status, note, addr });
+  }
+}
+
+// Retry queue for saves that failed (offline, session refresh, etc.)
+function queueFailedSave(rec) {
+  try {
+    const q = JSON.parse(localStorage.getItem('saveQueue')||'[]');
+    q.push({ ...rec, ts: Date.now() });
+    localStorage.setItem('saveQueue', JSON.stringify(q.slice(-200)));
+  } catch(e){}
+}
+
+async function flushSaveQueue() {
+  if (!sb || !currentUser) return;
+  let q;
+  try { q = JSON.parse(localStorage.getItem('saveQueue')||'[]'); } catch(e){ return; }
+  if (!q.length) return;
+  const remaining = [];
+  for (const rec of q) {
+    const parts = (rec.uid||'').split('|');
+    try {
+      const { error } = await sb.from('door_records').insert({
+        property_key: rec.uid,
+        postcode_norm: parts[0]||'',
+        address: rec.addr||'',
+        status: rec.status,
+        note: rec.note||null,
+        canvasser_id: currentUser.id,
+        canvasser_name: (currentProfile && currentProfile.full_name)||''
+      });
+      if (error) remaining.push(rec);
+    } catch(e) { remaining.push(rec); }
+  }
+  localStorage.setItem('saveQueue', JSON.stringify(remaining));
+  if (remaining.length < q.length) {
+    try { toast((q.length-remaining.length)+' offline records synced'); } catch(e){}
+  }
 }
 
 // Pull all door records for a postcode and merge into local view
