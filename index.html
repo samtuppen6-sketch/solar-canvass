@@ -2044,6 +2044,10 @@ function pCard(i,p,nc) {
     +badge
     +lastActionLine+noteLine
     +'<div class="drow">'
+    +'<div class="db2 '+(st==='knocked'?'dK':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'knocked\',\''+esc(p.addr||'')+'\')">🚪 Knocked</div>'
+    +'<div class="db2 '+(st==='callback'?'dC':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
+    +'<div class="db2 '+(st==='notqualified'?'dNQ':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notqualified\',\''+esc(p.addr||'')+'\')">🚫 Not Qualified</div>'
+    +'<div class="db2 '+(st==='interested'?'dI':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
     +jb+'</div></div>';
 }
 
