@@ -1985,12 +1985,19 @@ function normAddr(a) {
 // so "1, HILSEA CRESCENT, PORTSMOUTH" (EPC) and "1 Hilsea Crescent" (LR) match.
 function dedupKey(a) {
   let raw = (a||'').trim();
-  let nm = raw.match(/^(\d+)([a-z])?/i);
+  // Find the FIRST number in the address (handles "Flat 2, 26 High St" -> uses 26? no:
+  // we want the primary house number, which is the first standalone number token).
+  // Strip any leading "flat N"/"apartment N" prefix first so the house number is found.
+  raw = raw.replace(/^(flat|apartment|apt|unit)\s*\w*[,\s]+/i, '');
+  let nm = raw.match(/(\d+)\s*([a-z])?\b/i);
   let num = nm ? nm[1] : '';
   let suffix = nm && nm[2] ? nm[2].toLowerCase() : '';
-  let rest = nm ? raw.slice(nm[0].length) : raw;
-  rest = rest.replace(/^[\s,]+/, '');
-  let street = rest.split(',')[0].trim().toLowerCase().replace(/[^a-z]/g,'');
+  // Street name: take the text right after the matched number, up to first comma
+  let after = nm ? raw.slice(raw.indexOf(nm[0]) + nm[0].length) : raw;
+  after = after.replace(/^[\s,]+/, '');
+  let street = after.split(',')[0].trim().toLowerCase().replace(/[^a-z]/g,'');
+  // Fallback: if street came out empty, use whole remainder
+  if (!street) street = raw.toLowerCase().replace(/[^a-z]/g,'').slice(0,20);
   return num + suffix + '|' + street;
 }
 
@@ -2043,7 +2050,22 @@ function renderList() {
   }
   const nc=norm(curPC);
   const df=['knocked','noanswer','callback','interested','notint','qualified'];
-  let props=[...allProps];
+  // FINAL dedup gate: collapse same-house EPC/No-EPC duplicates, EPC always wins.
+  // Runs here so even cached lists are cleaned before display.
+  let props=[];
+  (function(){
+    const seen={};
+    for (const p of allProps) {
+      const k=dedupKey(p.addr);
+      if (seen[k]!==undefined) {
+        const ex=props[seen[k]];
+        if (ex && ex.rating==='NE' && p.rating!=='NE') props[seen[k]]=p; // swap in the EPC version
+        continue;
+      }
+      seen[k]=props.length;
+      props.push(p);
+    }
+  })();
   if (curChip==='?') props=props.filter(p=>p.rating==='?'||p.rating==='NE');
   else if ('DEFG'.includes(curChip)&&curChip.length===1) props=props.filter(p=>p.rating===curChip);
   else if (df.includes(curChip)) props=props.filter(p=>doors[dk(nc,p)]===curChip);
