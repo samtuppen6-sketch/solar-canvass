@@ -1106,10 +1106,8 @@ async function redeemToken() {
   if (!sb) { msg.textContent='Connection error'; return; }
   // Check token exists and is unused
   const { data, error } = await sb.from('access_tokens')
-    .select('*').eq('token', token).is('used_by', null).single();
-  if (error || !data) {
-    msg.textContent='Invalid or already used token'; msg.style.color='#ef4444'; return;
-  }
+    .select('*').eq('token', token).single();
+  if (error || !data) { msg.textContent='Invalid token'; msg.style.color='#ef4444'; return; }
   // Check not expired
   if (data.expires_at && new Date(data.expires_at) < new Date()) {
     msg.textContent='This token has expired'; msg.style.color='#ef4444'; return;
@@ -2046,13 +2044,7 @@ function pCard(i,p,nc) {
     +badge
     +lastActionLine+noteLine
     +'<div class="drow">'
-    +'<div class="db2 '+(st==='knocked'?'dK':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'knocked\',\''+esc(p.addr||'')+'\')">🚪 Knocked</div>'
-    +'<div class="db2 '+(st==='noanswer'?'dN':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'noanswer\',\''+esc(p.addr||'')+'\')">😴 No Answer</div>'
-    +'<div class="db2 '+(st==='callback'?'dC':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'callback\',\''+esc(p.addr||'')+'\')">📞 Callback</div>'
-    +'<div class="db2 '+(st==='interested'?'dI':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'interested\',\''+esc(p.addr||'')+'\')">✅ Interested</div>'
-    +'<div class="db2 '+(st==='notint'?'dX':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'notint\',\''+esc(p.addr||'')+'\')">❌ Not Int.</div>'
-    +'<div class="db2 '+(st==='qualified'?'dQ':'')+'" onclick="event.stopPropagation();setD(\''+esc(uid)+'\',\'qualified\',\''+esc(p.addr||'')+'\')">⭐ Qualified</div>'
-    +jb+'</div></div>';
+    ++jb+'</div></div>';
 }
 
 // ── CALLBACKS TAB ─────────────────────────────────────────────────────────────
