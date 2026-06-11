@@ -1936,7 +1936,23 @@ async function loadPC(pc) {
   }
   // Combine: EPC properties first-sorted, then merge all and sort by house number for street order
   let combined = parsed.concat(lrOnly);
-  combined = sortStreetOrder(combined);
+  // FINAL dedup pass: collapse any same-house duplicates, keeping the EPC version
+  const seen = {};
+  const deduped = [];
+  for (const p of combined) {
+    const k = dedupKey(p.addr);
+    if (seen[k]!==undefined) {
+      // Already have this house. If the existing one is No-EPC and this one has EPC, swap it in.
+      const existingIdx = seen[k];
+      if (deduped[existingIdx] && deduped[existingIdx].noEpc && !p.noEpc) {
+        deduped[existingIdx] = p;
+      }
+      continue;  // skip the duplicate
+    }
+    seen[k] = deduped.length;
+    deduped.push(p);
+  }
+  combined = sortStreetOrder(deduped);
   propC[nc]=combined; allProps=combined;
   renderList();
   if (map.getZoom()>=12) loadVis();
