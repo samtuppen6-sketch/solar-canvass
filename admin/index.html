@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solpath Admin — CRM</title>
+<link rel="icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#091322;color:#dce6f2;-webkit-font-smoothing:antialiased;min-height:100vh}
+/* Login screen */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{background:#0e1d33;border:1px solid #1c2f4d;border-radius:20px;padding:44px 40px;width:100%;max-width:400px;text-align:center}
+.login-card img{width:44px;height:44px;border-radius:10px;margin:0 auto 20px}
+.login-card h1{font-family:'DM Sans',sans-serif;font-size:1.5rem;font-weight:700;margin-bottom:6px;color:#fff}
+.login-card p{font-size:.85rem;color:#7a95b0;margin-bottom:28px}
+.lf{display:flex;flex-direction:column;gap:12px}
+.lf input{background:#091322;border:1px solid #1c2f4d;border-radius:9px;padding:11px 14px;font-size:.87rem;color:#fff;font-family:'Inter',sans-serif;transition:border-color .16s}
+.lf input:focus{outline:none;border-color:rgba(0,232,122,.4)}
+.lf input::placeholder{color:#3d5470}
+.lb{width:100%;padding:13px;background:#00b24a;color:#fff;font-size:.92rem;font-weight:700;border:none;border-radius:9px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.lb:hover{background:#009a40}
+.lerr{font-size:.78rem;color:#f08a8d;text-align:center;display:none;margin-top:4px}
+/* App shell */
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sidebar{background:#0e1d33;border-right:1px solid #1c2f4d;padding:20px 0;display:flex;flex-direction:column}
+.sb-brand{display:flex;align-items:center;gap:9px;padding:0 18px 20px;border-bottom:1px solid #1c2f4d;margin-bottom:14px}
+.sb-brand img{width:26px;height:26px;border-radius:6px}
+.sb-brand span{font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:700;color:#fff;letter-spacing:-.03em}
+.sb-label{font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#3d5470;padding:0 18px;margin-bottom:6px;margin-top:14px}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 18px;font-size:.84rem;font-weight:500;color:#7a95b0;cursor:pointer;transition:all .15s;border-left:2px solid transparent}
+.sb-link:hover{color:#dce6f2;background:rgba(255,255,255,.03)}
+.sb-link.active{color:#00e87a;border-left-color:#00e87a;background:rgba(0,232,122,.05)}
+.sb-link svg{width:15px;height:15px;flex-shrink:0}
+.sb-foot{margin-top:auto;padding:16px 18px;border-top:1px solid #1c2f4d}
+.sb-user{font-size:.75rem;color:#3d5470}
+.sb-signout{font-size:.75rem;color:#7a95b0;cursor:pointer;margin-top:4px}
+.sb-signout:hover{color:#dce6f2}
+/* Main */
+.main{overflow-y:auto}
+.topbar{background:#0e1d33;border-bottom:1px solid #1c2f4d;padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between}
+.page-title{font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:700;color:#fff;letter-spacing:-.02em}
+.tb-right{display:flex;align-items:center;gap:12px}
+.live-pill{display:flex;align-items:center;gap:6px;font-size:.73rem;font-weight:600;color:#00e87a;background:rgba(0,232,122,.08);padding:5px 12px;border-radius:6px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#00e87a;animation:lv 2s ease-in-out infinite}
+@keyframes lv{0%,100%{box-shadow:0 0 0 0 rgba(0,232,122,.5)}50%{box-shadow:0 0 0 4px rgba(0,232,122,0)}}
+.content{padding:28px}
+/* Stat cards */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.sc{background:#0e1d33;border:1px solid #1c2f4d;border-radius:12px;padding:20px}
+.sc-label{font-size:.7rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#56688a;margin-bottom:10px}
+.sc-val{font-family:'DM Sans',sans-serif;font-size:2.1rem;font-weight:700;line-height:1;color:#fff}
+.sc-sub{font-size:.72rem;color:#56688a;margin-top:5px}
+.sc.green .sc-val{color:#00e87a}
+.sc.amber .sc-val{color:#f0a019}
+/* Table */
+.table-card{background:#0e1d33;border:1px solid #1c2f4d;border-radius:14px;overflow:hidden;margin-bottom:20px}
+.tc-head{padding:16px 20px;border-bottom:1px solid #1c2f4d;display:flex;align-items:center;justify-content:space-between}
+.tc-head h3{font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;color:#fff}
+.tc-search{background:#091322;border:1px solid #1c2f4d;border-radius:7px;padding:7px 12px;font-size:.8rem;color:#dce6f2;font-family:'Inter',sans-serif;width:200px}
+.tc-search:focus{outline:none;border-color:rgba(0,232,122,.35)}
+.tc-search::placeholder{color:#3d5470}
+table{width:100%;border-collapse:collapse}
+th{font-size:.68rem;font-weight:600;color:#3d5470;text-align:left;padding:10px 20px;border-bottom:1px solid #1c2f4d;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+td{font-size:.82rem;padding:13px 20px;border-bottom:1px solid rgba(28,47,77,.6);vertical-align:middle;color:#c2d2e6}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.org-name{font-weight:600;color:#fff}
+.org-meta{font-size:.7rem;color:#56688a;margin-top:2px}
+.plan-pill{font-size:.68rem;font-weight:600;padding:3px 9px;border-radius:4px}
+.pp-starter{background:rgba(47,107,255,.15);color:#6d9fff}
+.pp-growth{background:rgba(0,178,74,.12);color:#00c462}
+.pp-pro{background:rgba(240,160,25,.12);color:#e8960f}
+.pp-regional{background:rgba(139,92,246,.12);color:#9d76f5}
+.pp-enterprise{background:rgba(229,72,77,.12);color:#f08a8d}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.sd-active{background:#00e87a}
+.sd-suspended{background:#e5484d}
+.action-btn{font-size:.73rem;font-weight:600;padding:5px 11px;border-radius:6px;border:1px solid #1c2f4d;background:transparent;color:#7a95b0;cursor:pointer;transition:all .15s}
+.action-btn:hover{border-color:#27406a;color:#dce6f2}
+/* Detail panel */
+.detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:flex-start;justify-content:flex-end}
+.detail-overlay.open{display:flex}
+.detail-panel{background:#0e1d33;width:420px;height:100vh;overflow-y:auto;border-left:1px solid #1c2f4d;padding:28px;animation:slideIn .2s ease}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.dp-close{font-size:.8rem;color:#7a95b0;cursor:pointer;margin-bottom:20px;display:inline-block}
+.dp-close:hover{color:#dce6f2}
+.dp-org{font-family:'DM Sans',sans-serif;font-size:1.2rem;font-weight:700;color:#fff;margin-bottom:4px}
+.dp-plan{font-size:.78rem;color:#7a95b0;margin-bottom:20px}
+.dp-section{margin-bottom:20px}
+.dp-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#3d5470;margin-bottom:8px}
+.dp-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(28,47,77,.6);font-size:.82rem}
+.dp-row:last-child{border-bottom:none}
+.dp-key{color:#7a95b0}
+.dp-val{color:#dce6f2;font-weight:500}
+.dp-textarea{width:100%;background:#091322;border:1px solid #1c2f4d;border-radius:8px;padding:10px;font-size:.8rem;color:#dce6f2;font-family:'Inter',sans-serif;resize:vertical;min-height:80px}
+.dp-textarea:focus{outline:none;border-color:rgba(0,232,122,.35)}
+.dp-save{width:100%;padding:10px;background:#00b24a;color:#fff;font-size:.84rem;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:10px}
+.dp-save:hover{background:#009a40}
+.dp-suspend{width:100%;padding:9px;background:transparent;color:#f08a8d;font-size:.8rem;font-weight:600;border:1px solid rgba(229,72,77,.25);border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px}
+/* Forecast section */
+.forecast-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}
+.fc{background:#091322;border:1px solid #1c2f4d;border-radius:12px;padding:18px}
+.fc-label{font-size:.7rem;color:#56688a;margin-bottom:6px}
+.fc-val{font-family:'DM Sans',sans-serif;font-size:1.5rem;font-weight:700;color:#00e87a}
+.fc-note{font-size:.7rem;color:#56688a;margin-top:4px}
+@media(max-width:900px){.shell{grid-template-columns:1fr}.sidebar{display:none}.stats-row{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-card">
+    <img src="/icon-192.png" alt="Solpath">
+    <h1>Solpath Admin</h1>
+    <p>Secure admin access only.<br>Sign in with your super-admin credentials.</p>
+    <div class="lf">
+      <input type="email" id="a-email" placeholder="admin email">
+      <input type="password" id="a-pass" placeholder="password">
+      <button class="lb" onclick="adminLogin()">Sign in to Admin →</button>
+      <div class="lerr" id="a-err">Invalid credentials</div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="shell" id="app-shell" style="display:none">
+  <div class="sidebar">
+    <div class="sb-brand"><img src="/icon-192.png" alt="Solpath"><span>Solpath</span></div>
+    <div class="sb-label">CRM</div>
+    <div class="sb-link active" onclick="loadPage('orgs')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/></svg>
+      Organisations
+    </div>
+    <div class="sb-link" onclick="loadPage('enquiries')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3z"/><path d="M2 3l6 5 6-5"/></svg>
+      Demo Enquiries
+    </div>
+    <div class="sb-link" onclick="loadPage('activity')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11l3-4 2 2 3-5 2 3"/></svg>
+      Platform Activity
+    </div>
+    <div class="sb-link" onclick="loadPage('forecast')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14l3-5 3 2 3-6 3 3"/><path d="M2 2v12h12"/></svg>
+      Forecast
+    </div>
+    <div class="sb-foot">
+      <div class="sb-user" id="admin-email-label"></div>
+      <div class="sb-signout" onclick="adminSignOut()">Sign out</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="page-title">Organisations</div>
+      <div class="tb-right">
+        <div class="live-pill"><div class="live-dot"></div>Live</div>
+        <div style="font-size:.75rem;color:#3d5470" id="admin-date"></div>
+      </div>
+    </div>
+    <div class="content" id="content"><div style="color:#3d5470;padding:40px;text-align:center">Loading…</div></div>
+  </div>
+</div>
+
+<!-- ORG DETAIL PANEL -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail(event)">
+  <div class="detail-panel" id="detail-panel">
+    <span class="dp-close" onclick="closeDetail()">← Back</span>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<script>
+const SUPA='https://xdoqclrwdduncjaxtixp.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkb3FjbHJ3ZGR1bmNqYXh0aXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjkyNjMsImV4cCI6MjA5NjYwNTI2M30.vLCzN7-eNJh32tvy0zySDGX5bp6X1v9WlST59BSmIkk';
+
+let SESSION=null, currentPage='orgs';
+document.getElementById('admin-date').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+// Check existing session
+const savedSession = localStorage.getItem('sb-admin-session');
+if(savedSession){
+  SESSION = JSON.parse(savedSession);
+  showApp();
+  loadPage('orgs');
+}
+
+async function api(path,opts={}){
+  const r=await fetch(`${SUPA}${path}`,{
+    headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION?.access_token||KEY}`,'Content-Type':'application/json',...(opts.headers||{})},
+    ...opts
+  });
+  return r.ok ? r.json() : [];
+}
+
+async function adminLogin(){
+  const email=document.getElementById('a-email').value.trim();
+  const pass=document.getElementById('a-pass').value;
+  const err=document.getElementById('a-err');
+  err.style.display='none';
+  const r=await fetch(`${SUPA}/auth/v1/token?grant_type=password`,{
+    method:'POST',headers:{'apikey':KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password:pass})
+  });
+  const data=await r.json();
+  if(!data.access_token){err.style.display='block';return;}
+  // Verify super_admin
+  SESSION=data;
+  const profiles=await api(`/rest/v1/profiles?id=eq.${data.user.id}&select=super_admin,role`);
+  const p=profiles[0];
+  if(!p||(!p.super_admin && p.role!=='super_admin')){
+    err.textContent='Access denied. Super-admin only.';err.style.display='block';SESSION=null;return;
+  }
+  localStorage.setItem('sb-admin-session',JSON.stringify(data));
+  document.getElementById('admin-email-label').textContent=email;
+  showApp();
+  loadPage('orgs');
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-shell').style.display='grid';
+  if(SESSION?.user?.email) document.getElementById('admin-email-label').textContent=SESSION.user.email;
+}
+
+function adminSignOut(){
+  localStorage.removeItem('sb-admin-session');
+  SESSION=null;
+  location.reload();
+}
+
+async function loadPage(page){
+  currentPage=page;
+  document.querySelectorAll('.sb-link').forEach(l=>l.classList.remove('active'));
+  event?.target?.closest('.sb-link')?.classList.add('active');
+  const titles={orgs:'Organisations',enquiries:'Demo Enquiries',activity:'Platform Activity',forecast:'Revenue Forecast'};
+  document.getElementById('page-title').textContent=titles[page]||page;
+  const c=document.getElementById('content');
+  c.innerHTML='<div style="color:#3d5470;padding:40px;text-align:center">Loading…</div>';
+  if(page==='orgs') await renderOrgs();
+  else if(page==='enquiries') await renderEnquiries();
+  else if(page==='activity') await renderActivity();
+  else if(page==='forecast') await renderForecast();
+}
+
+async function renderOrgs(){
+  const [orgs,profiles,doors,signups]=await Promise.all([
+    api('/rest/v1/organisations?select=*&order=created_at.desc'),
+    api('/rest/v1/profiles?select=organisation_id,id'),
+    api('/rest/v1/door_records?select=organisation_id'),
+    api('/rest/v1/signups?select=organisation_id')
+  ]);
+  const userCount={}, doorCount={}, dealCount={};
+  profiles.forEach(p=>{if(p.organisation_id){userCount[p.organisation_id]=(userCount[p.organisation_id]||0)+1}});
+  doors.forEach(d=>{if(d.organisation_id) doorCount[d.organisation_id]=(doorCount[d.organisation_id]||0)+1});
+  signups.forEach(s=>{if(s.organisation_id) dealCount[s.organisation_id]=(dealCount[s.organisation_id]||0)+1});
+
+  const planRevenue={day_pass:10,week_pass:50,solo_pro:149,team_starter:499,team_growth:899,team_pro:1499,regional:2500,enterprise:5000};
+  const mrr=orgs.filter(o=>o.status==='active').reduce((t,o)=>t+(planRevenue[o.plan]||0),0);
+
+  const planClass={team_starter:'pp-starter',team_growth:'pp-growth',team_pro:'pp-pro',regional:'pp-regional',enterprise:'pp-enterprise',solo_pro:'pp-starter',day_pass:'pp-starter',week_pass:'pp-starter'};
+
+  document.getElementById('content').innerHTML=`
+    <div class="stats-row">
+      <div class="sc"><div class="sc-label">Active orgs</div><div class="sc-val">${orgs.filter(o=>o.status==='active').length}</div><div class="sc-sub">total accounts</div></div>
+      <div class="sc green"><div class="sc-label">Est. MRR</div><div class="sc-val">£${mrr.toLocaleString()}</div><div class="sc-sub">monthly recurring</div></div>
+      <div class="sc"><div class="sc-label">Total users</div><div class="sc-val">${profiles.length}</div><div class="sc-sub">across all orgs</div></div>
+      <div class="sc amber"><div class="sc-label">Total deals</div><div class="sc-val">${signups.length}</div><div class="sc-sub">all time signups</div></div>
+    </div>
+    <div class="table-card">
+      <div class="tc-head"><h3>All organisations</h3><input class="tc-search" placeholder="Search…" oninput="filterTable(this,'org-tbody')"></div>
+      <table><thead><tr><th>Organisation</th><th>Plan</th><th>Users</th><th>Territories</th><th>Doors</th><th>Deals</th><th>Status</th><th></th></tr></thead>
+      <tbody id="org-tbody">
+      ${orgs.map(o=>`<tr data-search="${(o.name||'').toLowerCase()}">
+        <td><div class="org-name">${o.name||'—'}</div><div class="org-meta">${o.billing_email||'—'}</div></td>
+        <td><span class="plan-pill ${planClass[o.plan]||'pp-starter'}">${(o.plan||'').replace(/_/g,' ')}</span></td>
+        <td>${userCount[o.id]||0} / ${o.max_users}</td>
+        <td style="font-size:.78rem">${(o.regions||[]).join(', ')||'—'}</td>
+        <td>${doorCount[o.id]||0}</td>
+        <td>${dealCount[o.id]||0}</td>
+        <td><span class="status-dot ${o.status==='active'?'sd-active':'sd-suspended'}"></span>${o.status||'—'}</td>
+        <td><button class="action-btn" onclick="openOrg('${o.id}')">View →</button></td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+}
+
+async function openOrg(id){
+  const orgs=await api(`/rest/v1/organisations?id=eq.${id}&select=*`);
+  const org=orgs[0]; if(!org) return;
+  const members=await api(`/rest/v1/profiles?organisation_id=eq.${id}&select=*`);
+  const doors=await api(`/rest/v1/door_records?organisation_id=eq.${id}&select=status`);
+  const deals=await api(`/rest/v1/signups?organisation_id=eq.${id}&select=*`);
+  const qualified=doors.filter(d=>d.status==='qualified'||d.status==='interested').length;
+  document.getElementById('detail-content').innerHTML=`
+    <div class="dp-org">${org.name}</div>
+    <div class="dp-plan">${(org.plan||'').replace(/_/g,' ')} · ${org.status}</div>
+    <div class="dp-section">
+      <div class="dp-label">Account details</div>
+      <div class="dp-row"><span class="dp-key">Contact</span><span class="dp-val">${org.contact_name||'—'}</span></div>
+      <div class="dp-row"><span class="dp-key">Email</span><span class="dp-val">${org.billing_email||'—'}</span></div>
+      <div class="dp-row"><span class="dp-key">Phone</span><span class="dp-val">${org.contact_phone||'—'}</span></div>
+      <div class="dp-row"><span class="dp-key">Created</span><span class="dp-val">${new Date(org.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+    </div>
+    <div class="dp-section">
+      <div class="dp-label">Activity</div>
+      <div class="dp-row"><span class="dp-key">Team size</span><span class="dp-val">${members.length} / ${org.max_users}</span></div>
+      <div class="dp-row"><span class="dp-key">Territories</span><span class="dp-val">${(org.regions||[]).join(', ')||'None set'}</span></div>
+      <div class="dp-row"><span class="dp-key">Total doors</span><span class="dp-val">${doors.length}</span></div>
+      <div class="dp-row"><span class="dp-key">Qualified</span><span class="dp-val">${qualified}</span></div>
+      <div class="dp-row"><span class="dp-key">Deals</span><span class="dp-val">${deals.length}</span></div>
+    </div>
+    <div class="dp-section">
+      <div class="dp-label">Admin notes</div>
+      <textarea class="dp-textarea" id="dp-notes-${id}" placeholder="Add notes about this account…">${org.notes||''}</textarea>
+      <button class="dp-save" onclick="saveNotes('${id}')">Save notes</button>
+      <button class="dp-suspend" onclick="suspendOrg('${id}','${org.status}')">${org.status==='active'?'Suspend account':'Reactivate account'}</button>
+    </div>`;
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+async function saveNotes(id){
+  const notes=document.getElementById(`dp-notes-${id}`).value;
+  await api(`/rest/v1/organisations?id=eq.${id}`,{method:'PATCH',body:JSON.stringify({notes})});
+}
+
+async function suspendOrg(id,current){
+  const newStatus=current==='active'?'suspended':'active';
+  await api(`/rest/v1/organisations?id=eq.${id}`,{method:'PATCH',body:JSON.stringify({status:newStatus})});
+  closeDetail();loadPage('orgs');
+}
+
+function closeDetail(e){
+  if(e && e.target!==document.getElementById('detail-overlay')) return;
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+
+async function renderEnquiries(){
+  const enqs=await api('/rest/v1/demo_enquiries?select=*&order=created_at.desc');
+  const statusClass={new:'pp-growth',contacted:'pp-starter',qualified:'pp-pro',demo_booked:'pp-regional',closed:'pp-enterprise'};
+  document.getElementById('content').innerHTML=`
+    <div class="table-card">
+      <div class="tc-head"><h3>Demo enquiries (${enqs.length})</h3><input class="tc-search" placeholder="Search…" oninput="filterTable(this,'enq-tbody')"></div>
+      <table><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Campaign</th><th>Team size</th><th>Area</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody id="enq-tbody">
+      ${enqs.map(e=>`<tr data-search="${(e.name+' '+e.company+' '+e.email).toLowerCase()}">
+        <td style="font-weight:600;color:#fff">${e.name||'—'}</td>
+        <td>${e.company||'—'}</td>
+        <td style="font-size:.77rem">${e.email||'—'}</td>
+        <td style="font-size:.77rem">${e.campaign_type||'—'}</td>
+        <td style="font-size:.77rem">${e.team_size||'—'}</td>
+        <td style="font-size:.77rem">${e.target_area||'—'}</td>
+        <td><span class="plan-pill ${statusClass[e.status]||'pp-starter'}">${e.status||'new'}</span></td>
+        <td style="font-size:.75rem;color:#56688a">${new Date(e.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</td>
+      </tr>`).join('')}
+      ${!enqs.length?'<tr><td colspan="8" style="text-align:center;color:#3d5470;padding:40px">No enquiries yet</td></tr>':''}
+      </tbody></table>
+    </div>`;
+}
+
+async function renderActivity(){
+  const [doors,signups]=await Promise.all([
+    api('/rest/v1/door_records?select=status,canvasser_name,organisation_id,created_at&order=created_at.desc&limit=50'),
+    api('/rest/v1/signups?select=*&order=signed_at.desc&limit=20')
+  ]);
+  const statusCount={};
+  doors.forEach(d=>{statusCount[d.status]=(statusCount[d.status]||0)+1});
+  document.getElementById('content').innerHTML=`
+    <div class="stats-row">
+      <div class="sc"><div class="sc-label">Total doors</div><div class="sc-val">${doors.length}</div><div class="sc-sub">last 50 records</div></div>
+      <div class="sc green"><div class="sc-label">Qualified</div><div class="sc-val">${(statusCount['qualified']||0)+(statusCount['interested']||0)}</div></div>
+      <div class="sc amber"><div class="sc-label">Callbacks</div><div class="sc-val">${statusCount['callback']||0}</div></div>
+      <div class="sc"><div class="sc-label">Deals logged</div><div class="sc-val">${signups.length}</div></div>
+    </div>
+    <div class="table-card">
+      <div class="tc-head"><h3>Recent door activity</h3></div>
+      <table><thead><tr><th>Rep</th><th>Status</th><th>Time</th></tr></thead>
+      <tbody>${doors.map(d=>`<tr>
+        <td>${d.canvasser_name||'Unknown'}</td>
+        <td><span class="plan-pill ${d.status==='qualified'||d.status==='interested'?'pp-growth':d.status==='callback'?'pp-pro':'pp-starter'}">${d.status||'—'}</span></td>
+        <td style="font-size:.75rem;color:#56688a">${new Date(d.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+      </tr>`).join('')}</tbody></table>
+    </div>`;
+}
+
+async function renderForecast(){
+  const orgs=await api('/rest/v1/organisations?select=plan,status');
+  const planRevenue={day_pass:10,week_pass:50,solo_pro:149,team_starter:499,team_growth:899,team_pro:1499,regional:2500,enterprise:5000};
+  const active=orgs.filter(o=>o.status==='active');
+  const mrr=active.reduce((t,o)=>t+(planRevenue[o.plan]||0),0);
+  const arr=mrr*12;
+  const planCounts={};
+  active.forEach(o=>planCounts[o.plan]=(planCounts[o.plan]||0)+1);
+  document.getElementById('content').innerHTML=`
+    <div class="stats-row">
+      <div class="sc green"><div class="sc-label">Est. MRR</div><div class="sc-val">£${mrr.toLocaleString()}</div><div class="sc-sub">current run rate</div></div>
+      <div class="sc"><div class="sc-label">Est. ARR</div><div class="sc-val">£${arr.toLocaleString()}</div><div class="sc-sub">annualised</div></div>
+      <div class="sc"><div class="sc-label">Active orgs</div><div class="sc-val">${active.length}</div></div>
+      <div class="sc amber"><div class="sc-label">Avg. plan value</div><div class="sc-val">£${active.length?Math.round(mrr/active.length):0}</div><div class="sc-sub">per org / month</div></div>
+    </div>
+    <div class="table-card" style="margin-bottom:20px">
+      <div class="tc-head"><h3>Revenue by plan</h3></div>
+      <table><thead><tr><th>Plan</th><th>Orgs</th><th>Monthly value</th><th>Annual value</th></tr></thead>
+      <tbody>
+      ${Object.entries(planRevenue).map(([plan,val])=>{
+        const count=planCounts[plan]||0;
+        const monthly=count*val;
+        return count?`<tr><td><span class="plan-pill pp-growth">${plan.replace(/_/g,' ')}</span></td><td>${count}</td><td style="color:#00e87a;font-weight:600">£${monthly.toLocaleString()}</td><td style="color:#56688a">£${(monthly*12).toLocaleString()}</td></tr>`:'';
+      }).join('')}
+      <tr style="border-top:1px solid #1c2f4d"><td style="font-weight:700;color:#fff">Total</td><td>${active.length}</td><td style="color:#00e87a;font-weight:700">£${mrr.toLocaleString()}</td><td style="color:#dce6f2;font-weight:700">£${arr.toLocaleString()}</td></tr>
+      </tbody></table>
+    </div>`;
+}
+
+function filterTable(input, tbodyId){
+  const q=input.value.toLowerCase();
+  document.querySelectorAll(`#${tbodyId} tr[data-search]`).forEach(r=>{
+    r.style.display=r.dataset.search.includes(q)?'':'none';
+  });
+}
+</script>
+</body>
+</html>
