@@ -1841,20 +1841,37 @@ function normAddr(a) {
 
 // Sort by leading house number so the street reads in door order
 function sortStreetOrder(arr) {
-  // Extract leading house number and the street name (strip number, town, postcode)
-  const numOf = a => { const m=(a.addr||'').match(/\b(\d+)\b/); return m?parseInt(m[1]):99999; };
-  const streetOf = a => {
-    let s = (a.addr||'');
-    // Remove a leading house number
-    s = s.replace(/^[^,]*?\b\d+[a-z]?\b\s*/i, '');
-    // Take the part before the first comma (the street), drop town/city after
-    s = s.split(',')[0];
-    return s.trim().toLowerCase();
+  // Address format is typically "48, Blakemere Crescent, PORTSMOUTH"
+  // Extract house number (with optional letter) and street name reliably.
+  const parse = a => {
+    let raw = (a.addr || '').trim();
+    // First comma-separated token usually holds the house number/name
+    let parts = raw.split(',');
+    let first = parts[0].trim();
+    // House number = leading digits in the first token
+    let nm = first.match(/^(\d+)\s*([a-z])?/i);
+    let num = nm ? parseInt(nm[1]) : 99999;
+    let suffix = nm && nm[2] ? nm[2].toLowerCase() : '';
+    // Street = the token after the number (parts[1]) if first token is just a number,
+    // otherwise the remainder of the first token after stripping the number.
+    let street = '';
+    if (parts.length > 1 && /^\d/.test(first)) {
+      street = parts[1].trim();          // "48" , "Blakemere Crescent" , "PORTSMOUTH"
+    } else {
+      street = first.replace(/^\d+\s*[a-z]?\s*/i, '').trim();  // "48 Blakemere Crescent"
+      if (!street && parts.length>1) street = parts[1].trim();
+    }
+    return { num, suffix, street: street.toLowerCase() };
   };
   return arr.slice().sort((a,b) => {
-    const sa=streetOf(a), sb=streetOf(b);
-    if (sa<sb) return -1; if (sa>sb) return 1;
-    return numOf(a)-numOf(b);
+    const pa=parse(a), pb=parse(b);
+    // 1) Group by street name alphabetically
+    if (pa.street < pb.street) return -1;
+    if (pa.street > pb.street) return 1;
+    // 2) Within a street: simple ascending house number (predictable walking order)
+    if (pa.num !== pb.num) return pa.num - pb.num;
+    // 3) Tie-break on suffix (12a before 12b)
+    return pa.suffix < pb.suffix ? -1 : pa.suffix > pb.suffix ? 1 : 0;
   });
 }
 
@@ -1908,10 +1925,27 @@ function pCard(i,p,nc) {
   if(visits.length>0){
     const last=visits[visits.length-1];
     const lbl=SC[last.status]?SC[last.status].label:last.status;
-    lastActionLine='<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;background:#0f172a;border:1px solid #1f2d45;border-radius:9px;font-size:12px">'
+    // Header line: latest status + visit count
+    lastActionLine='<div style="margin-top:8px;padding:8px 10px;background:#0f172a;border:1px solid #1f2d45;border-radius:9px;font-size:12px">'
+      +'<div style="display:flex;align-items:center;gap:8px">'
       +'<span style="color:#f59e0b;font-weight:700">'+lbl+'</span>'
       +'<span style="color:#64748b">'+formatTime(last.ts)+'</span>'
       +'<span style="color:#475569;margin-left:auto">'+visits.length+' visit'+(visits.length>1?'s':'')+'</span></div>';
+    // If more than one visit, list each visit's status + time
+    if(visits.length>1){
+      lastActionLine+='<div style="margin-top:6px;padding-top:6px;border-top:1px solid #1f2d45;display:flex;flex-direction:column;gap:3px">';
+      visits.slice().reverse().forEach(function(v){
+        const vl=SC[v.status]?SC[v.status].label:v.status;
+        const dt=new Date(v.ts);
+        const sameDay=dt.toDateString()===new Date().toDateString();
+        const when=sameDay?dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+                          :dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+        lastActionLine+='<div style="display:flex;justify-content:space-between;color:#94a3b8;font-size:11px">'
+          +'<span>'+vl+'</span><span style="color:#64748b">'+when+'</span></div>';
+      });
+      lastActionLine+='</div>';
+    }
+    lastActionLine+='</div>';
   }
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
@@ -1997,17 +2031,51 @@ function clearD(uid) {
 let qnUID = null;
 function openQuickNote(uid, st, addr) {
   qnUID = uid;
-  const existing = getNotes(uid);
-  document.getElementById('qn-title').textContent = SC[st] ? SC[st].label.replace(/^[^ ]+ /,'') : 'Note';
-  document.getElementById('qn-addr').textContent = addr || '';
-  const ta = document.getElementById('qn-text');
+  var existing = '';
+  try { existing = getNotes(uid) || ''; } catch(e){}
+  // Remove any existing dynamically-built note box
+  var prev = document.getElementById('qn-dynamic');
+  if (prev) prev.remove();
+  // Status label
+  var labels = {callback:'Callback Note', interested:'Interested Note', qualified:'Qualified Note'};
+  var ph = st==='callback' ? 'e.g. Speak to husband, back after 6pm Tue'
+         : st==='interested' ? 'e.g. Wants a quote, south-facing roof'
+         : st==='qualified' ? 'e.g. Ready to book survey, owns outright' : 'Add a note...';
+  // Build overlay from scratch, append straight to body (escapes any CSS trap)
+  var ov = document.createElement('div');
+  ov.id = 'qn-dynamic';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.65);display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML =
+    '<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:18px 18px 0 0;width:100%;max-width:560px;padding:20px;box-shadow:0 -8px 40px rgba(0,0,0,.6)">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    + '<div style="font-size:17px;font-weight:800;color:#a855f7">' + (labels[st]||'Note') + '</div>'
+    + '<div id="qn-x" style="font-size:26px;color:#64748b;cursor:pointer;padding:0 8px;line-height:1">&times;</div></div>'
+    + '<div style="font-size:13px;color:#94a3b8;margin-bottom:12px">' + (addr||'') + '</div>'
+    + '<textarea id="qn-dynamic-text" style="width:100%;min-height:100px;background:#111827;border:1px solid #334155;border-radius:12px;padding:12px;color:#f1f5f9;font-size:16px;font-family:inherit;resize:vertical;box-sizing:border-box" placeholder="' + ph + '"></textarea>'
+    + '<div style="display:flex;gap:10px;margin-top:14px">'
+    + '<div id="qn-skip" style="flex:1;text-align:center;background:#1f2d45;border-radius:12px;padding:15px;color:#cbd5e1;font-size:15px;font-weight:700;cursor:pointer">Skip</div>'
+    + '<div id="qn-save" style="flex:2;text-align:center;background:#a855f7;border-radius:12px;padding:15px;color:#fff;font-size:15px;font-weight:800;cursor:pointer">Save Note</div>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  var ta = document.getElementById('qn-dynamic-text');
   ta.value = existing;
-  // Helpful placeholder per status
-  ta.placeholder = st==='callback' ? 'e.g. Speak to husband, back after 6pm Tue' :
-                   st==='interested' ? 'e.g. Wants a quote, south-facing roof' :
-                   st==='qualified' ? 'e.g. Ready to book survey, owns outright' : 'Add a note…';
-  document.getElementById('qn-overlay').style.display='flex';
-  setTimeout(()=>ta.focus(), 100);
+  // Wire buttons
+  document.getElementById('qn-x').onclick = function(){ ov.remove(); };
+  document.getElementById('qn-skip').onclick = function(){ ov.remove(); };
+  document.getElementById('qn-save').onclick = function(){
+    var val = ta.value.trim();
+    try {
+      var notes = JSON.parse(localStorage.getItem('notes')||'{}');
+      if (val) notes[uid] = val; else delete notes[uid];
+      localStorage.setItem('notes', JSON.stringify(notes));
+    } catch(e){}
+    if (val) { try { var s = doors[uid]||st; saveDoorToCloud(uid, s, val, addr); } catch(e){} }
+    ov.remove();
+    try { renderList(); } catch(e){}
+    try { renderCallbacks(); } catch(e){}
+    try { toast(val ? 'Note saved' : 'Note cleared'); } catch(e){}
+  };
+  setTimeout(function(){ try{ta.focus();}catch(e){} }, 100);
 }
 function saveQuickNote() {
   if (!qnUID) return;
