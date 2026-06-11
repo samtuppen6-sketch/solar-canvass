@@ -848,7 +848,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .dC{border-color:#a855f7!important;color:#a855f7!important;background:rgba(168,85,247,.1)!important}
 .dI{border-color:#10b981!important;color:#10b981!important;background:rgba(16,185,129,.15)!important}
 .dX{border-color:#ef4444!important;color:#ef4444!important;background:rgba(239,68,68,.1)!important}
-.dQ{border-color:#f59e0b!important;color:#f59e0b!important;background:rgba(245,158,11,.1)!important}
+.dQ{border-color:#f59e0b!important;color:#f59e0b!important;background:rgba(245,158,11,.1)!important}.dNQ{border-color:#6366f1;color:#6366f1}
 .dJ{border-color:#3b82f6!important;color:#3b82f6!important;background:rgba(59,130,246,.08)!important}
 
 /* CALLBACK SECTION */
@@ -1014,6 +1014,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
     <div class="auth-toggle" id="auth-toggle">
       New canvasser? <span onclick="toggleAuthMode()">Create an account</span>
     </div>
+    <div id="token-section" style="display:none;margin-top:14px">
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;font-weight:600">Access Token</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="auth-token" placeholder="e.g. SAMSOL7" autocomplete="off"
+          style="flex:1;background:#111827;border:1px solid #334155;border-radius:10px;padding:12px;color:#f1f5f9;font-size:15px;text-transform:uppercase;letter-spacing:.08em">
+        <button onclick="redeemToken()" style="background:#6366f1;border:none;border-radius:10px;padding:12px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Redeem</button>
+      </div>
+      <div id="token-msg" style="font-size:12px;margin-top:8px;color:#94a3b8"></div>
+    </div>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:#475569">
+      Have an access token? <span onclick="document.getElementById('token-section').style.display=document.getElementById('token-section').style.display==='none'?'block':'none'" style="color:#6366f1;cursor:pointer;font-weight:700">Enter it here</span>
+    </div>
 
     <!-- PRICING -->
     <div style="width:100%;max-width:400px;margin-top:20px">
@@ -1087,6 +1099,35 @@ function togglePassVis() {
   }
 }
 
+async function redeemToken() {
+  const token = (document.getElementById('auth-token').value||'').trim().toUpperCase();
+  const msg = document.getElementById('token-msg');
+  if (!token) { msg.textContent='Enter your token'; msg.style.color='#ef4444'; return; }
+  if (!sb) { msg.textContent='Connection error'; return; }
+  // Check token exists and is unused
+  const { data, error } = await sb.from('access_tokens')
+    .select('*').eq('token', token).is('used_by', null).single();
+  if (error || !data) {
+    msg.textContent='Invalid or already used token'; msg.style.color='#ef4444'; return;
+  }
+  // Check not expired
+  if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    msg.textContent='This token has expired'; msg.style.color='#ef4444'; return;
+  }
+  msg.textContent='✓ Valid token — now create your account below'; msg.style.color='#10b981';
+  // Store token to claim after signup
+  window._pendingToken = token;
+  // Auto-switch to signup mode
+  if (authMode!=='signup') toggleAuthMode();
+}
+
+async function claimToken(userId) {
+  if (!window._pendingToken) return;
+  await sb.from('access_tokens').update({ used_by: userId, used_at: new Date().toISOString() })
+    .eq('token', window._pendingToken).is('used_by', null);
+  window._pendingToken = null;
+}
+
 async function doAuth() {
   clearAuthErr();
   const email = document.getElementById('auth-email').value.trim();
@@ -1136,6 +1177,8 @@ async function onAuthed() {
     document.getElementById('auth-submit').textContent='Sign In';
     return;
   }
+  // Claim any pending access token
+  try { await claimToken(user.id); } catch(e){}
   // Hide auth, show app
   document.getElementById('auth-screen').classList.add('hidden');
   if (typeof setupManagerAccess === 'function') setupManagerAccess();
@@ -1495,6 +1538,7 @@ const SC = {
   interested: { col:'#10b981', cls:'dI', badge:'sb-interested',label:'✅ Interested' },
   notint:     { col:'#ef4444', cls:'dX', badge:'sb-notint',     label:'❌ Not Int.'  },
   qualified:  { col:'#f59e0b', cls:'dQ', badge:'sb-qualified', label:'⭐ Qualified'  },
+  notqualified:{ col:'#6366f1', cls:'dNQ', badge:'sb-notqualified', label:'🚫 Not Qualified' },
 };
 
 let apiKey = localStorage.getItem('ek')||'';
@@ -2033,7 +2077,9 @@ function renderCallbacks() {
   list.innerHTML=callbacks.map(({uid,pc,prop})=>{
     const ec=prop.rating==='?'?'epc eQ':'epc e'+prop.rating;
     return '<div class="pc2" style="margin:4px 12px"><div class="pc2-t"><div class="pc2-aw">'
-      +'<div class="pc2-n">'+pc+'</div>'
+      +'<div class="pc2-n">'+pc
+    +'<div class="db2 '+(st==='notqualified'?'dNQ':'')+'" onclick="event.stopPropagation();setD(\\\''+esc(uid)+'\\\',\\\'notqualified\\\',\\\''+esc(p.addr||'')+'\\\')">🚫 Not Qualified</div>'
+    +'</div>'
       +'<div class="pc2-a">'+prop.addr+'</div>'
       +'</div><div class="'+ec+'">'+(prop.rating==='?'?'?':prop.rating)+'</div></div>'
       +'<div class="drow">'
@@ -2049,21 +2095,19 @@ function renderCallbacks() {
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 function setD(uid, st, addr) {
-  // A tap always records a visit. Tapping the SAME status again does NOT clear it -
-  // instead it logs another timestamped visit (e.g. knocked twice in one day).
   const wasSame = doors[uid]===st;
-  doors[uid] = st;                       // current/most-recent status
-  localStorage.setItem('dr', JSON.stringify(doors));
-  addHistory(uid, st);                   // timestamped visit log - EVERY tap
-  saveDoorToCloud(uid, st, null, addr);  // permanent cloud record
-  renderList();
-  renderCallbacks();
-  toast(SC[st].label+' logged'+(wasSame?' again':''));
-  if (map.getZoom()>=12) loadVis();
-  // For outcomes that benefit from a note, pop the quick-note box every time
+  doors[uid] = st;
+  try { localStorage.setItem('dr', JSON.stringify(doors)); } catch(e){}
+  try { addHistory(uid, st); } catch(e){}
+  try { saveDoorToCloud(uid, st, null, addr); } catch(e){}
+  // Show note popup FIRST before any re-render
   if (st==='callback'||st==='interested'||st==='qualified') {
-    openQuickNote(uid, st, addr||'');
+    setTimeout(function(){ openQuickNote(uid, st, addr||''); }, 50);
   }
+  try { renderList(); } catch(e){}
+  try { renderCallbacks(); } catch(e){}
+  try { toast(SC[st].label+' logged'+(wasSame?' again':'')); } catch(e){}
+  try { if (map && map.getZoom()>=12) loadVis(); } catch(e){}
 }
 
 // Clear a door's status entirely (long-press / explicit clear)
@@ -2642,6 +2686,31 @@ function setupManagerAccess() {
   if (tab) tab.style.display = isManager() ? 'flex' : 'none';
 }
 
+function toggleCreateToken() {
+  const box = document.getElementById('create-token-box');
+  if (box) box.style.display = box.style.display==='none' ? 'block' : 'none';
+}
+function setTokenDays(n) {
+  const d = document.getElementById('new-token-days');
+  if(d) d.value=n;
+  const t1=document.getElementById('td1'), t7=document.getElementById('td7');
+  if(t1){t1.style.background=n===1?'#6366f1':'#1f2d45';t1.style.borderColor=n===1?'#6366f1':'#334155';t1.style.color=n===1?'#fff':'#94a3b8';}
+  if(t7){t7.style.background=n===7?'#6366f1':'#1f2d45';t7.style.borderColor=n===7?'#6366f1':'#334155';t7.style.color=n===7?'#fff':'#94a3b8';}
+}
+async function createToken() {
+  const code=(document.getElementById('new-token-code').value||'').trim().toUpperCase();
+  const days=parseInt(document.getElementById('new-token-days').value)||7;
+  const msg=document.getElementById('token-create-msg');
+  if(!code||code.length<4){if(msg){msg.style.color='#ef4444';msg.textContent='Minimum 4 characters';}return;}
+  const expires=new Date(Date.now()+days*86400000).toISOString();
+  try{
+    const{error}=await sb.from('access_tokens').insert({token:code,days,created_by:currentUser.id,expires_at:expires});
+    if(error)throw error;
+    if(msg){msg.style.color='#10b981';msg.textContent='✓ Token "'+code+'" created — '+days+' day'+(days>1?'s':'');}
+    document.getElementById('new-token-code').value='';
+  }catch(e){if(msg){msg.style.color='#ef4444';msg.textContent='Error: '+(e.message||'failed');}}
+}
+
 async function renderManager() {
   if (!isManager()) { document.getElementById('mgr-body').innerHTML='<div style="color:#64748b;padding:30px;text-align:center">Managers only.</div>'; return; }
   const body = document.getElementById('mgr-body');
@@ -2691,6 +2760,10 @@ async function renderManager() {
   });
   h += '</div>';
   body.innerHTML = h;
+  // Inject token creation button
+  const tmBtn = document.createElement('div');
+  tmBtn.innerHTML = '<div style="margin-bottom:14px"><button onclick="toggleCreateToken()" style="background:#6366f1;border:none;border-radius:10px;padding:9px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;width:100%">+ Create Access Token</button><div id=\"create-token-box\" style=\"display:none;background:#0f172a;border:1px solid #6366f1;border-radius:12px;padding:14px;margin-top:8px\"><div style=\"font-size:13px;font-weight:700;color:#a5b4fc;margin-bottom:10px\">New Token</div><input type=\"text\" id=\"new-token-code\" placeholder=\"e.g. SAMSOL7\" maxlength=\"20\" style=\"width:100%;background:#111827;border:1px solid #334155;border-radius:8px;padding:10px;color:#f1f5f9;font-size:14px;text-transform:uppercase;letter-spacing:.1em;box-sizing:border-box;margin-bottom:8px\"><div style=\"display:flex;gap:8px;margin-bottom:8px\"><div onclick=\"setTokenDays(1)\" id=\"td1\" style=\"flex:1;text-align:center;background:#1f2d45;border:1px solid #334155;border-radius:8px;padding:8px;color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer\">1 Day · £10</div><div onclick=\"setTokenDays(7)\" id=\"td7\" style=\"flex:1;text-align:center;background:#6366f1;border:1px solid #6366f1;border-radius:8px;padding:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer\">7 Days · £50</div></div><input type=\"hidden\" id=\"new-token-days\" value=\"7\"><button onclick=\"createToken()\" style=\"width:100%;background:#6366f1;border:none;border-radius:8px;padding:11px;color:#fff;font-size:14px;font-weight:800;cursor:pointer\">Create Token</button><div id=\"token-create-msg\" style=\"font-size:12px;margin-top:8px;color:#94a3b8;text-align:center\"></div></div></div>';
+  body.insertBefore(tmBtn, body.firstChild);
 }
 
 function mgrStat(label, val, col) {
