@@ -289,12 +289,16 @@ async function handleSignup(){
       body: JSON.stringify({id:userId, full_name:fullName, role:'manager', organisation_id:orgId, active:true})
     });
 
-    // Show success
-    document.getElementById('main-grid').style.display = 'none';
-    document.querySelector('.steps').style.display = 'none';
-    document.querySelector('h1').style.display = 'none';
-    document.querySelector('.sub').style.display = 'none';
-    document.getElementById('success').style.display = 'block';
+    // Store session for manager dashboard
+    if(accessToken){
+      localStorage.setItem('sb-session', JSON.stringify({
+        access_token: accessToken,
+        user: authData.user || authData
+      }));
+    }
+
+    // Redirect straight to manager dashboard
+    window.location.href = '/app/manager';
 
   } catch(e){
     err.textContent = e.message || 'Something went wrong. Please try again.';
