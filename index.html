@@ -679,6 +679,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
   --rad:14px;--rads:10px;
 }
+body.light{
+  --bg:#f1f5f9;--c1:#ffffff;--c2:#e2e8f0;--br:#cbd5e1;
+  --t:#0f172a;--m:#64748b;--s:#94a3b8;
+}
+body.light .pc2,body.light .scard,body.light .sc{background:#ffffff !important;border-color:#cbd5e1 !important}
+body.light input,body.light textarea{background:#f8fafc !important;color:#0f172a !important;border-color:#cbd5e1 !important}
+body.light .tab{color:#64748b}
+body.light .db2{background:#f8fafc;border-color:#cbd5e1}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
   -webkit-font-smoothing:antialiased}
@@ -963,7 +971,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .pd-hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .pd-hist-txt{flex:1}
 .pd-hist-time{font-size:10px;color:var(--s)}
-</style></head><body><!-- SUPABASE AUTH -->
+</style><link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Solpath">
+</head><body><!-- SUPABASE AUTH -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 #auth-screen{position:fixed;inset:0;z-index:10000;background:#0a0e1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
@@ -988,7 +1003,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 
 <div id="auth-screen">
   <div class="auth-card">
-    <div class="auth-logo">☀️</div>
+    <div class="auth-logo"><img src="/icon-192.png" alt="Solpath" style="width:64px;height:64px;border-radius:14px"></div>
     <div class="auth-h1">Solpath</div>
     <div class="auth-sub" id="auth-mode-sub">Sign in to start canvassing</div>
     <div class="auth-err" id="auth-err"></div>
@@ -1202,7 +1217,7 @@ window.addEventListener('load', async () => {
 <div id="root">
 <div id="landing">
   <div class="land-hd">
-    <div class="land-logo">☀️</div>
+    <div class="land-logo"><img src="/icon-192.png" alt="Solpath" style="width:48px;height:48px;border-radius:10px;vertical-align:middle"></div>
     <div class="land-h1">Solpath</div>
     <div class="land-h2">Warm Homes · South England<br>Select your working area to begin</div>
     <div class="land-label">Choose your region</div>
@@ -1381,6 +1396,8 @@ window.addEventListener('load', async () => {
   </div>
 
   <div id="pset">
+    <div class="sc"><div class="sl">Appearance</div>
+      <button class="sbtn" id="theme-btn" onclick="toggleTheme()" style="width:100%">🌙 Dark Mode</button></div>
     <div class="sc"><div class="sl">EPC API Key</div>
       <div class="si2" style="margin-bottom:8px">Get free key from <a href="https://get-energy-performance-data.communities.gov.uk/" target="_blank">get-energy-performance-data.communities.gov.uk</a></div>
       <input class="fk" id="sk" type="password" placeholder="Bearer Token…" autocomplete="off">
@@ -1540,6 +1557,22 @@ const SC = {
   notqualified:{ col:'#6366f1', cls:'dNQ', badge:'sb-notqualified', label:'🚫 Not Qualified' },
 };
 
+// Apply saved theme
+if (localStorage.getItem('theme')==='light') document.body.classList.add('light');
+window.addEventListener('load', function(){
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = document.body.classList.contains('light') ? '☀️ Light Mode' : '🌙 Dark Mode';
+});
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  const isLight = document.body.classList.contains('light');
+  localStorage.setItem('theme', isLight?'light':'dark');
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = isLight ? '☀️ Light Mode' : '🌙 Dark Mode';
+  // Update theme-color meta
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = isLight ? '#f1f5f9' : '#0a0e1a';
+}
 let apiKey = localStorage.getItem('ek')||'';
 let jfURL  = localStorage.getItem('jf')||'https://doors.zervio.com/';
 let doors  = JSON.parse(localStorage.getItem('dr')||'{}');
