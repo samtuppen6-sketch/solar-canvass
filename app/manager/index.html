@@ -82,8 +82,59 @@ tr:hover td{background:#fafbfd}
 .empty{text-align:center;padding:40px 20px;font-size:.83rem;color:#a0b0c4}
 .plan-badge{font-size:.7rem;font-weight:600;background:rgba(47,107,255,.1);color:#2a5ec4;padding:3px 9px;border-radius:5px}
 .loading{text-align:center;padding:60px;color:#a0b0c4;font-size:.9rem}
-@media(max-width:900px){.stats-row{grid-template-columns:repeat(3,1fr)}.main-grid{grid-template-columns:1fr}}
-@media(max-width:560px){.stats-row{grid-template-columns:repeat(2,1fr)}.topbar .date-pill{display:none}}
+
+/* Rep cards — shown on mobile instead of table */
+.rep-card{background:#fff;border:1px solid #e3eaf3;border-radius:12px;padding:16px;margin:0 0 10px}
+.rep-card:last-child{margin-bottom:0}
+.rc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.rc-name{font-weight:600;font-size:.9rem;color:#0a1322}
+.rc-time{font-size:.71rem;color:#a0b0c4}
+.rc-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.rc-bar-label{font-size:.72rem;color:#7787a0;width:44px;flex-shrink:0}
+.rc-bar-bg{flex:1;height:6px;background:#f0f4f8;border-radius:3px;overflow:hidden}
+.rc-bar-fill{height:100%;border-radius:3px;background:#00b24a}
+.rc-bar-num{font-size:.78rem;font-weight:700;color:#0a1322;min-width:20px;text-align:right}
+.rc-outcomes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.rc-out{background:#f5f8fc;border:1px solid #e8f0f8;border-radius:7px;padding:7px 4px;text-align:center}
+.rc-out-val{font-family:'DM Sans',sans-serif;font-size:1.1rem;font-weight:700;line-height:1}
+.rc-out-label{font-size:.62rem;color:#a0b0c4;margin-top:2px}
+.rc-out.qual .rc-out-val{color:#00874a}
+.rc-out.cb .rc-out-val{color:#b87a00}
+.rc-out.na .rc-out-val{color:#7787a0}
+.rc-out.ns .rc-out-val{color:#c03030}
+
+/* Hide rep-cards on desktop, show table */
+.rep-cards-wrap{display:none;padding:16px}
+
+/* Tablet: 900px */
+@media(max-width:900px){
+  .stats-row{grid-template-columns:repeat(3,1fr)}
+  .main-grid{grid-template-columns:1fr}
+}
+
+/* Mobile: 640px — switch table to cards */
+@media(max-width:640px){
+  .wrap{padding:16px}
+  .stats-row{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat-card{padding:14px 16px}
+  .stat-val{font-size:1.7rem}
+  /* Hide desktop table, show rep cards */
+  #rep-table-wrap table{display:none}
+  .rep-cards-wrap{display:block}
+  .tcard-head{flex-direction:column;align-items:flex-start;gap:10px}
+  .topbar .date-pill{display:none}
+  .topbar .btn-sm:first-of-type{display:none}
+  /* Stack sidebar cards more compact */
+  .side-card{padding:16px}
+  .inv-form input,.inv-form select{font-size:.9rem;padding:10px 12px}
+}
+
+/* Very small: 380px */
+@media(max-width:380px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .stat-val{font-size:1.5rem}
+  .rc-outcomes{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 <body>
@@ -259,7 +310,6 @@ async function loadRepTable(range){
 
   if(!doors.length){ wrap.innerHTML='<div class="empty">No activity recorded yet.</div>'; return; }
 
-  // Group by canvasser
   const reps = {};
   doors.forEach(d=>{
     const id = d.canvasser_id||'unknown';
@@ -274,7 +324,10 @@ async function loadRepTable(range){
   });
 
   const maxDoors = Math.max(...Object.values(reps).map(r=>r.total),1);
-  const rows = Object.values(reps).sort((a,b)=>b.total-a.total).map(r=>`
+  const sorted = Object.values(reps).sort((a,b)=>b.total-a.total);
+
+  // Desktop table rows
+  const rows = sorted.map(r=>`
     <tr>
       <td><div class="rep-name">${r.name}</div><div class="rep-meta">Last active ${new Date(r.last).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div></td>
       <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${(r.total/maxDoors)*100}%"></div></div><span style="font-size:.78rem;font-weight:600;min-width:24px;text-align:right">${r.total}</span></div></td>
@@ -284,10 +337,32 @@ async function loadRepTable(range){
       <td><span class="badge badge-red">${r.notSuitable+r.notInterested}</span></td>
     </tr>`).join('');
 
-  wrap.innerHTML=`<table>
-    <thead><tr><th>Rep</th><th>Doors</th><th>Qualified</th><th>Callback</th><th>No answer</th><th>Not suitable</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  // Mobile rep cards
+  const cards = sorted.map(r=>`
+    <div class="rep-card">
+      <div class="rc-top">
+        <div class="rc-name">${r.name}</div>
+        <div class="rc-time">Last active ${new Date(r.last).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+      <div class="rc-bar-row">
+        <span class="rc-bar-label">Doors</span>
+        <div class="rc-bar-bg"><div class="rc-bar-fill" style="width:${(r.total/maxDoors)*100}%"></div></div>
+        <span class="rc-bar-num">${r.total}</span>
+      </div>
+      <div class="rc-outcomes">
+        <div class="rc-out qual"><div class="rc-out-val">${r.qualified}</div><div class="rc-out-label">Qualified</div></div>
+        <div class="rc-out cb"><div class="rc-out-val">${r.callback}</div><div class="rc-out-label">Callback</div></div>
+        <div class="rc-out na"><div class="rc-out-val">${r.noAnswer}</div><div class="rc-out-label">No answer</div></div>
+        <div class="rc-out ns"><div class="rc-out-val">${r.notSuitable+r.notInterested}</div><div class="rc-out-label">Not suitable</div></div>
+      </div>
+    </div>`).join('');
+
+  wrap.innerHTML=`
+    <table>
+      <thead><tr><th>Rep</th><th>Doors</th><th>Qualified</th><th>Callback</th><th>No answer</th><th>Not suitable</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="rep-cards-wrap">${cards}</div>`;
 }
 
 async function loadMembers(){
