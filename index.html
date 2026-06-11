@@ -1932,36 +1932,25 @@ function normAddr(a) {
 
 // Sort by leading house number so the street reads in door order
 function sortStreetOrder(arr) {
-  // Address format is typically "48, Blakemere Crescent, PORTSMOUTH"
-  // Extract house number (with optional letter) and street name reliably.
+  // Handles both "31 Woofferton Road" (LR, no comma) and
+  // "17 WOOFFERTON ROAD, PAULSGROVE, PORTSMOUTH" (EPC, with commas).
   const parse = a => {
     let raw = (a.addr || '').trim();
-    // First comma-separated token usually holds the house number/name
-    let parts = raw.split(',');
-    let first = parts[0].trim();
-    // House number = leading digits in the first token
-    let nm = first.match(/^(\d+)\s*([a-z])?/i);
+    // Strip leading house number + optional letter from the very start
+    let nm = raw.match(/^(\d+)\s*([a-z])?\b/i);
     let num = nm ? parseInt(nm[1]) : 99999;
     let suffix = nm && nm[2] ? nm[2].toLowerCase() : '';
-    // Street = the token after the number (parts[1]) if first token is just a number,
-    // otherwise the remainder of the first token after stripping the number.
-    let street = '';
-    if (parts.length > 1 && /^\d/.test(first)) {
-      street = parts[1].trim();          // "48" , "Blakemere Crescent" , "PORTSMOUTH"
-    } else {
-      street = first.replace(/^\d+\s*[a-z]?\s*/i, '').trim();  // "48 Blakemere Crescent"
-      if (!street && parts.length>1) street = parts[1].trim();
-    }
-    return { num, suffix, street: street.toLowerCase() };
+    // Street name = everything after the house number, up to the first comma,
+    // lowercased and stripped of extra spaces — so both formats normalise the same.
+    let rest = raw.replace(/^\d+\s*[a-z]?\s*/i, '');  // drop the number
+    let street = rest.split(',')[0].trim().toLowerCase().replace(/\s+/g, ' ');
+    return { num, suffix, street };
   };
   return arr.slice().sort((a,b) => {
-    const pa=parse(a), pb=parse(b);
-    // 1) Group by street name alphabetically
+    const pa = parse(a), pb = parse(b);
     if (pa.street < pb.street) return -1;
     if (pa.street > pb.street) return 1;
-    // 2) Within a street: simple ascending house number (predictable walking order)
     if (pa.num !== pb.num) return pa.num - pb.num;
-    // 3) Tie-break on suffix (12a before 12b)
     return pa.suffix < pb.suffix ? -1 : pa.suffix > pb.suffix ? 1 : 0;
   });
 }
@@ -2040,7 +2029,7 @@ function pCard(i,p,nc) {
   }
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
-  return '<div class="pc2" onclick="openPropDetail(\''+esc(uid)+'\',\''+esc(JSON.stringify(p))+'\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'NE':(p.rating==='?'?'?':p.rating))+'</div></div>'
+  return '<div class="pc2" onclick="openPropDetail(\''+esc(uid)+'\',\''+esc(JSON.stringify(p))+'\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating))+'</div></div>'
     +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold?'<span>Sold '+p.lastSold+'</span>':'')+'</div>'
     +badge
     +lastActionLine+noteLine
