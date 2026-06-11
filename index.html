@@ -1145,6 +1145,8 @@ async function claimToken(userId) {
   } catch(e){}
 }
 
+let DEMO_MODE = false;
+
 async function doAuth() {
   clearAuthErr();
   const btn = document.getElementById('auth-submit');
@@ -1152,6 +1154,27 @@ async function doAuth() {
     const email = (document.getElementById('auth-email').value||'').trim();
     const pass = document.getElementById('auth-pass').value||'';
     if (!email || !pass) { authErr('Enter your email and password'); return; }
+    // DEMO MODE: demo@solpath.energy / demo — no cloud, no real data
+    if (email.toLowerCase()==='demo@solpath.energy' && pass.toLowerCase()==='demo') {
+      DEMO_MODE = true;
+      currentUser = { id: 'demo-user', email: 'demo@solpath.energy' };
+      currentProfile = { id:'demo-user', full_name:'Demo User', role:'manager', active:true };
+      const screen = document.getElementById('auth-screen');
+      if (screen) screen.classList.add('hidden');
+      try { setupManagerAccess(); } catch(e){}
+      // Show a persistent DEMO banner
+      try {
+        if (!document.getElementById('demo-banner')) {
+          const banner = document.createElement('div');
+          banner.id = 'demo-banner';
+          banner.textContent = '🎬 DEMO MODE — no data is saved';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#6366f1;color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:800;letter-spacing:.05em';
+          document.body.appendChild(banner);
+        }
+      } catch(e){}
+      try { toast('Demo mode — nothing is saved'); } catch(e){}
+      return;
+    }
     if (!initSupabase()) { authErr('Connection error — please refresh'); return; }
     if (btn) { btn.disabled=true; btn.textContent='Please wait…'; }
     if (authMode==='signup') {
@@ -2508,6 +2531,7 @@ if('serviceWorker' in navigator){
 // an instant cache. On opening a postcode we pull that postcode's full history.
 
 async function saveDoorToCloud(uid, status, note, addr) {
+  if (DEMO_MODE) return;  // demo never writes to cloud
   if (!sb) return;
   // Make sure we have the live user id (session may have refreshed)
   let userId = currentUser && currentUser.id;
@@ -2579,6 +2603,7 @@ async function flushSaveQueue() {
 
 // Pull all door records for a postcode and merge into local view
 async function loadDoorHistoryForPostcode(pcNorm) {
+  if (DEMO_MODE) return;
   if (!sb || !currentUser) return {};
   try {
     const { data, error } = await sb.from('door_records')
@@ -2613,6 +2638,7 @@ async function loadDoorHistoryForPostcode(pcNorm) {
 
 // Called after login - refresh currently visible postcode
 async function syncDoorsFromCloud() {
+  if (DEMO_MODE) return;
   if (typeof curPC !== 'undefined' && curPC) {
     await loadDoorHistoryForPostcode(norm(curPC));
     if (typeof renderList==='function') renderList();
@@ -2655,6 +2681,7 @@ function closeDeal() {
 }
 
 async function recordDeal() {
+  if (DEMO_MODE) { try{ toast('Demo — deal not saved'); }catch(e){} return; }
   if (!pendingDeal || !sb || !currentUser) return;
   const name = document.getElementById('deal-name').value.trim();
   const nc = (pendingDeal.pc||'').replace(/\s+/g,'').toUpperCase();
