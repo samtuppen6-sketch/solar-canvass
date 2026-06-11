@@ -1002,7 +1002,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
     </div>
     <div class="auth-field">
       <label>Password</label>
-      <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password">
+      <div style="position:relative">
+        <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" style="width:100%;padding-right:48px;box-sizing:border-box">
+        <button type="button" onclick="togglePassVis()" id="pass-eye"
+          style="position:absolute;right:0;top:0;height:100%;width:46px;background:none;border:none;cursor:pointer;color:#64748b;font-size:18px;display:flex;align-items:center;justify-content:center">
+          👁
+        </button>
+      </div>
     </div>
     <button class="auth-btn" id="auth-submit" onclick="doAuth()">Sign In</button>
     <div class="auth-toggle" id="auth-toggle">
@@ -1038,6 +1044,18 @@ function toggleAuthMode() {
   document.getElementById('auth-toggle').innerHTML = authMode==='signup'
     ? 'Already have an account? <span onclick="toggleAuthMode()">Sign in</span>'
     : 'New canvasser? <span onclick="toggleAuthMode()">Create an account</span>';
+}
+
+function togglePassVis() {
+  const inp = document.getElementById('auth-pass');
+  const btn = document.getElementById('pass-eye');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.style.color = '#f59e0b';
+  } else {
+    inp.type = 'password';
+    btn.style.color = '#64748b';
+  }
 }
 
 async function doAuth() {
