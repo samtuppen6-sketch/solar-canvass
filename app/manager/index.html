@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solpath — Manager Dashboard</title>
+<link rel="icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f5f8fc;color:#0a1322;-webkit-font-smoothing:antialiased}
+.topbar{background:#fff;border-bottom:1px solid #e3eaf3;padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:9px;font-family:'DM Sans',sans-serif;font-size:1.05rem;font-weight:700;letter-spacing:-.03em}
+.brand img{width:26px;height:26px;border-radius:6px}
+.org-name{font-size:.82rem;color:#7787a0;margin-left:6px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.date-pill{font-size:.78rem;color:#7787a0;background:#f0f4f8;padding:5px 12px;border-radius:6px}
+.btn-sm{font-size:.8rem;font-weight:600;padding:7px 14px;border-radius:7px;border:1px solid #e3eaf3;background:#fff;cursor:pointer;transition:all .15s;color:#0a1322}
+.btn-sm:hover{border-color:#d4deeb}
+.btn-green{background:#00b24a;color:#fff;border-color:#00b24a}
+.btn-green:hover{background:#009a40}
+.nav{background:#fff;border-bottom:1px solid #e3eaf3;padding:0 24px;display:flex;gap:0;overflow-x:auto}
+.nav a{font-size:.84rem;font-weight:500;color:#7787a0;padding:13px 16px;border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer;transition:all .15s}
+.nav a:hover{color:#0a1322}
+.nav a.active{color:#00b24a;border-bottom-color:#00b24a}
+.wrap{max-width:1200px;margin:0 auto;padding:28px 24px}
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+.stat-card{background:#fff;border:1px solid #e3eaf3;border-radius:12px;padding:18px 20px;box-shadow:0 1px 4px rgba(10,20,40,.03)}
+.stat-label{font-size:.72rem;font-weight:600;color:#7787a0;letter-spacing:.03em;text-transform:uppercase;margin-bottom:8px}
+.stat-val{font-family:'DM Sans',sans-serif;font-size:2rem;font-weight:700;color:#0a1322;line-height:1}
+.stat-sub{font-size:.72rem;color:#a0b0c4;margin-top:4px}
+.stat-card.green .stat-val{color:#00874a}
+.stat-card.amber .stat-val{color:#c07a00}
+/* Main grid */
+.main-grid{display:grid;grid-template-columns:1fr 360px;gap:20px}
+/* Table card */
+.tcard{background:#fff;border:1px solid #e3eaf3;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(10,20,40,.03)}
+.tcard-head{padding:16px 20px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between}
+.tcard-head h3{font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:-.02em}
+.tcard-head .tab-row{display:flex;gap:4px}
+.ttab{font-size:.75rem;font-weight:600;padding:5px 12px;border-radius:6px;border:1px solid #e3eaf3;background:#fff;cursor:pointer;color:#7787a0;transition:all .15s}
+.ttab.active{background:#f0f4f8;color:#0a1322}
+table{width:100%;border-collapse:collapse}
+th{font-size:.72rem;font-weight:600;color:#7787a0;text-align:left;padding:10px 20px;border-bottom:1px solid #f0f4f8;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+td{font-size:.83rem;padding:12px 20px;border-bottom:1px solid #f5f8fc;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbfd}
+.rep-name{font-weight:600;color:#0a1322}
+.rep-meta{font-size:.72rem;color:#a0b0c4;margin-top:1px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:600;padding:3px 9px;border-radius:5px}
+.badge-green{background:rgba(0,178,74,.1);color:#00874a}
+.badge-amber{background:rgba(240,160,25,.12);color:#b87a00}
+.badge-blue{background:rgba(47,107,255,.1);color:#2a5ec4}
+.badge-red{background:rgba(229,72,77,.1);color:#c03030}
+.badge-grey{background:#f0f4f8;color:#7787a0}
+.bar-wrap{display:flex;align-items:center;gap:8px}
+.bar-bg{flex:1;height:5px;background:#f0f4f8;border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:#00b24a;transition:width .4s}
+/* Sidebar cards */
+.side-card{background:#fff;border:1px solid #e3eaf3;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 1px 4px rgba(10,20,40,.03)}
+.side-card h3{font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;margin-bottom:14px;letter-spacing:-.02em}
+.inv-form{display:flex;flex-direction:column;gap:10px}
+.inv-form input,.inv-form select{background:#f5f8fc;border:1px solid #d4deeb;border-radius:8px;padding:9px 12px;font-size:.83rem;color:#0a1322;font-family:'Inter',sans-serif;width:100%}
+.inv-form input:focus,.inv-form select:focus{outline:none;border-color:#00b24a}
+.inv-btn{width:100%;padding:10px;background:#00b24a;color:#fff;font-size:.84rem;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.inv-btn:hover{background:#009a40}
+.member-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f4f8}
+.member-row:last-child{border-bottom:none}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00b24a,#0069c0);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;flex-shrink:0}
+.member-info{flex:1;min-width:0}
+.member-name{font-size:.82rem;font-weight:600;color:#0a1322;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-role{font-size:.7rem;color:#a0b0c4}
+.member-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ms-active{background:#00b24a}
+.ms-idle{background:#d4deeb}
+.cb-list{display:flex;flex-direction:column;gap:8px}
+.cb-item{background:#f5f8fc;border:1px solid #e3eaf3;border-radius:8px;padding:10px 12px}
+.cb-addr{font-size:.81rem;font-weight:600;color:#0a1322;margin-bottom:2px}
+.cb-meta{font-size:.7rem;color:#7787a0}
+.cb-rep{font-size:.7rem;font-weight:600;color:#00874a}
+.empty{text-align:center;padding:40px 20px;font-size:.83rem;color:#a0b0c4}
+.plan-badge{font-size:.7rem;font-weight:600;background:rgba(47,107,255,.1);color:#2a5ec4;padding:3px 9px;border-radius:5px}
+.loading{text-align:center;padding:60px;color:#a0b0c4;font-size:.9rem}
+@media(max-width:900px){.stats-row{grid-template-columns:repeat(3,1fr)}.main-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.stats-row{grid-template-columns:repeat(2,1fr)}.topbar .date-pill{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><img src="/icon-192.png" alt="Solpath">Solpath <span class="org-name" id="org-label"></span></div>
+  <div class="topbar-right">
+    <span class="date-pill" id="date-pill"></span>
+    <button class="btn-sm" onclick="location='/app'">Open Map</button>
+    <button class="btn-sm" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+<div class="nav">
+  <a class="active" onclick="showTab('overview')">Overview</a>
+  <a onclick="showTab('team')">Team</a>
+  <a onclick="showTab('callbacks')">Callbacks</a>
+  <a onclick="showTab('deals')">Deals</a>
+</div>
+
+<div class="wrap" id="auth-check">
+  <div class="loading">Loading dashboard…</div>
+</div>
+
+<div class="wrap" id="dash" style="display:none">
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Doors today</div>
+      <div class="stat-val" id="s-doors">—</div>
+      <div class="stat-sub" id="s-doors-sub">across all reps</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Qualified</div>
+      <div class="stat-val" id="s-qualified">—</div>
+      <div class="stat-sub" id="s-q-sub">today</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-label">Callbacks</div>
+      <div class="stat-val" id="s-callbacks">—</div>
+      <div class="stat-sub">pending follow-up</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active reps</div>
+      <div class="stat-val" id="s-reps">—</div>
+      <div class="stat-sub">working today</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Deals / signups</div>
+      <div class="stat-val" id="s-deals">—</div>
+      <div class="stat-sub">all time</div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main-grid">
+    <div>
+      <!-- Rep activity table -->
+      <div class="tcard" id="tab-overview">
+        <div class="tcard-head">
+          <h3>Rep activity — today</h3>
+          <div class="tab-row">
+            <button class="ttab active" onclick="setRange(this,'today')">Today</button>
+            <button class="ttab" onclick="setRange(this,'week')">This week</button>
+            <button class="ttab" onclick="setRange(this,'all')">All time</button>
+          </div>
+        </div>
+        <div id="rep-table-wrap"><div class="empty">Loading rep data…</div></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div>
+      <!-- Invite -->
+      <div class="side-card">
+        <h3>Invite team member</h3>
+        <div class="inv-form">
+          <input type="email" id="inv-email" placeholder="Email address">
+          <select id="inv-role"><option value="canvasser">Canvasser</option><option value="manager">Manager</option></select>
+          <button class="inv-btn" onclick="sendInvite()">Send Invite</button>
+        </div>
+        <p id="inv-msg" style="font-size:.75rem;margin-top:8px;color:#00874a;display:none"></p>
+        <p style="font-size:.72rem;color:#a0b0c4;margin-top:8px" id="user-limit-note"></p>
+      </div>
+
+      <!-- Team members -->
+      <div class="side-card">
+        <h3>Team members <span class="plan-badge" id="plan-badge"></span></h3>
+        <div id="members-list"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- Callbacks -->
+      <div class="side-card">
+        <h3>Recent callbacks</h3>
+        <div class="cb-list" id="callbacks-list"><div class="empty">No callbacks yet</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA='https://xdoqclrwdduncjaxtixp.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkb3FjbHJ3ZGR1bmNqYXh0aXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjkyNjMsImV4cCI6MjA5NjYwNTI2M30.vLCzN7-eNJh32tvy0zySDGX5bp6X1v9WlST59BSmIkk';
+
+let SESSION=null, ORG=null, PROFILE=null;
+
+// Date pill
+const now = new Date();
+document.getElementById('date-pill').textContent = now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+async function api(path, opts={}){
+  const r = await fetch(`${SUPA}${path}`,{
+    headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION?.access_token||KEY}`,'Content-Type':'application/json',...(opts.headers||{})},
+    ...opts
+  });
+  return r.json();
+}
+
+async function init(){
+  // Check session from localStorage
+  const raw = localStorage.getItem('sb-session');
+  if(!raw){ location='/app/login?next=/app/manager'; return; }
+  SESSION = JSON.parse(raw);
+
+  // Load profile
+  const profiles = await api(`/rest/v1/profiles?id=eq.${SESSION.user.id}&select=*`);
+  PROFILE = profiles[0];
+  if(!PROFILE || !['manager','super_admin'].includes(PROFILE.role)){
+    document.getElementById('auth-check').innerHTML = '<div class="empty" style="padding:80px 20px"><p style="font-size:1rem;color:#e5484d;font-weight:600">Access denied</p><p style="margin-top:8px">Manager access required. <a href="/app" style="color:#00b24a">Back to app</a></p></div>';
+    return;
+  }
+
+  // Load org
+  const orgs = await api(`/rest/v1/organisations?id=eq.${PROFILE.organisation_id}&select=*`);
+  ORG = orgs[0];
+  document.getElementById('org-label').textContent = ORG?.name || '';
+  document.getElementById('plan-badge').textContent = ORG?.plan?.replace(/_/g,' ') || '';
+  document.getElementById('user-limit-note').textContent = `Your plan allows up to ${ORG?.max_users||5} users.`;
+
+  document.getElementById('auth-check').style.display='none';
+  document.getElementById('dash').style.display='block';
+  loadAll('today');
+}
+
+async function loadAll(range){
+  await Promise.all([loadStats(range), loadRepTable(range), loadMembers(), loadCallbacks()]);
+}
+
+function todayStart(){ const d=new Date(); d.setHours(0,0,0,0); return d.toISOString(); }
+function weekStart(){ const d=new Date(); d.setDate(d.getDate()-d.getDay()); d.setHours(0,0,0,0); return d.toISOString(); }
+
+async function loadStats(range){
+  const since = range==='today' ? todayStart() : range==='week' ? weekStart() : '2020-01-01T00:00:00Z';
+  const orgFilter = `organisation_id=eq.${PROFILE.organisation_id}`;
+  const doors = await api(`/rest/v1/door_records?${orgFilter}&created_at=gte.${since}&select=status`);
+  const deals = await api(`/rest/v1/signups?${orgFilter}&select=id`);
+  const members = await api(`/rest/v1/profiles?organisation_id=eq.${PROFILE.organisation_id}&select=id`);
+  const activeToday = await api(`/rest/v1/door_records?${orgFilter}&created_at=gte.${todayStart()}&select=canvasser_id`);
+
+  const qualified = doors.filter(d=>d.status==='qualified'||d.status==='interested').length;
+  const callbacks = doors.filter(d=>d.status==='callback').length;
+  const uniqueActive = new Set(activeToday.map(x=>x.canvasser_id)).size;
+
+  document.getElementById('s-doors').textContent = doors.length || 0;
+  document.getElementById('s-qualified').textContent = qualified;
+  document.getElementById('s-callbacks').textContent = callbacks;
+  document.getElementById('s-reps').textContent = uniqueActive;
+  document.getElementById('s-deals').textContent = deals.length || 0;
+}
+
+async function loadRepTable(range){
+  const since = range==='today' ? todayStart() : range==='week' ? weekStart() : '2020-01-01T00:00:00Z';
+  const doors = await api(`/rest/v1/door_records?organisation_id=eq.${PROFILE.organisation_id}&created_at=gte.${since}&select=canvasser_id,canvasser_name,status,created_at`);
+  const wrap = document.getElementById('rep-table-wrap');
+
+  if(!doors.length){ wrap.innerHTML='<div class="empty">No activity recorded yet.</div>'; return; }
+
+  // Group by canvasser
+  const reps = {};
+  doors.forEach(d=>{
+    const id = d.canvasser_id||'unknown';
+    if(!reps[id]) reps[id]={name:d.canvasser_name||'Unknown',total:0,qualified:0,callback:0,noAnswer:0,notSuitable:0,notInterested:0,last:d.created_at};
+    reps[id].total++;
+    if(d.status==='qualified'||d.status==='interested') reps[id].qualified++;
+    else if(d.status==='callback') reps[id].callback++;
+    else if(d.status==='no_answer'||d.status==='no answer') reps[id].noAnswer++;
+    else if(d.status==='not_suitable'||d.status==='not suitable') reps[id].notSuitable++;
+    else if(d.status==='not_interested'||d.status==='not interested') reps[id].notInterested++;
+    if(d.created_at > reps[id].last) reps[id].last = d.created_at;
+  });
+
+  const maxDoors = Math.max(...Object.values(reps).map(r=>r.total),1);
+  const rows = Object.values(reps).sort((a,b)=>b.total-a.total).map(r=>`
+    <tr>
+      <td><div class="rep-name">${r.name}</div><div class="rep-meta">Last active ${new Date(r.last).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div></td>
+      <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${(r.total/maxDoors)*100}%"></div></div><span style="font-size:.78rem;font-weight:600;min-width:24px;text-align:right">${r.total}</span></div></td>
+      <td><span class="badge badge-green">${r.qualified}</span></td>
+      <td><span class="badge badge-amber">${r.callback}</span></td>
+      <td><span class="badge badge-grey">${r.noAnswer}</span></td>
+      <td><span class="badge badge-red">${r.notSuitable+r.notInterested}</span></td>
+    </tr>`).join('');
+
+  wrap.innerHTML=`<table>
+    <thead><tr><th>Rep</th><th>Doors</th><th>Qualified</th><th>Callback</th><th>No answer</th><th>Not suitable</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+async function loadMembers(){
+  const members = await api(`/rest/v1/profiles?organisation_id=eq.${PROFILE.organisation_id}&select=*`);
+  const wrap = document.getElementById('members-list');
+  if(!members.length){ wrap.innerHTML='<div class="empty">No team members yet.</div>'; return; }
+  wrap.innerHTML = members.map(m=>{
+    const initials = (m.full_name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="member-row">
+      <div class="avatar">${initials}</div>
+      <div class="member-info"><div class="member-name">${m.full_name||'Unnamed'}</div><div class="member-role">${m.role||'canvasser'}</div></div>
+      <div class="member-status ${m.active ? 'ms-active':'ms-idle'}"></div>
+    </div>`;
+  }).join('');
+}
+
+async function loadCallbacks(){
+  const cbs = await api(`/rest/v1/door_records?organisation_id=eq.${PROFILE.organisation_id}&status=eq.callback&order=created_at.desc&limit=5&select=address,canvasser_name,created_at,note`);
+  const wrap = document.getElementById('callbacks-list');
+  if(!cbs.length){ wrap.innerHTML='<div class="empty">No callbacks yet.</div>'; return; }
+  wrap.innerHTML = cbs.map(c=>`
+    <div class="cb-item">
+      <div class="cb-addr">${c.address||'Unknown address'}</div>
+      <div class="cb-meta">${c.note||'No note'}</div>
+      <div class="cb-rep">${c.canvasser_name||'Unknown rep'} · ${new Date(c.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
+    </div>`).join('');
+}
+
+async function sendInvite(){
+  const email = document.getElementById('inv-email').value.trim();
+  const role = document.getElementById('inv-role').value;
+  const msg = document.getElementById('inv-msg');
+  if(!email){ return; }
+  // Create invitation record
+  await api('/rest/v1/invitations',{method:'POST',
+    headers:{'Prefer':'return=minimal'},
+    body:JSON.stringify({organisation_id:PROFILE.organisation_id, email, role, invited_by:SESSION.user.id})
+  });
+  msg.textContent = `Invite sent to ${email}`;
+  msg.style.display='block';
+  document.getElementById('inv-email').value='';
+  setTimeout(()=>msg.style.display='none',4000);
+}
+
+function setRange(btn, range){
+  document.querySelectorAll('.ttab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  loadStats(range); loadRepTable(range);
+}
+
+function showTab(tab){
+  document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function signOut(){
+  localStorage.removeItem('sb-session');
+  location='/app/login';
+}
+
+init();
+</script>
+</body>
+</html>
