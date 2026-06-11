@@ -652,15 +652,15 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
       <div class="dform">
         <form onsubmit="submitDemo(event)">
           <div class="fgrid">
-            <div class="ff"><label>Name *</label><input type="text" placeholder="Your name" required></div>
-            <div class="ff"><label>Company *</label><input type="text" placeholder="Company name" required></div>
-            <div class="ff"><label>Role</label><input type="text" placeholder="e.g. Sales Director"></div>
-            <div class="ff"><label>Email *</label><input type="email" placeholder="your@email.com" required></div>
-            <div class="ff"><label>Phone</label><input type="tel" placeholder="07xxx xxxxxx"></div>
-            <div class="ff"><label>Team size</label><select><option value="">Select…</option><option>Just me</option><option>2–5 people</option><option>6–10 people</option><option>11–20 people</option><option>20+ people</option></select></div>
-            <div class="ff full"><label>Target area / postcode patch</label><input type="text" placeholder="e.g. PO1–PO6, Hampshire, South East"></div>
-            <div class="ff full"><label>What type of work do you deliver?</label><select><option value="">Select scheme…</option><option>ECO4</option><option>GBIS</option><option>Warm Homes</option><option>Solid Wall Insulation</option><option>Boiler Grant</option><option>Solar / Battery</option><option>Heat Pump</option><option>Retrofit</option><option>Other / Multiple</option></select></div>
-            <div class="ff full"><label>Message</label><textarea placeholder="Tell us about your team, territory and what you currently use to manage canvassing…"></textarea></div>
+            <div class="ff"><label>Name *</label><input type="text" name="name" placeholder="Your name" required></div>
+            <div class="ff"><label>Company *</label><input type="text" name="company" placeholder="Company name" required></div>
+            <div class="ff"><label>Role</label><input type="text" name="role" placeholder="e.g. Sales Director"></div>
+            <div class="ff"><label>Email *</label><input type="email" name="email" placeholder="your@email.com" required></div>
+            <div class="ff"><label>Phone</label><input type="tel" name="phone" placeholder="07xxx xxxxxx"></div>
+            <div class="ff"><label>Team size</label><select name="team_size"><option value="">Select…</option><option>Just me</option><option>2–5 people</option><option>6–10 people</option><option>11–20 people</option><option>20+ people</option></select></div>
+            <div class="ff full"><label>Target area / postcode patch</label><input type="text" name="target_area" placeholder="e.g. PO1–PO6, Hampshire, South East"></div>
+            <div class="ff full"><label>What type of work do you deliver?</label><select name="campaign_type"><option value="">Select scheme…</option><option>ECO4</option><option>GBIS</option><option>Warm Homes</option><option>Solid Wall Insulation</option><option>Boiler Grant</option><option>Solar / Battery</option><option>Heat Pump</option><option>Retrofit</option><option>Other / Multiple</option></select></div>
+            <div class="ff full"><label>Message</label><textarea name="message" placeholder="Tell us about your team, territory and what you currently use to manage canvassing…"></textarea></div>
           </div>
           <button type="submit" class="dsubmit">Request Demo →</button>
           <p class="dnote">We'll respond within one business day. No sales pressure. No automated follow-up sequences.</p>
@@ -705,7 +705,74 @@ const tabs=document.querySelectorAll('#tabs a');
 const spy=()=>{let cur='home';const y=window.scrollY+120;secs.forEach(s=>{if(s&&s.offsetTop<=y)cur=s.id});tabs.forEach(t=>t.classList.toggle('active',t.getAttribute('href')==='#'+cur))};
 window.addEventListener('scroll',spy,{passive:true});spy();
 // Demo submit
-function submitDemo(e){e.preventDefault();const b=e.target.querySelector('.dsubmit');b.textContent='✓ Request received — we\'ll be in touch shortly';b.style.background='#009a40';b.disabled=true}
+async function submitDemo(e) {
+  e.preventDefault();
+  const btn = e.target.querySelector('.dsubmit');
+  const orig = btn.textContent;
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+
+  const fd = new FormData(e.target);
+  const data = {
+    name:          fd.get('name')        || '',
+    company:       fd.get('company')     || '',
+    role:          fd.get('role')        || '',
+    email:         fd.get('email')       || '',
+    phone:         fd.get('phone')       || '',
+    team_size:     fd.get('team_size')   || '',
+    target_area:   fd.get('target_area') || '',
+    campaign_type: fd.get('campaign_type') || '',
+    message:       fd.get('message')     || ''
+  };
+
+  // ── 1. Save to Supabase ──
+  const SUPA_URL = 'https://xdoqclrwdduncjaxtixp.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkb3FjbHJ3ZGR1bmNqYXh0aXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjkyNjMsImV4cCI6MjA5NjYwNTI2M30.vLCzN7-eNJh32tvy0zySDGX5bp6X1v9WlST59BSmIkk';
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/demo_enquiries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'Prefer':        'return=minimal'
+      },
+      body: JSON.stringify(data)
+    });
+  } catch (err) { console.warn('Supabase save failed:', err); }
+
+  // ── 2. Email notification via Web3Forms ──
+  // IMPORTANT: replace WEB3FORMS_KEY below with your key from web3forms.com (free)
+  const WEB3FORMS_KEY = 'REPLACE_WITH_YOUR_WEB3FORMS_KEY';
+  try {
+    const w3f = {
+      access_key: WEB3FORMS_KEY,
+      subject:    `New Solpath demo request — ${data.company}`,
+      from_name:  'Solpath Website',
+      name:       data.name,
+      email:      data.email,
+      message:    [
+        `Name: ${data.name}`,
+        `Company: ${data.company}`,
+        `Role: ${data.role}`,
+        `Phone: ${data.phone}`,
+        `Team size: ${data.team_size}`,
+        `Target area: ${data.target_area}`,
+        `Campaign type: ${data.campaign_type}`,
+        `Message: ${data.message}`
+      ].join('\n')
+    };
+    await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(w3f)
+    });
+  } catch (err) { console.warn('Email notification failed:', err); }
+
+  btn.textContent = '✓ Request received — we\'ll be in touch shortly';
+  btn.style.background = '#009a40';
+  e.target.querySelectorAll('input,select,textarea').forEach(f => f.disabled = true);
+}
 </script>
 </body>
 </html>
