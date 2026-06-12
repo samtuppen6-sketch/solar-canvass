@@ -1953,8 +1953,14 @@ async function loadPC(pc) {
   }).filter(Boolean);
   // Merge in Land Registry private-sale houses that have NO EPC
   const lrHouses = await fetchLR(pc);
-  // Build a set of normalised addresses already covered by EPC
-  const epcAddrs = new Set(parsed.map(p => dedupKey(p.addr)));
+  // Build exclusion set from ALL EPC rows (A through G) — not just parsed (D-G).
+  // Without this, C-rated properties filtered out of parsed get re-added
+  // by the Land Registry fallback as "No EPC", because their address
+  // isn't in the set and the dedup check passes. One-line root-cause fix.
+  const epcAddrs = new Set(rows.map(r => {
+    const a = [r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||'';
+    return a ? dedupKey(a) : null;
+  }).filter(Boolean));
   const lrOnly = [];
   for (const h of lrHouses) {
     const addr = lrAddr(h);
