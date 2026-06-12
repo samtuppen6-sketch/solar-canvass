@@ -971,6 +971,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .pd-hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .pd-hist-txt{flex:1}
 .pd-hist-time{font-size:10px;color:var(--s)}
+.mypatch-label{background:rgba(255,255,255,.94);border:none;box-shadow:0 1px 5px rgba(0,80,30,.3);border-radius:6px;font-size:.7rem;font-weight:800;color:#007a33;padding:2px 8px}
+.mypatch-label::before{display:none}
 </style><link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
@@ -1219,6 +1221,7 @@ async function onAuthed() {
     if(screen) screen.classList.add('hidden');
     if (typeof setupManagerAccess==='function') try{setupManagerAccess();}catch(e){}
     if (typeof syncDoorsFromCloud==='function') try{syncDoorsFromCloud();}catch(e){}
+    try{ loadMyPatches(); }catch(e){}
     try{ flushSaveQueue(); }catch(e){}
     // Periodically retry any queued saves (every 30s)
     if (!window._flushInterval) {
@@ -1230,6 +1233,58 @@ async function onAuthed() {
 async function doLogout() {
   try { if (sb) await sb.auth.signOut(); } catch(e){}
   location.reload();
+}
+
+/* ════════ MY PATCH — territory assigned by your manager ════════ */
+let _myPatches = [], _patchLayer = null, _patchDrawn = false;
+
+async function loadMyPatches() {
+  if (!sb || !currentUser) return;
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const { data, error } = await sb.from('territory_assignments').select('*')
+      .eq('assigned_to', currentUser.id).eq('assigned_date', today).eq('status','active');
+    if (error || !data || !data.length) return;
+    _myPatches = data;
+    _patchDrawn = false;
+    // map may not exist yet (region not selected) — retry until it does
+    let tries = 0;
+    const tick = setInterval(() => {
+      tries++;
+      if (typeof map !== 'undefined' && map) { clearInterval(tick); drawMyPatches(); }
+      else if (tries > 240) clearInterval(tick); // give up after ~2 min
+    }, 500);
+  } catch(e){}
+}
+
+function drawMyPatches() {
+  if (_patchDrawn || !_myPatches.length || !map) return;
+  _patchDrawn = true;
+  if (_patchLayer) _patchLayer.remove();
+  _patchLayer = L.layerGroup().addTo(map);
+  _myPatches.forEach(a => {
+    const b = a.bounds; if (!b) return;
+    L.rectangle([[b.s,b.w],[b.n,b.e]], {color:'#00b24a', weight:3, fillColor:'#00b24a', fillOpacity:0.10, dashArray:'8 5'})
+      .bindTooltip('📍 Your patch' + (a.label ? ' — ' + a.label : ''), {permanent:true, direction:'center', className:'mypatch-label'})
+      .bindPopup('<b>Your patch today</b><br><span style="font-size:.8rem">' + (a.label || 'Assigned area') + '<br>Set by ' + (a.assigned_by_name || 'your manager') + '</span>')
+      .addTo(_patchLayer);
+  });
+  // floating button to jump to the patch
+  if (!document.getElementById('mypatch-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'mypatch-btn';
+    btn.textContent = '📍 My patch';
+    btn.style.cssText = 'position:fixed;bottom:88px;left:12px;z-index:1200;background:#00b24a;color:#fff;border:none;border-radius:22px;padding:10px 16px;font-size:.82rem;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.25);cursor:pointer';
+    btn.onclick = goToMyPatch;
+    document.body.appendChild(btn);
+  }
+  try { toast('📍 Your manager has set your patch for today — tap "My patch" to go there'); } catch(e){}
+}
+
+function goToMyPatch() {
+  if (!_myPatches.length || !map) return;
+  const a = _myPatches[0], b = a.bounds;
+  map.fitBounds([[b.s,b.w],[b.n,b.e]], {padding:[30,30]});
 }
 
 window.addEventListener('load', async () => {
