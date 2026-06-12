@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solpath — Product Walkthrough</title>
+<link rel="icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0A1322; --ink2:#101D31; --green:#00B24A; --green2:#00913D;
+  --paper:#F7FAF8; --slate:#8195AD; --slate2:#B8C6D6;
+  --amber:#F0A019; --red:#E5484D; --blue:#2F6FED; --purple:#9A3FD1;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--ink);overflow:hidden;font-family:'DM Sans',sans-serif;color:var(--paper)}
+
+/* ════ STAGE ════ */
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.scene{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .7s ease}
+.scene.on{opacity:1}
+
+/* ════ BOTTOM RAIL ════ */
+#rail{position:fixed;left:0;right:0;bottom:0;height:54px;display:flex;align-items:center;gap:16px;padding:0 22px;background:linear-gradient(to top,rgba(5,10,18,.92),rgba(5,10,18,0));z-index:50}
+#timecode{font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--slate2);letter-spacing:.06em;min-width:74px}
+#chapters{flex:1;display:flex;gap:6px;height:4px}
+.chap{flex:1;background:rgba(129,149,173,.25);border-radius:2px;overflow:hidden;position:relative}
+.chap i{position:absolute;left:0;top:0;bottom:0;width:0%;background:var(--green);border-radius:2px;display:block}
+#scene-name{font-family:'Space Grotesk',sans-serif;font-size:.72rem;font-weight:500;color:var(--slate);text-transform:uppercase;letter-spacing:.14em;min-width:200px;text-align:right}
+.rbtn{background:none;border:1px solid rgba(129,149,173,.35);color:var(--slate2);border-radius:8px;font-size:.74rem;font-family:'DM Sans',sans-serif;padding:6px 12px;cursor:pointer}
+.rbtn:hover{border-color:var(--green);color:var(--green)}
+
+/* ════ START GATE + COUNTDOWN ════ */
+#gate{position:fixed;inset:0;background:var(--ink);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px}
+#gate .glogo{display:flex;align-items:center;gap:14px}
+#gate .glogo img{width:54px;height:54px;border-radius:12px}
+#gate .glogo b{font-family:'Space Grotesk',sans-serif;font-size:2rem;font-weight:700;letter-spacing:-.02em}
+#gate p{color:var(--slate);font-size:.92rem;max-width:420px;text-align:center;line-height:1.6}
+#playbtn{background:var(--green);color:#fff;border:none;border-radius:14px;font-family:'Space Grotesk',sans-serif;font-size:1.05rem;font-weight:700;padding:16px 40px;cursor:pointer;letter-spacing:.02em;box-shadow:0 8px 30px rgba(0,178,74,.35)}
+#playbtn:hover{background:var(--green2)}
+#countdown{position:fixed;inset:0;background:var(--ink);z-index:99;display:none;align-items:center;justify-content:center}
+#countdown b{font-family:'Space Grotesk',sans-serif;font-size:9rem;font-weight:700;color:var(--green)}
+
+/* ════ LOWER THIRD CAPTION ════ */
+#caption{position:fixed;left:50%;bottom:74px;transform:translateX(-50%) translateY(14px);background:rgba(10,19,34,.78);backdrop-filter:blur(8px);border:1px solid rgba(0,178,74,.25);border-left:3px solid var(--green);border-radius:10px;padding:11px 20px;font-size:.95rem;color:var(--paper);opacity:0;transition:opacity .45s,transform .45s;max-width:760px;text-align:center;z-index:40}
+#caption.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ════ SCENE 1: TITLE ════ */
+#s1 .logo-row{display:flex;align-items:center;gap:18px;opacity:0;transform:translateY(16px);transition:all .9s cubic-bezier(.2,.8,.2,1)}
+#s1.on .logo-row{opacity:1;transform:none}
+#s1 .logo-row img{width:74px;height:74px;border-radius:17px;box-shadow:0 10px 40px rgba(0,178,74,.3)}
+#s1 .logo-row b{font-family:'Space Grotesk',sans-serif;font-size:3.4rem;font-weight:700;letter-spacing:-.03em}
+#s1 .tag{margin-top:18px;font-family:'Space Grotesk',sans-serif;font-size:1.18rem;color:var(--slate2);font-weight:500;opacity:0;transition:opacity .9s .5s}
+#s1.on .tag{opacity:1}
+#s1 .sub{margin-top:10px;font-size:.85rem;color:var(--slate);letter-spacing:.18em;text-transform:uppercase;opacity:0;transition:opacity .9s 1s}
+#s1.on .sub{opacity:1}
+.sweep{position:absolute;inset:0;background:radial-gradient(ellipse 60% 45% at 50% 42%,rgba(0,178,74,.10),transparent 70%);opacity:0;transition:opacity 1.4s}
+#s1.on .sweep{opacity:1}
+
+/* ════ BROWSER FRAME (shared) ════ */
+.browser{width:min(880px,86vw);background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 26px 90px rgba(0,0,0,.55);color:#1b2735;opacity:0;transform:translateY(26px) scale(.97);transition:all .8s cubic-bezier(.2,.8,.2,1)}
+.scene.on .browser{opacity:1;transform:none}
+.bbar{display:flex;align-items:center;gap:8px;background:#EDF1F4;padding:9px 14px}
+.bdot{width:10px;height:10px;border-radius:50%}
+.burl{flex:1;background:#fff;border-radius:7px;font-size:.74rem;color:#5a6b7e;padding:5px 12px;font-family:'IBM Plex Mono',monospace;margin-left:6px}
+.burl b{color:var(--green2)}
+
+/* ════ SCENE 2: SIGNUP ════ */
+#s2 .signup{display:flex;min-height:380px}
+#s2 .sleft{flex:1;background:linear-gradient(150deg,var(--ink),#13283F);padding:38px 34px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+#s2 .sleft h2{font-family:'Space Grotesk',sans-serif;color:#fff;font-size:1.5rem;line-height:1.25}
+#s2 .sleft h2 em{color:var(--green);font-style:normal}
+#s2 .sleft li{list-style:none;color:var(--slate2);font-size:.84rem;display:flex;gap:9px;align-items:center}
+#s2 .sleft li::before{content:'✓';color:var(--green);font-weight:700}
+#s2 .sright{flex:1.1;padding:34px 36px}
+#s2 .sright h3{font-family:'Space Grotesk',sans-serif;font-size:1.12rem;margin-bottom:18px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:.7rem;font-weight:700;color:#5a6b7e;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.field .fbox{border:1.5px solid #DDE5EC;border-radius:9px;padding:10px 13px;font-size:.88rem;min-height:40px;color:#1b2735;position:relative}
+.field .fbox.focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,178,74,.12)}
+.typed::after{content:'';display:inline-block;width:2px;height:1em;background:var(--green);vertical-align:-2px;margin-left:1px;animation:blink .8s infinite}
+@keyframes blink{50%{opacity:0}}
+.cta-create{width:100%;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;font-family:'DM Sans',sans-serif;padding:13px;margin-top:6px;cursor:default;transition:all .3s}
+.cta-create.busy{background:var(--ink);}
+#s2 .redirect{position:absolute;inset:0;background:rgba(255,255,255,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;transition:opacity .5s;border-radius:14px}
+#s2 .redirect.on{opacity:1}
+.spinner{width:34px;height:34px;border:3.5px solid #E3EAF0;border-top-color:var(--green);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#s2 .redirect b{font-family:'Space Grotesk',sans-serif;font-size:1rem;color:var(--ink)}
+
+/* ════ DASHBOARD CHROME (shared) ════ */
+.dash{background:#F4F7FA}
+.dtop{display:flex;align-items:center;gap:12px;background:var(--ink);padding:11px 18px}
+.dtop img{width:26px;height:26px;border-radius:6px}
+.dtop b{font-family:'Space Grotesk',sans-serif;color:#fff;font-size:.92rem}
+.dtop .org{margin-left:auto;font-size:.72rem;color:var(--slate2);background:rgba(255,255,255,.08);border-radius:7px;padding:4px 10px}
+.dtabs{display:flex;gap:4px;background:#fff;border-bottom:1px solid #E3EAF0;padding:0 14px}
+.dtab{font-size:.78rem;font-weight:600;color:#5a6b7e;padding:11px 13px;border-bottom:2px solid transparent;position:relative}
+.dtab.act{color:var(--ink);border-bottom-color:var(--green)}
+.dtab .ring{position:absolute;inset:4px 0;border:2px solid var(--green);border-radius:8px;opacity:0;transform:scale(1.25)}
+.dtab.pulse .ring{animation:ringin .6s forwards}
+@keyframes ringin{to{opacity:1;transform:scale(1)}}
+
+/* ════ SCENE 3: OVERVIEW ════ */
+#s3 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px}
+.stat{background:#fff;border:1px solid #E3EAF0;border-radius:12px;padding:15px 16px;opacity:0;transform:translateY(12px)}
+#s3.on .stat{animation:rise .55s forwards}
+#s3.on .stat:nth-child(2){animation-delay:.12s}#s3.on .stat:nth-child(3){animation-delay:.24s}#s3.on .stat:nth-child(4){animation-delay:.36s}
+@keyframes rise{to{opacity:1;transform:none}}
+.stat .sl{font-size:.66rem;font-weight:700;color:#5a6b7e;text-transform:uppercase;letter-spacing:.08em}
+.stat .sv{font-family:'Space Grotesk',sans-serif;font-size:1.85rem;font-weight:700;color:var(--ink);margin-top:3px}
+.stat .sv.gr{color:var(--green2)}
+.stat .sd{font-size:.68rem;color:var(--green2);font-weight:600;margin-top:2px}
+#s3 .lb{margin:0 16px 18px;background:#fff;border:1px solid #E3EAF0;border-radius:12px;overflow:hidden}
+#s3 .lbh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #EDF1F4}
+#s3 .lbh b{font-family:'Space Grotesk',sans-serif;font-size:.88rem}
+#s3 .lbh span{font-size:.66rem;color:var(--green2);font-weight:700;text-transform:uppercase;letter-spacing:.07em;background:rgba(0,178,74,.1);border-radius:6px;padding:3px 9px}
+.lrow{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #F2F5F8;font-size:.84rem;opacity:0;transform:translateX(-16px)}
+#s3.on .lrow{animation:slidein .5s forwards}
+#s3.on .lrow:nth-child(2){animation-delay:.7s}#s3.on .lrow:nth-child(3){animation-delay:.85s}#s3.on .lrow:nth-child(4){animation-delay:1s}#s3.on .lrow:nth-child(5){animation-delay:1.15s}
+@keyframes slidein{to{opacity:1;transform:none}}
+.lrow .rk{font-family:'Space Grotesk',sans-serif;font-weight:700;color:#9AAaBb;width:20px}
+.lrow:nth-child(2) .rk{color:var(--amber)}
+.lrow .nm{font-weight:600;flex:1}
+.lrow .deals{font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--green2)}
+.lrow .doors{color:#8a9ab0;font-size:.76rem;width:90px;text-align:right}
+
+/* ════ MAP SCENES (4,5,6) ════ */
+.mapwrap{position:relative;height:380px;background:#EAEFE9;overflow:hidden}
+.streets{position:absolute;inset:0}
+.streets line{stroke:#fff;stroke-width:7}
+.streets line.minor{stroke-width:4;opacity:.85}
+.dot{position:absolute;width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:background .5s;transform:translate(-50%,-50%)}
+.maphead{display:flex;align-items:center;gap:10px;padding:11px 16px;background:#fff;border-bottom:1px solid #E3EAF0}
+.seg{display:flex;background:#EDF1F4;border-radius:9px;padding:3px;gap:2px}
+.seg span{font-size:.72rem;font-weight:600;color:#5a6b7e;padding:6px 11px;border-radius:7px;position:relative}
+.seg span.act{background:var(--ink);color:#fff}
+.click-ring{position:absolute;width:30px;height:30px;border:2.5px solid var(--green);border-radius:50%;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(.4)}
+.click-ring.go{animation:clickr .6s forwards}
+@keyframes clickr{30%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.5)}}
+.maplegend{display:flex;gap:16px;padding:9px 16px;background:#fff;border-bottom:1px solid #E3EAF0;font-size:.72rem;color:#5a6b7e;flex-wrap:wrap}
+.ml{display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .4s}
+.ml.on{opacity:1}
+.ml i{width:11px;height:11px;border-radius:50%;display:block}
+.winsel{font-size:.72rem;border:1px solid #DDE5EC;border-radius:8px;padding:6px 10px;color:#1b2735;background:#fff;font-weight:600}
+
+/* scene 6 specifics */
+#crosshair{position:absolute;width:26px;height:26px;z-index:9;opacity:0;transition:opacity .3s;pointer-events:none}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:var(--ink)}
+#crosshair::before{left:50%;top:0;bottom:0;width:2px;margin-left:-1px}
+#crosshair::after{top:50%;left:0;right:0;height:2px;margin-top:-1px}
+#drawrect{position:absolute;border:2.5px dashed var(--ink);background:rgba(10,19,34,.08);opacity:0;z-index:8}
+.patch{position:absolute;border:2.5px dashed;border-radius:4px;opacity:0;transition:opacity .5s;z-index:7}
+.patch .plabel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.94);border-radius:6px;font-size:.68rem;font-weight:800;padding:3px 9px;box-shadow:0 1px 5px rgba(10,19,34,.2);white-space:nowrap}
+.patch.on{opacity:1}
+#apanel{position:absolute;z-index:12;background:#fff;border-radius:12px;box-shadow:0 14px 50px rgba(10,19,34,.3);padding:15px 17px;width:235px;opacity:0;transform:translateY(10px) scale(.96);transition:all .4s}
+#apanel.on{opacity:1;transform:none}
+#apanel b{font-size:.8rem;display:block;margin-bottom:9px}
+#apanel .arow{font-size:.76rem;border:1.5px solid #DDE5EC;border-radius:8px;padding:8px 11px;margin-bottom:8px;color:#1b2735;display:flex;justify-content:space-between;align-items:center}
+#apanel .arow.sel{border-color:var(--green);background:rgba(0,178,74,.06);font-weight:700}
+#apanel .ago{width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.8rem;padding:9px;font-family:'DM Sans',sans-serif}
+
+/* ════ SCENE 7: INVITE + PHONE ════ */
+#s7 .duo{display:flex;align-items:center;gap:40px}
+#s7 .invitecard{width:340px;background:#fff;border-radius:14px;color:#1b2735;padding:24px 24px 20px;box-shadow:0 22px 70px rgba(0,0,0,.5);opacity:0;transform:translateX(-26px);transition:all .7s cubic-bezier(.2,.8,.2,1)}
+#s7.on .invitecard{opacity:1;transform:none}
+#s7 .invitecard h4{font-family:'Space Grotesk',sans-serif;font-size:1rem;margin-bottom:4px}
+#s7 .invitecard p{font-size:.76rem;color:#5a6b7e;margin-bottom:14px}
+.sentok{font-size:.78rem;color:var(--green2);font-weight:700;margin-top:10px;opacity:0;transition:opacity .4s}
+.sentok.on{opacity:1}
+.phone{width:240px;height:470px;background:#000;border-radius:34px;padding:9px;box-shadow:0 26px 80px rgba(0,0,0,.6);opacity:0;transform:translateX(30px);transition:all .7s .2s cubic-bezier(.2,.8,.2,1)}
+#s7.on .phone{opacity:1;transform:none}
+.pscreen{position:relative;width:100%;height:100%;border-radius:26px;overflow:hidden;background:#EAEFE9}
+.pnotch{position:absolute;top:7px;left:50%;transform:translateX(-50%);width:74px;height:18px;background:#000;border-radius:10px;z-index:5}
+.pmap{position:absolute;inset:0}
+.ppatch{position:absolute;left:14%;top:24%;width:62%;height:34%;border:3px dashed var(--green);border-radius:6px;background:rgba(0,178,74,.1);opacity:0;transition:opacity .6s}
+.ppatch.on{opacity:1}
+.ppatch span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.95);border-radius:6px;font-size:.6rem;font-weight:800;color:#007A33;padding:2px 7px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,80,30,.3)}
+.ptoast{position:absolute;left:10px;right:10px;top:36px;background:rgba(10,19,34,.92);color:#fff;border-radius:10px;font-size:.62rem;padding:9px 11px;line-height:1.4;opacity:0;transform:translateY(-8px);transition:all .5s;z-index:4}
+.ptoast.on{opacity:1;transform:none}
+.pbtn{position:absolute;left:12px;bottom:64px;background:var(--green);color:#fff;border-radius:18px;font-size:.66rem;font-weight:700;padding:8px 13px;box-shadow:0 3px 10px rgba(0,0,0,.3);opacity:0;transition:opacity .5s;z-index:4}
+.pbtn.on{opacity:1}
+.pdotrow{position:absolute;width:9px;height:9px;border-radius:50%;border:1.5px solid #fff}
+
+/* ════ SCENE 8: CLOSE ════ */
+#s8 .clogo{display:flex;align-items:center;gap:14px;opacity:0;transform:translateY(14px);transition:all .8s}
+#s8.on .clogo{opacity:1;transform:none}
+#s8 .clogo img{width:58px;height:58px;border-radius:13px}
+#s8 .clogo b{font-family:'Space Grotesk',sans-serif;font-size:2.5rem;font-weight:700}
+#s8 .url{margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:1.25rem;color:var(--green);opacity:0;transition:opacity .8s .4s}
+#s8.on .url{opacity:1}
+#s8 .cline{margin-top:12px;color:var(--slate2);font-size:.95rem;opacity:0;transition:opacity .8s .8s}
+#s8.on .cline{opacity:1}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+@media (max-width:760px){
+  .browser{width:94vw}
+  #s2 .sleft{display:none}
+  #s3 .stats{grid-template-columns:repeat(2,1fr)}
+  #s7 .duo{flex-direction:column;gap:20px;transform:scale(.82)}
+  #scene-name{display:none}
+  #s1 .logo-row b{font-size:2.2rem}
+}
+</style>
+</head>
+<body>
+
+<!-- START GATE -->
+<div id="gate">
+  <div class="glogo"><img src="/icon-192.png" alt=""><b>Solpath</b></div>
+  <p>Product walkthrough · 2 min 40 sec · silent, built for voiceover.<br>Start your screen recorder, then press play. A 3-second countdown runs before the timecode starts at 0:00.</p>
+  <button id="playbtn" onclick="startShow()">▶&nbsp; Play walkthrough</button>
+</div>
+<div id="countdown"><b id="cdnum">3</b></div>
+
+<!-- STAGE -->
+<div id="stage">
+
+  <!-- SCENE 1 · TITLE -->
+  <div class="scene" id="s1">
+    <div class="sweep"></div>
+    <div class="logo-row"><img src="/icon-192.png" alt=""><b>Solpath</b></div>
+    <div class="tag">Door-to-door solar canvassing, run like an operation.</div>
+    <div class="sub">Warm Homes · UK · Built for field teams</div>
+  </div>
+
+  <!-- SCENE 2 · SIGNUP -->
+  <div class="scene" id="s2">
+    <div class="browser">
+      <div class="bbar"><span class="bdot" style="background:#FF5F57"></span><span class="bdot" style="background:#FEBC2E"></span><span class="bdot" style="background:#28C840"></span><span class="burl"><b>solpath.energy</b>/signup</span></div>
+      <div class="signup" style="position:relative">
+        <div class="sleft">
+          <h2>Set up your team in <em>under two minutes</em></h2>
+          <li>Your own organisation, your own data</li>
+          <li>Manager dashboard included</li>
+          <li>Invite canvassers by email</li>
+          <li>2,400+ eligible Warm Homes postcodes</li>
+        </div>
+        <div class="sright">
+          <h3>Create your organisation</h3>
+          <div class="field"><label>Company name</label><div class="fbox" id="f-org"></div></div>
+          <div class="field"><label>Your name</label><div class="fbox" id="f-name"></div></div>
+          <div class="field"><label>Work email</label><div class="fbox" id="f-email"></div></div>
+          <button class="cta-create" id="f-cta">Create organisation →</button>
+        </div>
+        <div class="redirect" id="s2-redirect"><div class="spinner"></div><b>Setting up your dashboard…</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 3 · OVERVIEW -->
+  <div class="scene" id="s3">
+    <div class="browser dash">
+      <div class="bbar"><span class="bdot" style="background:#FF5F57"></span><span class="bdot" style="background:#FEBC2E"></span><span class="bdot" style="background:#28C840"></span><span class="burl"><b>solpath.energy</b>/app/manager</span></div>
+      <div class="dtop"><img src="/icon-192.png" alt=""><b>Solpath · Manager</b><span class="org">Greenfield Energy Ltd</span></div>
+      <div class="dtabs"><span class="dtab act">Overview<span class="ring"></span></span><span class="dtab">Team</span><span class="dtab">Map</span><span class="dtab">Callbacks</span><span class="dtab">Deals</span></div>
+      <div class="stats">
+        <div class="stat"><div class="sl">Deals today</div><div class="sv gr" id="st1">0</div><div class="sd">↑ what everyone gets paid on</div></div>
+        <div class="stat"><div class="sl">Deals this week</div><div class="sv gr" id="st2">0</div><div class="sd">↑ 23% vs last week</div></div>
+        <div class="stat"><div class="sl">Doors knocked today</div><div class="sv" id="st3">0</div><div class="sd" style="color:#8a9ab0">across 3 active reps</div></div>
+        <div class="stat"><div class="sl">Canvassers active</div><div class="sv" id="st4">0</div><div class="sd" style="color:#8a9ab0">of 5 on the team</div></div>
+      </div>
+      <div class="lb">
+        <div class="lbh"><b>Leaderboard</b><span>Ranked on deals — not knocks</span></div>
+        <div class="lrow"><span class="rk">1</span><span class="nm">Jake Morrison</span><span class="deals">6 deals</span><span class="doors">41 doors</span></div>
+        <div class="lrow"><span class="rk">2</span><span class="nm">Sarah Patel</span><span class="deals">5 deals</span><span class="doors">37 doors</span></div>
+        <div class="lrow"><span class="rk">3</span><span class="nm">Maria Kowalski</span><span class="deals">4 deals</span><span class="doors">44 doors</span></div>
+        <div class="lrow" style="border-bottom:none"><span class="rk">4</span><span class="nm">Tom Clarke</span><span class="deals">2 deals</span><span class="doors">29 doors</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 4 · WORKED VS FRESH -->
+  <div class="scene" id="s4">
+    <div class="browser dash">
+      <div class="bbar"><span class="bdot" style="background:#FF5F57"></span><span class="bdot" style="background:#FEBC2E"></span><span class="bdot" style="background:#28C840"></span><span class="burl"><b>solpath.energy</b>/app/manager · Map</span></div>
+      <div class="maphead">
+        <div class="seg"><span class="act" id="t4-worked">Worked vs Fresh<span class="click-ring" id="cr4" style="left:50%;top:50%"></span></span><span>Outcomes</span><span>Assign patches</span></div>
+        <select class="winsel" disabled><option>Worked in last 7 days</option></select>
+      </div>
+      <div class="maplegend">
+        <span class="ml" id="lg4a"><i style="background:#0A1322"></i>Worked in last 7 days (38)</span>
+        <span class="ml" id="lg4b"><i style="background:#B8C6D6"></i>Fresh — free to knock (54)</span>
+      </div>
+      <div class="mapwrap" id="map4"></div>
+    </div>
+  </div>
+
+  <!-- SCENE 5 · OUTCOMES -->
+  <div class="scene" id="s5">
+    <div class="browser dash">
+      <div class="bbar"><span class="bdot" style="background:#FF5F57"></span><span class="bdot" style="background:#FEBC2E"></span><span class="bdot" style="background:#28C840"></span><span class="burl"><b>solpath.energy</b>/app/manager · Map</span></div>
+      <div class="maphead">
+        <div class="seg"><span id="t5-worked">Worked vs Fresh</span><span class="act" id="t5-out">Outcomes<span class="click-ring" id="cr5" style="left:50%;top:50%"></span></span><span>Assign patches</span></div>
+        <select class="winsel" disabled><option>All reps</option></select>
+      </div>
+      <div class="maplegend">
+        <span class="ml" id="lg5a"><i style="background:#00B24A"></i>Qualified (17)</span>
+        <span class="ml" id="lg5b"><i style="background:#F0A019"></i>Callback (9)</span>
+        <span class="ml" id="lg5c"><i style="background:#8195AD"></i>No answer (31)</span>
+        <span class="ml" id="lg5d"><i style="background:#E5484D"></i>Not suitable (12)</span>
+      </div>
+      <div class="mapwrap" id="map5"></div>
+    </div>
+  </div>
+
+  <!-- SCENE 6 · ASSIGN PATCHES -->
+  <div class="scene" id="s6">
+    <div class="browser dash">
+      <div class="bbar"><span class="bdot" style="background:#FF5F57"></span><span class="bdot" style="background:#FEBC2E"></span><span class="bdot" style="background:#28C840"></span><span class="burl"><b>solpath.energy</b>/app/manager · Map</span></div>
+      <div class="maphead">
+        <div class="seg"><span>Worked vs Fresh</span><span>Outcomes</span><span class="act" id="t6-assign">Assign patches<span class="click-ring" id="cr6" style="left:50%;top:50%"></span></span></div>
+        <select class="winsel" disabled><option id="d6date">Today</option></select>
+        <span class="winsel" style="background:#0A1322;color:#fff;border-color:#0A1322" id="drawbtn6">✏️ Draw patch</span>
+      </div>
+      <div class="maplegend">
+        <span class="ml on"><i style="background:#0A1322"></i>Worked</span>
+        <span class="ml on"><i style="background:#B8C6D6"></i>Fresh</span>
+        <span class="ml on" style="color:#8a9ab0">Drag a box → assign it to a rep. Done.</span>
+      </div>
+      <div class="mapwrap" id="map6">
+        <div id="crosshair"></div>
+        <div id="drawrect"></div>
+        <div class="patch" id="patch1" style="border-color:#00B24A;background:rgba(0,178,74,.12)"><span class="plabel" style="color:#007A33">Sarah Patel · Albert Rd</span></div>
+        <div class="patch" id="patch2" style="border-color:#2F6FED;background:rgba(47,111,237,.12)"><span class="plabel" style="color:#2F6FED">Jake Morrison · Festing Grove</span></div>
+        <div id="apanel">
+          <b id="ap-count">19 known doors in this patch</b>
+          <div class="arow sel">Sarah Patel</div>
+          <div class="arow">Jake Morrison</div>
+          <div class="ago">✓ Assign patch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 7 · INVITE + CANVASSER -->
+  <div class="scene" id="s7">
+    <div class="duo">
+      <div class="invitecard">
+        <h4>Invite your team</h4>
+        <p>They get a one-click link, create a login, and appear in your dashboard automatically.</p>
+        <div class="field"><label>Email address</label><div class="fbox" id="f-inv"></div></div>
+        <div class="field"><label>Role</label><div class="fbox">Canvasser</div></div>
+        <button class="cta-create" id="inv-cta" style="margin-top:2px">Send invite</button>
+        <div class="sentok" id="inv-ok">✓ Invite sent — they'll appear in your Team tab</div>
+      </div>
+      <div class="phone">
+        <div class="pscreen">
+          <div class="pnotch"></div>
+          <div class="pmap" id="pmap"></div>
+          <div class="ptoast" id="ptoast">📍 Your manager has set your patch for today — tap "My patch" to go there</div>
+          <div class="ppatch" id="ppatch"><span>📍 Your patch — Albert Rd</span></div>
+          <div class="pbtn" id="pbtn">📍 My patch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 8 · CLOSE -->
+  <div class="scene" id="s8">
+    <div class="sweep" style="opacity:1"></div>
+    <div class="clogo"><img src="/icon-192.png" alt=""><b>Solpath</b></div>
+    <div class="url">solpath.energy</div>
+    <div class="cline">Plan smarter. Knock fresher. Sign more.</div>
+  </div>
+
+</div>
+
+<!-- CAPTION -->
+<div id="caption"></div>
+
+<!-- RAIL -->
+<div id="rail">
+  <span id="timecode">00:00.0</span>
+  <div id="chapters"></div>
+  <span id="scene-name"></span>
+  <button class="rbtn" id="ppause" onclick="togglePause()">Pause</button>
+  <button class="rbtn" onclick="location.reload()">Restart</button>
+</div>
+
+<script>
+/* ═══════════ TIMELINE ENGINE ═══════════ */
+const SCENES=[
+  {id:'s1',name:'01 · Solpath',start:0,end:10},
+  {id:'s2',name:'02 · Sign up',start:10,end:28},
+  {id:'s3',name:'03 · Manager dashboard',start:28,end:52},
+  {id:'s4',name:'04 · Worked vs Fresh',start:52,end:74},
+  {id:'s5',name:'05 · Outcomes',start:74,end:94},
+  {id:'s6',name:'06 · Assign patches',start:94,end:126},
+  {id:'s7',name:'07 · Invite the team',start:126,end:146},
+  {id:'s8',name:'08 · solpath.energy',start:146,end:160}
+];
+const CAPTIONS=[
+  [1.0,'The operating system for door-to-door solar teams'],
+  [11,'Sign up at solpath.energy — your organisation, live in two minutes'],
+  [29,'Deals-first. Because deals are what everyone gets paid on.'],
+  [53,'One toggle: worked doors vs fresh doors. Plan in seconds.'],
+  [75,'Flip to Outcomes: see exactly where results are landing'],
+  [95,'Smart Territory Assignment — drag a box, allocate a patch'],
+  [113,'Plan the whole team\u2019s day in under five minutes'],
+  [127,'Invite by email — your rep opens the app and their patch is waiting'],
+  [147,'Plan smarter. Knock fresher. Sign more.']
+];
+let KEYS=[]; // {t, fn, done}
+function at(t,fn){KEYS.push({t,fn,done:false})}
+
+const $=id=>document.getElementById(id);
+let clock=0,last=null,paused=false,started=false,raf=null;
+
+function fmt(t){const m=Math.floor(t/60),s=Math.floor(t%60),d=Math.floor((t%1)*10);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+d}
+
+/* chapters */
+const chapEl=$('chapters');
+SCENES.forEach(()=>{const c=document.createElement('div');c.className='chap';c.innerHTML='<i></i>';chapEl.appendChild(c)});
+
+function tick(now){
+  if(last===null)last=now;
+  if(!paused)clock+=(now-last)/1000;
+  last=now;
+  $('timecode').textContent=fmt(Math.min(clock,160));
+  // scenes
+  SCENES.forEach((s,i)=>{
+    const on=clock>=s.start&&clock<s.end;
+    const el=$(s.id);
+    if(on&&!el.classList.contains('on'))el.classList.add('on');
+    if(!on&&el.classList.contains('on'))el.classList.remove('on');
+    if(on)$('scene-name').textContent=s.name;
+    const bar=chapEl.children[i].firstChild;
+    bar.style.width=clock<=s.start?'0%':clock>=s.end?'100%':((clock-s.start)/(s.end-s.start)*100)+'%';
+  });
+  // keys
+  KEYS.forEach(k=>{if(!k.done&&clock>=k.t){k.done=true;try{k.fn()}catch(e){}}});
+  if(clock<161)raf=requestAnimationFrame(tick);
+  else{$('ppause').style.display='none'}
+}
+
+function togglePause(){paused=!paused;$('ppause').textContent=paused?'Play':'Pause'}
+
+function startShow(){
+  if(started)return;started=true;
+  $('gate').style.display='none';
+  const cd=$('countdown');cd.style.display='flex';
+  let n=3;$('cdnum').textContent=n;
+  const iv=setInterval(()=>{
+    n--;
+    if(n>0){$('cdnum').textContent=n}
+    else{clearInterval(iv);cd.style.display='none';requestAnimationFrame(tick)}
+  },1000);
+}
+
+/* ═══════════ HELPERS ═══════════ */
+function typeInto(id,text,cps=22){
+  const el=$(id);el.classList.add('focus','typed');let i=0;
+  const iv=setInterval(()=>{
+    if(paused)return;
+    el.textContent=text.slice(0,++i);
+    if(i>=text.length){clearInterval(iv);el.classList.remove('typed');setTimeout(()=>el.classList.remove('focus'),400)}
+  },1000/cps);
+}
+function countUp(id,target,dur=1200){
+  const el=$(id);const t0=performance.now();
+  function step(n){if(paused){requestAnimationFrame(step);return}
+    const p=Math.min(1,(n-t0)/dur);
+    el.textContent=Math.round(target*(1-Math.pow(1-p,3)));
+    if(p<1)requestAnimationFrame(step)}
+  requestAnimationFrame(step);
+}
+function showCaption(text){
+  const c=$('caption');
+  c.classList.remove('on');
+  setTimeout(()=>{c.textContent=text;c.classList.add('on')},300);
+}
+CAPTIONS.forEach(([t,txt])=>at(t,()=>showCaption(txt)));
+at(9.2,()=>$('caption').classList.remove('on'));
+at(27,()=>$('caption').classList.remove('on'));
+at(50.5,()=>$('caption').classList.remove('on'));
+at(72.5,()=>$('caption').classList.remove('on'));
+at(92.5,()=>$('caption').classList.remove('on'));
+at(124.5,()=>$('caption').classList.remove('on'));
+at(144.5,()=>$('caption').classList.remove('on'));
+at(158.5,()=>$('caption').classList.remove('on'));
+
+/* ═══════════ MAP BUILDER ═══════════ */
+const STREET_SVG=`<svg class="streets" width="100%" height="100%" viewBox="0 0 880 380" preserveAspectRatio="none">
+  <line x1="0" y1="70" x2="880" y2="55"/><line x1="0" y1="160" x2="880" y2="150"/>
+  <line x1="0" y1="250" x2="880" y2="265"/><line x1="0" y1="330" x2="880" y2="325"/>
+  <line class="minor" x1="120" y1="0" x2="135" y2="380"/><line class="minor" x1="290" y1="0" x2="280" y2="380"/>
+  <line class="minor" x1="460" y1="0" x2="470" y2="380"/><line class="minor" x1="630" y1="0" x2="620" y2="380"/>
+  <line class="minor" x1="780" y1="0" x2="790" y2="380"/></svg>`;
+/* deterministic dot positions: along streets */
+function dotPositions(){
+  const pts=[];const rows=[16,21,40,45,64,69,84,89];
+  const seed=s=>{let x=s;return()=>{x=(x*9301+49297)%233280;return x/233280}};
+  const rnd=seed(7);
+  rows.forEach(r=>{for(let x=5;x<95;x+=4.3+rnd()*2){pts.push([x+rnd()*1.5,r+(rnd()-0.5)*2])}});
+  return pts;
+}
+const DOTS=dotPositions();
+function buildMap(mapId,colorFn){
+  const w=$(mapId);
+  w.insertAdjacentHTML('afterbegin',STREET_SVG);
+  DOTS.forEach((p,i)=>{
+    const d=document.createElement('div');d.className='dot';
+    d.style.left=p[0]+'%';d.style.top=p[1]+'%';
+    d.style.background=colorFn(i,p);
+    d.dataset.i=i;
+    w.appendChild(d);
+  });
+}
+const seed2=(()=>{let x=13;return()=>{x=(x*9301+49297)%233280;return x/233280}})();
+const WORKED=DOTS.map((p,i)=>(p[0]<52&&seed2()<0.82)||(p[0]>=52&&seed2()<0.12));
+const OUTCOL=DOTS.map(()=>{const r=seed2();return r<0.24?'#00B24A':r<0.37?'#F0A019':r<0.8?'#8195AD':'#E5484D'});
+
+/* ═══════════ SCENE 2 KEYS ═══════════ */
+at(12,()=>typeInto('f-org','Greenfield Energy Ltd'));
+at(14.4,()=>typeInto('f-name','Alex Morgan'));
+at(16.6,()=>typeInto('f-email','alex@greenfield.co.uk'));
+at(20.5,()=>{const b=$('f-cta');b.classList.add('busy');b.textContent='Creating…'});
+at(22,()=>$('s2-redirect').classList.add('on'));
+
+/* ═══════════ SCENE 3 KEYS ═══════════ */
+at(29,()=>{countUp('st1',14);countUp('st2',61);countUp('st3',151);countUp('st4',3)});
+
+/* ═══════════ SCENE 4 KEYS ═══════════ */
+at(52.2,()=>buildMap('map4',()=>'#B8C6D6'));
+at(54,()=>$('cr4').classList.add('go'));
+at(54.6,()=>{
+  document.querySelectorAll('#map4 .dot').forEach(d=>{
+    if(WORKED[d.dataset.i])d.style.background='#0A1322';
+  });
+  $('lg4a').classList.add('on');
+});
+at(56,()=>$('lg4b').classList.add('on'));
+/* fresh dots pulse to draw the eye */
+at(62,()=>{document.querySelectorAll('#map4 .dot').forEach(d=>{
+  if(!WORKED[d.dataset.i]){d.style.boxShadow='0 0 0 4px rgba(184,198,214,.45)'}})});
+
+/* ═══════════ SCENE 5 KEYS ═══════════ */
+at(74.2,()=>buildMap('map5',()=>'#B8C6D6'));
+at(76,()=>$('cr5').classList.add('go'));
+at(76.6,()=>{
+  document.querySelectorAll('#map5 .dot').forEach((d,idx)=>{
+    setTimeout(()=>{d.style.background=OUTCOL[d.dataset.i]},(idx%30)*22);
+  });
+});
+at(77.4,()=>$('lg5a').classList.add('on'));
+at(78.1,()=>$('lg5b').classList.add('on'));
+at(78.8,()=>$('lg5c').classList.add('on'));
+at(79.5,()=>$('lg5d').classList.add('on'));
+
+/* ═══════════ SCENE 6 KEYS ═══════════ */
+at(94.2,()=>buildMap('map6',(i)=>WORKED[i]?'#0A1322':'#B8C6D6'));
+at(96,()=>$('cr6').classList.add('go'));
+at(97.5,()=>{const b=$('drawbtn6');b.textContent='Drag a box on the map…'});
+/* crosshair drag draws rect over right-side fresh cluster */
+at(98.5,()=>{
+  const ch=$('crosshair'),rc=$('drawrect');
+  ch.style.opacity='1';
+  const x0=56,y0=12,x1=88,y1=50; // % coords
+  ch.style.left=x0+'%';ch.style.top=y0+'%';
+  const t0=clock;
+  function drag(){
+    if(paused){requestAnimationFrame(drag);return}
+    const p=Math.min(1,(clock-t0)/2.6);
+    const e=1-Math.pow(1-p,2);
+    const cx=x0+(x1-x0)*e, cy=y0+(y1-y0)*e;
+    ch.style.left=cx+'%';ch.style.top=cy+'%';
+    rc.style.opacity='1';
+    rc.style.left=x0+'%';rc.style.top=y0+'%';
+    rc.style.width=(cx-x0)+'%';rc.style.height=(cy-y0)+'%';
+    if(p<1)requestAnimationFrame(drag);
+    else ch.style.opacity='0';
+  }
+  requestAnimationFrame(drag);
+});
+at(101.6,()=>{
+  const ap=$('apanel');ap.style.left='34%';ap.style.top='18%';ap.classList.add('on');
+});
+at(106.5,()=>{
+  $('apanel').classList.remove('on');$('drawrect').style.opacity='0';
+  const p=$('patch1');p.style.left='56%';p.style.top='12%';p.style.width='32%';p.style.height='38%';p.classList.add('on');
+  $('drawbtn6').textContent='✏️ Draw patch';
+});
+/* second patch quick-draw */
+at(112,()=>{
+  const rc=$('drawrect');const x0=8,y0=55,x1=42,y1=90;
+  const t0=clock;
+  function drag(){
+    if(paused){requestAnimationFrame(drag);return}
+    const p=Math.min(1,(clock-t0)/1.6);
+    const e=1-Math.pow(1-p,2);
+    rc.style.opacity='1';rc.style.left=x0+'%';rc.style.top=y0+'%';
+    rc.style.width=((x1-x0)*e)+'%';rc.style.height=((y1-y0)*e)+'%';
+    if(p<1)requestAnimationFrame(drag);
+  }
+  requestAnimationFrame(drag);
+});
+at(114.5,()=>{
+  $('drawrect').style.opacity='0';
+  const p=$('patch2');p.style.left='8%';p.style.top='55%';p.style.width='34%';p.style.height='35%';p.classList.add('on');
+});
+
+/* ═══════════ SCENE 7 KEYS ═══════════ */
+at(127.5,()=>typeInto('f-inv','sarah@greenfield.co.uk',26));
+at(130.5,()=>{$('inv-cta').textContent='Sending…'});
+at(131.5,()=>{$('inv-cta').textContent='Send invite';$('inv-ok').classList.add('on')});
+at(133,()=>{
+  /* build phone mini map */
+  const pm=$('pmap');
+  pm.insertAdjacentHTML('afterbegin',`<svg class="streets" width="100%" height="100%" viewBox="0 0 240 470" preserveAspectRatio="none">
+    <line x1="0" y1="90" x2="240" y2="80" style="stroke-width:5"/><line x1="0" y1="200" x2="240" y2="210" style="stroke-width:5"/>
+    <line x1="0" y1="320" x2="240" y2="310" style="stroke-width:5"/><line class="minor" x1="70" y1="0" x2="80" y2="470" style="stroke-width:3"/>
+    <line class="minor" x1="160" y1="0" x2="150" y2="470" style="stroke-width:3"/></svg>`);
+  [[20,17],[35,18],[55,16],[75,19],[25,44],[45,42],[65,45],[85,43],[30,67],[55,69],[78,66]].forEach(p=>{
+    const d=document.createElement('div');d.className='pdotrow';
+    d.style.left=p[0]+'%';d.style.top=p[1]+'%';d.style.position='absolute';
+    d.style.background='#B8C6D6';pm.appendChild(d);
+  });
+});
+at(134.5,()=>$('ptoast').classList.add('on'));
+at(136,()=>$('ppatch').classList.add('on'));
+at(137,()=>$('pbtn').classList.add('on'));
+at(141,()=>$('ptoast').classList.remove('on'));
+</script>
+</body>
+</html>
