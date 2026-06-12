@@ -91,6 +91,15 @@ button{font-family:inherit;cursor:pointer}
 .epc-band-active .b{font-size:1.08rem}
 .epc-band .here{margin-left:auto;font-weight:800;color:#0b0c0c;font-size:.78rem}
 .epc-scale-foot{display:flex;justify-content:space-between;font-size:.66rem;color:var(--slate-2);margin-top:8px}
+.epc-criteria{max-width:880px;margin:38px auto 0;background:var(--soft);border:1px solid var(--border);border-radius:var(--r-lg);padding:26px 30px}
+.epc-crit-title{font-family:'DM Sans',sans-serif;font-weight:700;font-size:1.02rem;color:var(--ink);margin-bottom:18px;text-align:center}
+.epc-crit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:760px){.epc-crit-grid{grid-template-columns:1fr}}
+.epc-crit-item{display:flex;gap:11px;align-items:flex-start}
+.eci-ico{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;margin-top:1px}
+.epc-crit-item strong{display:block;font-size:.9rem;color:var(--ink);font-weight:600;margin-bottom:3px}
+.epc-crit-item span:not(.eci-ico){font-size:.78rem;color:var(--slate);line-height:1.55}
+.epc-crit-foot{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:.8rem;color:var(--slate);text-align:center;line-height:1.6}
 .epc-pitch{padding-top:6px}
 .epc-pitch-eyebrow{font-size:.7rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--green);margin-bottom:16px}
 .epc-points{list-style:none;display:flex;flex-direction:column;gap:15px}
@@ -628,6 +637,26 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 <section class="section" id="epc-verify">
   <div class="wrap">
     <div class="sh center"><span class="eyebrow">Live EPC verification</span><h2 class="display d2">Turn an energy rating into a sale — on the doorstep.</h2><p class="lead">Every property is checked live against the official GOV.UK register. One tap shows the verified band, the SAP score, and a colour-coded scale your reps can turn around and show the customer.</p></div>
+
+    <!-- Qualification criteria strip -->
+    <div class="epc-criteria">
+      <div class="epc-crit-title">Every property on your walk list has already passed the filter:</div>
+      <div class="epc-crit-grid">
+        <div class="epc-crit-item epc-crit-yes">
+          <span class="eci-ico">✓</span>
+          <div><strong>Privately owned</strong><span>Verified against Land Registry — no council or housing association stock</span></div>
+        </div>
+        <div class="epc-crit-item epc-crit-yes">
+          <span class="eci-ico">✓</span>
+          <div><strong>EPC rated D, E, F or G</strong><span>The bands that qualify for Warm Homes funding — A–C never appears</span></div>
+        </div>
+        <div class="epc-crit-item epc-crit-yes">
+          <span class="eci-ico">✓</span>
+          <div><strong>Houses &amp; bungalows only</strong><span>Detached, semi-detached, terraced — flats, maisonettes and park homes are excluded and hard-blocked at sign-up</span></div>
+        </div>
+      </div>
+      <div class="epc-crit-foot">Properties with no EPC on record are shown separately with a clear confidence indicator — so your reps always know exactly what they're knocking.</div>
+    </div>
 
     <div class="epc-showcase">
       <!-- The visual, exactly as it renders in-app (light mode) -->
