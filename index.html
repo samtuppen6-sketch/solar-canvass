@@ -129,6 +129,8 @@ button{font-family:inherit;cursor:pointer}
 .pill span{font-size:.72rem;font-weight:600;letter-spacing:.04em;color:var(--slate);text-transform:uppercase}
 .hero h1{margin-bottom:19px;color:var(--ink)}
 .hero h1 .hl{color:var(--green)}
+.hero-statement{font-family:'DM Sans',sans-serif;font-size:1.18rem;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:-6px 0 14px;display:flex;align-items:center;gap:9px}
+.hero-statement::before{content:'';width:26px;height:3px;border-radius:2px;background:linear-gradient(90deg,#00b24a,#00e87a);flex-shrink:0}
 .hero-sub{font-size:1.08rem;color:var(--slate);line-height:1.7;margin-bottom:32px;max-width:500px}
 .hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:34px}
 .hero-meta{display:flex;flex-wrap:wrap;gap:10px 22px;padding-top:24px;border-top:1px solid var(--border-2)}
@@ -450,6 +452,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
     <div>
       <div class="pill"><span class="dot"></span><span>Territory Intelligence Platform</span></div>
       <h1 class="display d1">Tired of not knowing <span class="hl">where or who</span> to knock.</h1>
+      <p class="hero-statement">Know which doors are eligible — before you knock.</p>
       <p class="hero-sub">Solpath turns postcode, property and scheme data into a clear canvassing map — showing teams where likely upgrade opportunities are before reps hit the street.</p>
       <div class="hero-ctas">
         <a href="#demo" class="btn btn-primary btn-lg">Book Demo</a>
@@ -648,7 +651,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
     <div class="comp-banner">Solpath provides territory intelligence as an initial guide only. Eligibility is subject to survey, assessment, scheme rules and installer checks. Final determination rests with the installer and scheme administrator.</div>
     <div class="comp-grid">
       <div class="ccard"><div class="ci"><svg viewBox="0 0 16 16"><path d="M8 2l1.6 4.9H15l-4.4 3.2 1.6 4.9L8 11.8l-4.2 3.2 1.6-4.9L1 7.9h5.4L8 2z"/></svg></div><h4>Data sources</h4><p>Public postcode eligibility data, GOV.UK EPC ratings and area indicators — used as initial guidance only.</p></div>
-      <div class="ccard"><div class="ci"><svg viewBox="0 0 16 16"><path d="M8 1l5 2.5V8c0 3-2 5-5 6C5 13 3 11 3 8V3.5L8 1z"/></svg></div><h4>Privacy &amp; GDPR</h4><p>No resident personal data stored or sold. Outcome records held per account under UK data protection law.</p></div>
+      <div class="ccard"><div class="ci"><svg viewBox="0 0 16 16"><path d="M8 1l5 2.5V8c0 3-2 5-5 6C5 13 3 11 3 8V3.5L8 1z"/></svg></div><h4>Privacy &amp; GDPR</h4><p>No resident personal data stored or sold. Every organisation's data — doors knocked, outcomes, deals — is fully isolated and visible only to that organisation's team. One firm's records are never shared with or visible to another.</p></div>
       <div class="ccard"><div class="ci"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg></div><h4>Do-not-knock</h4><p>Suppression process for flagged properties. Clients comply with local canvassing regulations.</p></div>
       <div class="ccard"><div class="ci"><svg viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="9" rx="1"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/></svg></div><h4>Legitimate interest</h4><p>Canvassing remains subject to the client's own legitimate interest assessment and obligations.</p></div>
       <div class="ccard"><div class="ci"><svg viewBox="0 0 16 16"><path d="M8 14A6 6 0 108 2a6 6 0 000 12zM8 6v4M8 10h.01"/></svg></div><h4>Client responsibility</h4><p>Clients ensure teams operate within applicable laws and scheme rules. Solpath does not direct activity.</p></div>
