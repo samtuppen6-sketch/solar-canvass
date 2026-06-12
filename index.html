@@ -68,6 +68,37 @@ button{font-family:inherit;cursor:pointer}
 .section{padding:88px 0}
 @media(max-width:767px){.section{padding:60px 0}}
 .sec-soft{background:var(--soft)}
+/* ── EPC SHOWCASE ────────────────────────────── */
+.epc-showcase{display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:42px;align-items:start;margin-top:46px}
+@media(max-width:880px){.epc-showcase{grid-template-columns:1fr;gap:32px}}
+.epc-card-demo{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-lg)}
+.epc-demo-head{margin-bottom:14px}
+.epc-demo-addr{font-family:'DM Sans',sans-serif;font-weight:700;font-size:1.02rem;color:var(--ink)}
+.epc-demo-sub{font-size:.76rem;color:var(--slate-2);margin-top:2px}
+.epc-verdict{display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:var(--r);margin-bottom:8px}
+.epc-verdict-yes{background:rgba(0,178,74,.09);border:1px solid rgba(0,178,74,.25)}
+.epc-verdict-ico{font-size:22px}
+.epc-verdict-main{font-family:'DM Sans',sans-serif;font-weight:700;font-size:1rem;color:var(--ink)}
+.epc-verdict-sub{font-size:.8rem;color:var(--green);font-weight:600}
+.epc-gap{font-size:.8rem;color:var(--slate);margin-bottom:14px;padding-left:2px}
+.epc-gap strong{color:var(--blue)}
+.epc-scale-label{font-size:.74rem;color:var(--slate-2);margin-bottom:7px}
+.epc-ladder{display:flex;flex-direction:column;gap:4px}
+.epc-band{display:flex;align-items:center;gap:9px;padding:6px 11px;border-radius:7px;opacity:.84}
+.epc-band .b{font-weight:800;color:#0b0c0c;font-size:.86rem;min-width:16px}
+.epc-band .r{color:#0b0c0c;font-size:.72rem;opacity:.82}
+.epc-band-active{padding:10px 11px;margin:5px 0;opacity:1}
+.epc-band-active .b{font-size:1.08rem}
+.epc-band .here{margin-left:auto;font-weight:800;color:#0b0c0c;font-size:.78rem}
+.epc-scale-foot{display:flex;justify-content:space-between;font-size:.66rem;color:var(--slate-2);margin-top:8px}
+.epc-pitch{padding-top:6px}
+.epc-pitch-eyebrow{font-size:.7rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--green);margin-bottom:16px}
+.epc-points{list-style:none;display:flex;flex-direction:column;gap:15px}
+.epc-points li{font-size:.92rem;color:var(--slate);line-height:1.6;padding-left:26px;position:relative}
+.epc-points li::before{content:'';position:absolute;left:0;top:7px;width:13px;height:13px;border-radius:50%;background:var(--green-soft);border:2px solid var(--green)}
+.epc-points li strong{color:var(--ink);font-weight:600}
+.epc-quote{margin-top:24px;padding:18px 20px;background:var(--navy-2);border-radius:var(--r-lg);color:#cfe0f5;font-size:.92rem;line-height:1.6;font-style:italic;border-left:3px solid var(--green-bright)}
+
 .sec-dark{background:var(--navy);color:#dce6f2}
 .sec-dark .eyebrow{color:var(--green-bright)}
 .sec-dark .display{color:#fff}
@@ -426,7 +457,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
     <ul class="nav-tabs" id="tabs">
       <li><a href="#home" class="active">Home</a></li>
       <li><a href="#how">How It Works</a></li>
-      <li><a href="#features">Features</a></li>
+      <li><a href="#epc-verify">EPC Verify</a></li><li><a href="#features">Features</a></li>
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#compliance">Compliance</a></li>
     </ul>
@@ -443,6 +474,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 <div class="mnav" id="mnav">
   <a href="#home">Home</a>
   <a href="#how">How It Works</a>
+  <a href="#epc-verify">EPC Verify</a>
   <a href="#features">Features</a>
   <a href="#pricing">Pricing</a>
   <a href="#compliance">Compliance</a>
@@ -592,6 +624,55 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 </section>
 
 <!-- FEATURES -->
+<!-- EPC INSTANT VERIFY — flagship visual selling point -->
+<section class="section" id="epc-verify">
+  <div class="wrap">
+    <div class="sh center"><span class="eyebrow">Live EPC verification</span><h2 class="display d2">Turn an energy rating into a sale — on the doorstep.</h2><p class="lead">Every property is checked live against the official GOV.UK register. One tap shows the verified band, the SAP score, and a colour-coded scale your reps can turn around and show the customer.</p></div>
+
+    <div class="epc-showcase">
+      <!-- The visual, exactly as it renders in-app (light mode) -->
+      <div class="epc-card-demo">
+        <div class="epc-demo-head">
+          <div class="epc-demo-addr">14 Examplethorpe Road, PORTSMOUTH</div>
+          <div class="epc-demo-sub">Owner-occupied · Verified just now</div>
+        </div>
+        <div class="epc-verdict epc-verdict-yes">
+          <span class="epc-verdict-ico">✅</span>
+          <div>
+            <div class="epc-verdict-main">Verified: E · score 53/100</div>
+            <div class="epc-verdict-sub">Qualifies for Warm Homes (D–G)</div>
+          </div>
+        </div>
+        <div class="epc-gap">2 points below band D · Potential after upgrades: <strong>C (75)</strong></div>
+
+        <div class="epc-scale-label">Energy efficiency scale — higher is better</div>
+        <div class="epc-ladder">
+          <div class="epc-band" style="background:#00C781"><span class="b">A</span><span class="r">92–100</span></div>
+          <div class="epc-band" style="background:#19b459"><span class="b">B</span><span class="r">81–91</span></div>
+          <div class="epc-band" style="background:#8dce46"><span class="b">C</span><span class="r">69–80</span></div>
+          <div class="epc-band" style="background:#ffd500"><span class="b">D</span><span class="r">55–68</span></div>
+          <div class="epc-band epc-band-active" style="background:#fcaa65;box-shadow:0 0 0 3px #fff,0 0 0 5px #fcaa65"><span class="b">E</span><span class="r">39–54</span><span class="here">53 ◄ THIS HOME</span></div>
+          <div class="epc-band" style="background:#ef8023"><span class="b">F</span><span class="r">21–38</span></div>
+          <div class="epc-band" style="background:#e9153b"><span class="b">G</span><span class="r">1–20</span></div>
+        </div>
+        <div class="epc-scale-foot"><span>🟢 A = most efficient</span><span>🔴 G = least efficient</span></div>
+      </div>
+
+      <!-- The sell -->
+      <div class="epc-pitch">
+        <div class="epc-pitch-eyebrow">Why it closes deals</div>
+        <ul class="epc-points">
+          <li><strong>Instant qualification.</strong> Green tick or red cross, live from GOV.UK — no guesswork, no wasted pitches on properties that were never eligible.</li>
+          <li><strong>A visual the customer instantly gets.</strong> They see their own home glowing orange near the bottom of the scale, with green A right at the top. It lands harder than any letter on a form.</li>
+          <li><strong>The "what it could be" hook.</strong> The register's own potential rating shows the customer exactly how far their home could climb after upgrades — straight from an official source.</li>
+          <li><strong>Built-in accuracy guardrail.</strong> If a property comes back as A–C, the app blocks the sign-up before a deal is logged. No more non-qualifying deals slipping through.</li>
+        </ul>
+        <div class="epc-quote">"You're sat in the orange here — but your own energy certificate says this house could be a C. That's the difference these upgrades make."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="section sec-soft" id="features">
   <div class="wrap">
     <div class="sh center"><span class="eyebrow">Features</span><h2 class="display d2">Everything a canvassing operation needs.</h2><p class="lead">Four areas, one platform — from targeting territories to managing the whole team.</p></div>
