@@ -1954,6 +1954,22 @@ async function loadPC(pc) {
   }).filter(Boolean);
   // Merge in Land Registry private-sale houses that have NO EPC
   const lrHouses = await fetchLR(pc);
+
+  // Build a sold-date lookup: dedupKey(address) → last_sold_year
+  // Used to enrich ALL confirmed EPC properties with their sale date, not just No-EPC ones.
+  const lrSoldMap = {};
+  for (const h of lrHouses) {
+    const a = lrAddr(h);
+    if (a && h.last_sold_year) lrSoldMap[dedupKey(a)] = h.last_sold_year;
+  }
+  // Enrich parsed (D-G EPC) properties with sold year where LR data matches
+  for (const p of parsed) {
+    if (!p.lastSold) {
+      const soldYr = lrSoldMap[dedupKey(p.addr)];
+      if (soldYr) p.lastSold = soldYr;
+    }
+  }
+
   // Build exclusion set from ALL EPC rows (A through G) — not just parsed (D-G).
   // Without this, C-rated properties filtered out of parsed get re-added
   // by the Land Registry fallback as "No EPC", because their address
@@ -2167,7 +2183,7 @@ function pCard(i,p,nc) {
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
   storeProp(uid,p); return '<div class="pc2" data-uid="'+esc(uid)+'" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
-    +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+'</div>'
+    +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold&&!p.noEpc?'<span style="color:#64748b;font-size:11px">Sold '+p.lastSold+'</span>':'')+'</div>'
     +(p.noEpc ? '<div style="padding:0 2px">'+confPillHTML(p)+'</div>' : '')
     +badge
     +lastActionLine+noteLine
@@ -2418,7 +2434,10 @@ function openPropDetail(uid, propJson) {
   const rating = p.rating || '?';
   const epcColors = {D:'#d97706',E:'#ea580c',F:'#dc2626',G:'#7f1d1d','?':'#334155','NE':'#6d28d9'};
   const ratingBadge = '<span style="background:' + (epcColors[rating]||'#334155') + ';color:' + (rating==='D'?'#000':'#fff') + ';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">' + (rating==='NE'?'No EPC':rating) + '</span>';
-  epcEl.innerHTML = ratingBadge + (p.noEpc ? confPillBadgeInline(p) : (p.lastSold?'<span style="color:#a78bfa;font-size:11px;margin-left:8px">Private sale · sold '+p.lastSold+'</span>':''));
+  const soldTag = p.lastSold
+    ? '<span style="color:#64748b;font-size:11px;margin-left:8px">Sold ' + p.lastSold + '</span>'
+    : '';
+  epcEl.innerHTML = ratingBadge + (p.noEpc ? confPillBadgeInline(p) : soldTag);
   
   document.getElementById('pd-tenure').textContent = p.tl || '';
   document.getElementById('pd-type').textContent = p.propType || '';
