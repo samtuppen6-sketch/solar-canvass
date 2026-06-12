@@ -1460,6 +1460,7 @@ window.addEventListener('load', async () => {
         <span id="pd-tenure"></span>
         <span id="pd-type"></span>
       </div>
+      <div id="pd-conf-detail" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(148,163,184,.07);border:1px solid rgba(148,163,184,.15);border-radius:8px"></div>
     </div>
   </div>
   <div class="pd-body">
@@ -1968,15 +1969,19 @@ async function loadPC(pc) {
     if (/\bflat\b|\bapartment\b|\bapt\b/.test(addr.toLowerCase())) continue; // skip flats
     if (epcAddrs.has(dedupKey(addr))) continue; // already have an EPC for this house
     const typeMap = {D:'Detached', S:'Semi-detached', T:'Terraced'};
+    const soldYear = h.last_sold_year || null;
     lrOnly.push({
-      rating: 'NE',                         // No EPC
-      tt: 'owner', tl: 'Private sale — no EPC',
+      rating: 'NE',
+      tt: 'owner',
+      tl: soldYear ? 'Private sale · sold ' + soldYear : 'No sold data on record',
       addr: addr,
       postcode: pc,
       propType: typeMap[h.property_type] || 'House',
       builtForm: '',
-      lastSold: h.last_sold_year || null,
-      noEpc: true
+      lastSold: soldYear,
+      noEpc: true,
+      // Confidence: medium if we have LR sale proof, low if no sale data at all
+      confidence: soldYear ? 'medium' : 'low'
     });
   }
   // Combine: EPC properties first-sorted, then merge all and sort by house number for street order
@@ -2162,7 +2167,8 @@ function pCard(i,p,nc) {
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
   storeProp(uid,p); return '<div class="pc2" data-uid="'+esc(uid)+'" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
-    +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold?'<span>Sold '+p.lastSold+'</span>':'')+'</div>'
+    +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+'</div>'
+    +(p.noEpc ? '<div style="padding:0 2px">'+confPillHTML(p)+'</div>' : '')
     +badge
     +lastActionLine+noteLine
     +'<div class="drow">'
@@ -2411,10 +2417,27 @@ function openPropDetail(uid, propJson) {
   const epcEl = document.getElementById('pd-epc');
   const rating = p.rating || '?';
   const epcColors = {D:'#d97706',E:'#ea580c',F:'#dc2626',G:'#7f1d1d','?':'#334155','NE':'#6d28d9'};
-  epcEl.innerHTML = '<span style="background:' + (epcColors[rating]||'#334155') + ';color:' + (rating==='D'?'#000':'#fff') + ';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">' + (rating==='NE'?'No EPC':rating) + '</span>' + (p.lastSold?'<span style="color:#a78bfa;font-size:11px;margin-left:8px">Private sale · sold '+p.lastSold+'</span>':'');
+  const ratingBadge = '<span style="background:' + (epcColors[rating]||'#334155') + ';color:' + (rating==='D'?'#000':'#fff') + ';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">' + (rating==='NE'?'No EPC':rating) + '</span>';
+  epcEl.innerHTML = ratingBadge + (p.noEpc ? confPillBadgeInline(p) : (p.lastSold?'<span style="color:#a78bfa;font-size:11px;margin-left:8px">Private sale · sold '+p.lastSold+'</span>':''));
   
   document.getElementById('pd-tenure').textContent = p.tl || '';
   document.getElementById('pd-type').textContent = p.propType || '';
+  // Confidence detail line under tenure in panel
+  const confDetail = document.getElementById('pd-conf-detail');
+  if (confDetail) {
+    if (p.noEpc) {
+      const isMed = p.confidence === 'medium';
+      const col = isMed ? '#f59e0b' : '#94a3b8';
+      const note = isMed
+        ? 'Ownership confirmed via Land Registry · no EPC lodged · agent to verify at door'
+        : 'No Land Registry sale data found · property may be pre-1995 ownership · agent to verify at door';
+      confDetail.style.display = '';
+      confDetail.innerHTML = '<span style="color:'+col+';font-weight:700">'+(isMed?'🟡 Medium confidence':'⚪ Low confidence')+'</span>'
+        + '<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.5">'+note+'</div>';
+    } else {
+      confDetail.style.display = 'none';
+    }
+  }
 
   // Status grid
   const grid = document.getElementById('pd-status-grid');
@@ -2471,6 +2494,32 @@ function openPropDetail(uid, propJson) {
   }
 
   document.getElementById('prop-detail').style.display = 'flex';
+}
+
+// Confidence pill + text for No-EPC properties
+function confPillBadgeInline(p) {
+  const col = p.confidence === 'medium' ? '#f59e0b' : '#94a3b8';
+  const lbl = p.confidence === 'medium' ? '🟡 Medium confidence' : '⚪ Low confidence';
+  return '<span style="background:'+col+'22;color:'+col+';border:1px solid '+col+'55;'
+    + 'padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px">'+lbl+'</span>';
+}
+
+function confPillHTML(p) {
+  if (!p.noEpc) return '';
+  const isMed = p.confidence === 'medium';
+  const col   = isMed ? '#f59e0b' : '#94a3b8';
+  const label = isMed ? 'Medium confidence' : 'Low confidence';
+  const note  = isMed
+    ? 'Private sale confirmed · no EPC on record · worth knocking'
+    : 'No sold data on record · ownership unverified · worth knocking';
+  return (
+    '<div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">'
+    + '<span style="background:' + col + '22;color:' + col + ';border:1px solid ' + col + '55;'
+    + 'padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.04em">'
+    + (isMed ? '🟡' : '⚪') + ' ' + label + '</span>'
+    + '</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.5">' + note + '</div>'
+  );
 }
 
 // Delegated tap handler for property cards (robust)
@@ -2548,6 +2597,11 @@ async function verifyEPCData(p) {
 }
 
 // ── EPC visual scale (official GOV.UK band colours + ranges) ──
+// ── Confidence pill colours ──
+// Injected as inline styles; defined here for reference:
+// medium: amber #f59e0b bg 15% opacity, text #f59e0b
+// low:    slate  #94a3b8 bg 15% opacity, text #94a3b8
+
 function epcScaleHTML(curRating, curScore){
   const bands = [
     {b:'A', lo:92, hi:100, col:'#00C781'},
