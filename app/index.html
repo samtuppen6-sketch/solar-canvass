@@ -2155,7 +2155,7 @@ function pCard(i,p,nc) {
   }
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
-  return '<div class="pc2" onclick="openPropDetail(\''+esc(uid)+'\',\''+esc(JSON.stringify(p))+'\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
+  storeProp(uid,p); return '<div class="pc2" onclick="openPropDetail(\\\'\'+esc(uid)+\'\\\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
     +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold?'<span>Sold '+p.lastSold+'</span>':'')+'</div>'
     +badge
     +lastActionLine+noteLine
@@ -2226,7 +2226,8 @@ function renderCallbacks() {
 
 // Open the address card from a callback
 function openCallbackCard(uid, propJson) {
-  try { openPropDetail(uid, propJson); } catch(e) {}
+  if (propJson && !window.__pmap[uid]) { try { window.__pmap[uid]=JSON.parse(propJson); } catch(e){} }
+  try { openPropDetail(uid); } catch(e) {}
 }
 
 // Resolve a callback: set the new outcome, which removes it from the callback list
@@ -2238,6 +2239,9 @@ function resolveCallback(uid, outcome, addr) {
 
 // ── DOOR STATUS ───────────────────────────────────────────────────────────────
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+window.__pmap={};
+function storeProp(uid,p){window.__pmap[uid]=p;}
+function getProp(uid){return window.__pmap[uid]||null;}
 
 function setD(uid, st, addr) {
   const wasSame = doors[uid]===st;
@@ -2389,7 +2393,9 @@ let notesDirty = false;
 
 function openPropDetail(uid, propJson) {
   curPropUID = uid;
-  try { curPropData = JSON.parse(propJson); } catch(e) { return; }
+  const _pd = getProp(uid) || (propJson ? (function(){ try{return JSON.parse(propJson);}catch(e){return null;} })() : null);
+  if (!_pd) return;
+  curPropData = _pd;
   const p = curPropData;
   const st = doors[uid] || '';
 
