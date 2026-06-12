@@ -1477,6 +1477,15 @@ window.addEventListener('load', async () => {
         <button class="notes-save" id="notes-save-btn" onclick="saveNotes()">Save</button>
       </div>
     </div>
+    <!-- EPC Verification -->
+    <div class="pd-section">
+      <div class="pd-sec-title">EPC Verification</div>
+      <div id="pd-verify-box" style="background:rgba(148,163,184,.07);border:1px solid rgba(148,163,184,.18);border-radius:10px;padding:12px">
+        <div id="pd-verify-status" style="font-size:12px;color:var(--m);margin-bottom:8px">Live check against the official GOV.UK register</div>
+        <button id="pd-verify-btn" onclick="verifyEPC()" style="width:100%;padding:10px;border-radius:8px;border:1px solid #3b82f6;background:rgba(59,130,246,.12);color:#60a5fa;font-weight:700;font-size:13px;cursor:pointer">🔍 Verify EPC Now</button>
+        <div id="pd-verify-result" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+      </div>
+    </div>
     <!-- Sign Up -->
     <div class="pd-section">
       <div class="pd-sec-title">Customer Sign Up</div>
@@ -1931,6 +1940,7 @@ async function loadPC(pc) {
     const pt = (r['property-type']||'').toLowerCase();
     const tenure = (r.tenure||'').toLowerCase();
     if (pt.includes('flat')||pt.includes('maisonette')) return null;
+    if (/\b(flat|apartment|apt|maisonette)\b/i.test(addrTest(r))) return null;
     if (['A','B','C'].includes(rating)) return null;
     if (tenure.includes('social')) return null;
     const addr = [r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||'';
@@ -1938,7 +1948,8 @@ async function loadPC(pc) {
     let tt='unknown', tl='Unknown tenure';
     if (tenure.includes('owner')) { tt='owner'; tl='Owner-occupied'; }
     else if (tenure.includes('private')) { tt='private'; tl='Private rented'; }
-    return { rating, epcPoints, tt, tl, addr, postcode:r.postcode||pc, propType:r['property-type']||'', builtForm:r['built-form']||'' };
+    return { rating, epcPoints, tt, tl, addr, postcode:r.postcode||pc, propType:r['property-type']||'', builtForm:r['built-form']||'',
+      certUrl: r['cert-url']||'', validUntil: r['valid-until']||'', epcExpired: !!r.expired, certCount: r['cert-count']||1 };
   }).filter(Boolean);
   // Merge in Land Registry private-sale houses that have NO EPC
   const lrHouses = await fetchLR(pc);
@@ -2408,6 +2419,19 @@ function openPropDetail(uid, propJson) {
   document.getElementById('notes-save-btn').classList.remove('show');
   notesDirty = false;
 
+  // EPC verify box reset
+  const vres = document.getElementById('pd-verify-result');
+  const vbtn = document.getElementById('pd-verify-btn');
+  const vstat = document.getElementById('pd-verify-status');
+  if (vres) { vres.style.display='none'; vres.innerHTML=''; }
+  if (vbtn) { vbtn.disabled = !p.certUrl; vbtn.textContent = p.certUrl ? '🔍 Verify EPC Now' : 'No certificate on register'; }
+  if (vstat) {
+    let s = 'Live check against the official GOV.UK register';
+    if (p.validUntil) s += ' · listed cert valid until ' + p.validUntil;
+    if (p.epcExpired) s += ' · ⚠ listed certificate has EXPIRED';
+    vstat.textContent = s;
+  }
+
   // Sign up button
   const hasForm = !!jfURL;
   const signupBtn = document.getElementById('pd-signup-btn');
@@ -2489,10 +2513,75 @@ function getNotes(uid) {
   return notes[uid] || '';
 }
 
-function openSignup() {
+function addrTest(r){ return [r.address1||'',r.address2||'',r.address3||'',r.address||''].join(' '); }
+
+// Live verification against the official certificate page (via proxy ?cert=)
+async function verifyEPCData(p) {
+  if (!p || !p.certUrl) return null;
+  const r = await fetch(PROXY + '?cert=' + encodeURIComponent(p.certUrl));
+  if (!r.ok) return null;
+  const d = await r.json();
+  return (d && d.verified) ? d : null;
+}
+
+async function verifyEPC() {
+  const p = curPropData;
+  if (!p || !p.certUrl) { toast('No certificate on register for this property'); return; }
+  const btn = document.getElementById('pd-verify-btn');
+  const res = document.getElementById('pd-verify-result');
+  btn.disabled = true; btn.textContent = 'Checking GOV.UK register…';
+  let d = null;
+  try { d = await verifyEPCData(p); } catch(e) {}
+  btn.disabled = false; btn.textContent = '🔍 Verify EPC Now';
+  res.style.display = 'block';
+  if (!d) { res.innerHTML = '<span style="color:#f87171">Could not reach the register — check connection and try again.</span>'; return; }
+  const qualifies = ['D','E','F','G'].includes(d.rating);
+  const mismatch = p.rating !== d.rating;
+  // Update the stored + displayed rating to the verified truth
+  if (mismatch) {
+    p.rating = d.rating;
+    const epcEl = document.getElementById('pd-epc');
+    const epcColors = {A:'#15803d',B:'#16a34a',C:'#65a30d',D:'#d97706',E:'#ea580c',F:'#dc2626',G:'#7f1d1d'};
+    epcEl.innerHTML = '<span style="background:'+(epcColors[d.rating]||'#334155')+';color:#fff;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">'+d.rating+'</span>';
+    renderList();
+  }
+  res.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+      '<span style="font-size:16px">' + (qualifies ? '✅' : '🚫') + '</span>' +
+      '<strong style="color:' + (qualifies ? '#34d399' : '#f87171') + '">Verified rating: ' + d.rating +
+      (qualifies ? ' — qualifies' : ' — does NOT qualify (must be D–G)') + '</strong></div>' +
+    (d.validUntil ? '<div>Valid until: <strong>' + d.validUntil + '</strong>' + (d.expired ? ' <span style="color:#fbbf24">⚠ EXPIRED</span>' : '') + '</div>' : '') +
+    (d.certificateNumber ? '<div>Certificate: ' + d.certificateNumber + '</div>' : '') +
+    (d.supersedes ? '<div style="color:#fbbf24">⚠ An older certificate exists — newest used.</div>' : '') +
+    (mismatch ? '<div style="color:#fbbf24">⚠ Listed rating was out of date — corrected to ' + d.rating + '.</div>' : '') +
+    '<a href="' + d.source + '" target="_blank" style="color:#60a5fa">View official certificate ↗</a>';
+}
+
+async function openSignup() {
   if (!jfURL) { toast('Add your form URL in ⚙ Settings'); return; }
   if (!curPropData) return;
   const p = curPropData;
+  // SAFETY GATE: live-verify the EPC before a deal is submitted.
+  if (p.certUrl && !p.noEpc) {
+    const btnTxt = document.getElementById('pd-signup-txt');
+    if (btnTxt) btnTxt.textContent = 'Verifying EPC…';
+    let d = null;
+    try {
+      d = await Promise.race([verifyEPCData(p), new Promise(r=>setTimeout(()=>r(null), 8000))]);
+    } catch(e) {}
+    if (btnTxt) btnTxt.textContent = 'Complete Sign Up Form';
+    if (d) {
+      if (d.rating !== p.rating) { p.rating = d.rating; renderList(); }
+      if (['A','B','C'].includes(d.rating)) {
+        const go = confirm('⚠ LIVE EPC CHECK: this property is rated ' + d.rating +
+          ' on the official register' + (d.validUntil ? ' (valid until ' + d.validUntil + ')' : '') +
+          '.\n\nIt does NOT qualify for Warm Homes funding (needs D–G).\n\nOpen the form anyway?');
+        if (!go) return;
+      }
+    } else {
+      toast('⚠ Could not live-verify EPC — check the rating manually');
+    }
+  }
   const pc = p.postcode || curPC || '';
   const addr = p.addr || '';
   const url = jfURL + (jfURL.includes('?') ? '&' : '?') 
