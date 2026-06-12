@@ -2664,6 +2664,32 @@ async function verifyEPC() {
   btn.disabled = false; btn.textContent = '🔍 Verify EPC Now';
   res.style.display = 'block';
   if (!d) { res.innerHTML = '<span style="color:#f87171">Could not reach the register — check connection and try again.</span>'; return; }
+
+  // ── HARD NO: property type is ineligible (flat/maisonette/park home) ──
+  if (d.hardNo) {
+    p.hardNo = true;
+    p.ineligibleReason = d.ineligibleReason;
+    // Lock the Sign Up button permanently
+    const signupBtn = document.getElementById('pd-signup-btn');
+    const signupTxt = document.getElementById('pd-signup-txt');
+    if (signupBtn) { signupBtn.disabled = true; signupBtn.style.opacity = '0.4'; signupBtn.style.cursor = 'not-allowed'; }
+    if (signupTxt) signupTxt.textContent = 'Not eligible — sign-up blocked';
+    res.innerHTML =
+      '<div style="background:#450a0a;border:1px solid #dc2626;border-radius:10px;padding:14px 16px">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+      + '<span style="font-size:22px">🚫</span>'
+      + '<strong style="color:#fca5a5;font-size:15px">HARD STOP — Not Eligible</strong></div>'
+      + '<div style="color:#f87171;font-size:13px;font-weight:700;margin-bottom:6px">' + d.ineligibleReason + '</div>'
+      + '<div style="color:#fca5a5;font-size:12px;line-height:1.6">Verified live from the GOV.UK register. '
+      + (d.propertyType ? 'Property type: <strong>' + d.propertyType + '</strong>. ' : '')
+      + 'This property cannot be submitted for Warm Homes funding. Sign-up is permanently blocked for this address.</div>'
+      + (d.certificateNumber ? '<div style="font-size:11px;color:#ef4444;margin-top:6px">Cert: ' + d.certificateNumber + '</div>' : '')
+      + '<a href="' + d.source + '" target="_blank" style="color:#f87171;font-size:11px;display:inline-block;margin-top:6px">View official certificate ↗</a>'
+      + '</div>';
+    renderList();
+    return;
+  }
+
   const qualifies = ['D','E','F','G'].includes(d.rating);
   const mismatch = p.rating !== d.rating;
   // Update the stored + displayed rating to the verified truth
@@ -2711,6 +2737,11 @@ async function openSignup() {
   if (!jfURL) { toast('Add your form URL in ⚙ Settings'); return; }
   if (!curPropData) return;
   const p = curPropData;
+  // If already verified as ineligible type — hard block, no second chance
+  if (p.hardNo) {
+    toast('🚫 ' + (p.ineligibleReason || 'This property is not eligible — sign-up blocked'));
+    return;
+  }
   // SAFETY GATE: live-verify the EPC before a deal is submitted.
   if (p.certUrl && !p.noEpc) {
     const btnTxt = document.getElementById('pd-signup-txt');
@@ -2722,11 +2753,21 @@ async function openSignup() {
     if (btnTxt) btnTxt.textContent = 'Complete Sign Up Form';
     if (d) {
       if (d.rating !== p.rating) { p.rating = d.rating; renderList(); }
+      // HARD NO: ineligible property type — absolute block, no bypass
+      if (d.hardNo) {
+        p.hardNo = true;
+        p.ineligibleReason = d.ineligibleReason;
+        const signupBtn = document.getElementById('pd-signup-btn');
+        const signupTxt = document.getElementById('pd-signup-txt');
+        if (signupBtn) { signupBtn.disabled = true; signupBtn.style.opacity='0.4'; signupBtn.style.cursor='not-allowed'; }
+        if (signupTxt) signupTxt.textContent = 'Not eligible — sign-up blocked';
+        toast('🚫 ' + d.ineligibleReason);
+        return;
+      }
+      // Hard no: A/B/C rating — no bypass dialog, just block
       if (['A','B','C'].includes(d.rating)) {
-        const go = confirm('⚠ LIVE EPC CHECK: this property is rated ' + d.rating +
-          ' on the official register' + (d.validUntil ? ' (valid until ' + d.validUntil + ')' : '') +
-          '.\n\nIt does NOT qualify for Warm Homes funding (needs D–G).\n\nOpen the form anyway?');
-        if (!go) return;
+        toast('🚫 EPC rated ' + d.rating + ' — does not qualify for Warm Homes (needs D–G)');
+        return;
       }
     } else {
       toast('⚠ Could not live-verify EPC — check the rating manually');
