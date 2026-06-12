@@ -6,6 +6,8 @@
 <title>Solpath — Manager Dashboard</title>
 <link rel="icon" href="/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -174,6 +176,36 @@ tbody tr:hover td{background:#fafbfd}
 .set-key{color:var(--slate2);font-weight:500}
 .set-val{font-weight:600;text-align:right}
 .reg-pill{display:inline-block;font-size:.72rem;font-weight:600;background:rgba(0,178,74,.08);color:var(--green-deep);padding:3px 10px;border-radius:6px;margin:2px}
+/* ── LEADERBOARD ── */
+.lb-row{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid #f7f9fb;cursor:pointer}
+.lb-row:last-child{border-bottom:none}
+.lb-row:hover{background:#fafbfd}
+.lb-rank{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.82rem;flex-shrink:0;background:var(--line2);color:var(--slate2)}
+.lb-rank.r1{background:linear-gradient(135deg,#ffd700,#e8a800);color:#5c4400}
+.lb-rank.r2{background:linear-gradient(135deg,#d9e2ec,#aebccb);color:#3d4f63}
+.lb-rank.r3{background:linear-gradient(135deg,#e8b27d,#c4824a);color:#5c3a14}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-size:.86rem;font-weight:600}
+.lb-meta{font-size:.7rem;color:var(--slate3)}
+.lb-stats{display:flex;gap:14px;align-items:center}
+.lb-stat{text-align:right}
+.lb-stat b{font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:700;display:block;line-height:1.1}
+.lb-stat span{font-size:.6rem;color:var(--slate3);text-transform:uppercase;letter-spacing:.04em}
+.lb-stat.g b{color:var(--green-deep)}
+/* ── MAP TAB ── */
+#map-canvas{height:480px;border-radius:0 0 13px 13px;z-index:1}
+.map-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.ml-item{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--slate2);font-weight:500}
+.ml-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.district-chips{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px}
+.dist-chip{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:.78rem}
+.dist-chip b{font-weight:700}
+.dist-chip span{color:var(--slate3);font-size:.71rem}
+.dist-reset{font-size:.69rem;font-weight:700;color:var(--red);background:rgba(229,72,77,.07);border:1px solid rgba(229,72,77,.18);border-radius:6px;padding:4px 9px;cursor:pointer;transition:all .15s}
+.dist-reset:hover{background:rgba(229,72,77,.13)}
+.map-toggle{display:flex;align-items:center;gap:6px;font-size:.74rem;color:var(--slate2);cursor:pointer;user-select:none}
+.map-toggle input{accent-color:var(--green)}
+@media(max-width:640px){#map-canvas{height:380px}}
 /* ── EMPTY/LOADING ── */
 .empty{text-align:center;padding:36px 20px;font-size:.83rem;color:var(--slate3)}
 .loading{text-align:center;padding:60px;color:var(--slate3);font-size:.9rem}
@@ -221,6 +253,7 @@ tbody tr:hover td{background:#fafbfd}
 <div class="tabs">
   <div class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</div>
   <div class="tab" data-tab="team" onclick="switchTab('team')">Team</div>
+  <div class="tab" data-tab="map" onclick="switchTab('map')">Map</div>
   <div class="tab" data-tab="callbacks" onclick="switchTab('callbacks')">Callbacks <span class="tab-count" id="cb-count" style="display:none">0</span></div>
   <div class="tab" data-tab="deals" onclick="switchTab('deals')">Deals</div>
   <div class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</div>
@@ -290,6 +323,10 @@ tbody tr:hover td{background:#fafbfd}
   <div class="view" id="view-team">
     <div id="team-master">
       <div class="tcard">
+        <div class="tcard-head"><h3>🏆 Leaderboard</h3><span style="font-size:.72rem;color:var(--slate3)">Ranked by qualified leads</span></div>
+        <div id="leaderboard"></div>
+      </div>
+      <div class="tcard">
         <div class="tcard-head"><h3>Team performance</h3><span style="font-size:.72rem;color:var(--slate3)" id="team-range-label"></span></div>
         <div id="team-table" class="tscroll"></div>
         <div class="rep-cards" id="team-cards"></div>
@@ -328,6 +365,25 @@ tbody tr:hover td{background:#fafbfd}
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ════ MAP ════ -->
+  <div class="view" id="view-map">
+    <div class="tcard">
+      <div class="tcard-head">
+        <h3>Territory map</h3>
+        <div class="map-legend">
+          <span class="ml-item"><span class="ml-dot" style="background:#00b24a"></span>Qualified</span>
+          <span class="ml-item"><span class="ml-dot" style="background:#f0a019"></span>Callback</span>
+          <span class="ml-item"><span class="ml-dot" style="background:#8195ad"></span>No answer</span>
+          <span class="ml-item"><span class="ml-dot" style="background:#e5484d"></span>Not suitable</span>
+          <label class="map-toggle"><input type="checkbox" id="show-archived" onchange="renderMap()">Show reset doors</label>
+        </div>
+      </div>
+      <div id="map-canvas"></div>
+      <div class="tcard-head" style="border-top:1px solid var(--line2);border-bottom:none"><h3>Reset a district</h3><span style="font-size:.71rem;color:var(--slate3)">Resetting archives worked doors so the patch reads as fresh. Records are kept for reporting.</span></div>
+      <div class="district-chips" id="district-chips"></div>
     </div>
   </div>
 
@@ -396,7 +452,7 @@ async function loadData(){
   if(MOCK_MODE){ mockData(); return; }
   const orgF=`organisation_id=eq.${PROFILE.organisation_id}`;
   [ALL_DOORS, ALL_DEALS, MEMBERS] = await Promise.all([
-    api(`/rest/v1/door_records?${orgF}&select=canvasser_id,canvasser_name,status,created_at,address,note,postcode_norm&order=created_at.desc&limit=5000`),
+    api(`/rest/v1/door_records?${orgF}&select=id,canvasser_id,canvasser_name,status,created_at,address,note,postcode_norm,archived,reminder_at&order=created_at.desc&limit=5000`),
     api(`/rest/v1/signups?${orgF}&select=*&order=signed_at.desc&limit=1000`),
     api(`/rest/v1/profiles?organisation_id=eq.${PROFILE.organisation_id}&select=*`)
   ]);
@@ -435,8 +491,12 @@ function mockData(){
         else if(roll<r.conv*0.8+0.09+0.18) status='not_suitable';
         else if(roll<r.conv*0.8+0.09+0.18+0.1) status='not_interested';
         const si=Math.floor(Math.random()*streets.length);
-        ALL_DOORS.push({canvasser_id:r.id,canvasser_name:r.name,status,created_at:t.toISOString(),
+        const anchors=[[50.794,-1.085],[50.799,-1.077],[50.786,-1.088],[50.806,-1.07],[50.789,-1.066],[50.815,-1.066],[50.818,-1.077],[50.797,-1.093],[50.846,-1.07],[50.843,-1.06]];
+        const a=anchors[si];
+        ALL_DOORS.push({id:'d'+ALL_DOORS.length,canvasser_id:r.id,canvasser_name:r.name,status,created_at:t.toISOString(),
           address:`${3+Math.floor(Math.random()*80)} ${streets[si]}`,postcode_norm:pcs[si].replace(' ',''),
+          lat:a[0]+(Math.random()-0.5)*0.006, lng:a[1]+(Math.random()-0.5)*0.008,
+          archived: day>25 && Math.random()<0.5,
           note:status==='callback'?notes[Math.floor(Math.random()*notes.length)]:null});
         if(status==='qualified'&&Math.random()<0.32){
           ALL_DEALS.push({customer_name:['J. Smith','M. Brown','A. Wilson','P. Taylor','D. Evans','K. Hill'][Math.floor(Math.random()*6)],
@@ -451,7 +511,7 @@ function mockData(){
 }
 
 /* ════════════════════ FILTER ════════════════════ */
-function doorsInRange(){return ALL_DOORS.filter(d=>{const t=new Date(d.created_at);return t>=RANGE.since&&t<=RANGE.until})}
+function doorsInRange(){return ALL_DOORS.filter(d=>{if(d.archived)return false;const t=new Date(d.created_at);return t>=RANGE.since&&t<=RANGE.until})}
 function dealsInRange(){return ALL_DEALS.filter(d=>{const t=new Date(d.signed_at||d.created_at);return t>=RANGE.since&&t<=RANGE.until})}
 function groupReps(doors){
   const reps={};
@@ -524,8 +584,7 @@ function renderRepTable(reps,tableId,cardsId){
 function renderCoverage(doors){
   const byPc={};
   doors.forEach(d=>{
-    const pc=(d.postcode_norm||'').replace(/\s/g,'').match(/^[A-Z]{1,2}\d{1,2}/i);
-    const key=pc?pc[0].toUpperCase():'Other';
+    const key=d.postcode_norm?outwardOf(d.postcode_norm):'Other';
     byPc[key]=(byPc[key]||0)+1;
   });
   const entries=Object.entries(byPc).sort((a,b)=>b[1]-a[1]).slice(0,6);
@@ -588,7 +647,7 @@ function closeAgent(){
   CURRENT_AGENT=null;
   document.getElementById('team-master').style.display='';
   document.getElementById('agent-view').classList.remove('active');
-  renderTeam();
+  renderTeam();renderLeaderboard();
 }
 
 function renderAgent(){
@@ -679,9 +738,128 @@ function renderSettings(){
 }
 
 /* ════════════════════ HELPERS ════════════════════ */
+function outwardOf(pc){pc=(pc||'').replace(/\s/g,'').toUpperCase();return pc.length>3?pc.slice(0,-3):pc}
 function fmtTime(t){return new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
 function fmtDateTime(t){const d=new Date(t);return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+fmtTime(t)}
 function badgeFor(s){if(s==='qualified'||s==='interested')return 'b-green';if(s==='callback')return 'b-amber';if(s==='no_answer'||s==='no answer')return 'b-grey';return 'b-red'}
+
+
+/* ════════════════════ LEADERBOARD ════════════════════ */
+function renderLeaderboard(){
+  const reps=groupReps(doorsInRange());
+  const deals=dealsInRange();
+  const dealsBy={};deals.forEach(d=>{dealsBy[d.canvasser_id]=(dealsBy[d.canvasser_id]||0)+1});
+  const ranked=[...reps].sort((a,b)=> b.q-a.q || b.total-a.total);
+  const w=document.getElementById('leaderboard');
+  if(!ranked.length){w.innerHTML='<div class="empty">No activity in this period.</div>';return}
+  w.innerHTML=ranked.map((r,i)=>`
+    <div class="lb-row" onclick="openAgent('${r.id}')">
+      <div class="lb-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div>
+      <div class="lb-info"><div class="lb-name">${r.name}</div><div class="lb-meta">${r.total} doors · ${r.total?(r.q/r.total*100).toFixed(0):0}% conversion</div></div>
+      <div class="lb-stats">
+        <div class="lb-stat g"><b>${r.q}</b><span>Qualified</span></div>
+        <div class="lb-stat"><b>${dealsBy[r.id]||0}</b><span>Deals</span></div>
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════ MAP TAB ════════════════════ */
+let MAP=null, MAP_LAYER=null, GEO_CACHE={};
+try{GEO_CACHE=JSON.parse(localStorage.getItem('sp-geo')||'{}')}catch(e){}
+
+async function geocodeDoors(doors){
+  if(MOCK_MODE) return; // mock has lat/lng baked in
+  const need=[...new Set(doors.filter(d=>!d.lat&&d.postcode_norm&&!GEO_CACHE[d.postcode_norm]).map(d=>d.postcode_norm))];
+  for(let i=0;i<need.length;i+=100){
+    const batch=need.slice(i,i+100);
+    try{
+      const r=await fetch('https://api.postcodes.io/postcodes',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({postcodes:batch})});
+      const data=await r.json();
+      (data.result||[]).forEach(x=>{if(x.result)GEO_CACHE[x.query.replace(/\s/g,'').toUpperCase()]=[x.result.latitude,x.result.longitude]});
+    }catch(e){}
+  }
+  try{localStorage.setItem('sp-geo',JSON.stringify(GEO_CACHE))}catch(e){}
+  doors.forEach(d=>{
+    if(!d.lat&&d.postcode_norm){
+      const g=GEO_CACHE[d.postcode_norm.replace(/\s/g,'').toUpperCase()];
+      if(g){
+        // deterministic jitter per record so houses on same postcode spread out
+        const seed=(d.id+'').split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+        d.lat=g[0]+((seed%17)-8)*0.00012; d.lng=g[1]+((seed%23)-11)*0.00015;
+      }
+    }
+  });
+}
+
+function colorFor(s){if(s==='qualified'||s==='interested')return '#00b24a';if(s==='callback')return '#f0a019';if(s==='no_answer'||s==='no answer')return '#8195ad';return '#e5484d'}
+
+async function renderMap(){
+  renderDistricts();
+  if(typeof L==='undefined'){
+    document.getElementById('map-canvas').innerHTML='<div class="empty" style="padding:60px 20px">Map is loading — if this persists, check your connection and reopen this tab.</div>';
+    return;
+  }
+  const showArchived=document.getElementById('show-archived')?.checked;
+  let doors=ALL_DOORS.filter(d=>{const t=new Date(d.created_at);return t>=RANGE.since&&t<=RANGE.until});
+  if(!showArchived) doors=doors.filter(d=>!d.archived);
+  await geocodeDoors(doors);
+  const pts=doors.filter(d=>d.lat&&d.lng);
+
+  if(!MAP){
+    MAP=L.map('map-canvas',{scrollWheelZoom:true});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19}).addTo(MAP);
+  }
+  if(MAP_LAYER) MAP_LAYER.remove();
+  MAP_LAYER=L.layerGroup().addTo(MAP);
+  pts.forEach(d=>{
+    L.circleMarker([d.lat,d.lng],{
+      radius:6,color:'#fff',weight:1.5,
+      fillColor:d.archived?'#c9d4e0':colorFor(d.status),fillOpacity:d.archived?0.55:0.92
+    }).bindPopup(`<b style="font-size:.84rem">${d.address||'—'}</b><br>
+      <span style="font-size:.76rem">${(d.status||'').replace(/_/g,' ')}${d.archived?' · <i>reset</i>':''} · ${d.canvasser_name||''}</span><br>
+      <span style="font-size:.7rem;color:#888">${fmtDateTime(d.created_at)}</span>`).addTo(MAP_LAYER);
+  });
+  if(pts.length){
+    MAP.fitBounds(L.latLngBounds(pts.map(d=>[d.lat,d.lng])).pad(0.15));
+  } else {
+    MAP.setView([50.8,-1.08],13);
+  }
+  setTimeout(()=>MAP.invalidateSize(),60);
+}
+
+function renderDistricts(){
+  const live=ALL_DOORS.filter(d=>!d.archived);
+  const by={};
+  live.forEach(d=>{
+    if(!d.postcode_norm)return;
+    const k=outwardOf(d.postcode_norm);
+    by[k]=(by[k]||0)+1;
+  });
+  const w=document.getElementById('district-chips');
+  const entries=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){w.innerHTML='<div class="empty" style="padding:10px">No live worked doors. Everything is fresh.</div>';return}
+  w.innerHTML=entries.map(([k,n])=>`
+    <div class="dist-chip"><b>${k}</b><span>${n} worked doors</span>
+      <button class="dist-reset" onclick="resetDistrict('${k}',${n})">Reset</button>
+    </div>`).join('');
+}
+
+async function resetDistrict(district,count){
+  if(!confirm(`Reset ${district}? ${count} worked doors will be archived and the patch will read as fresh. Records stay in reporting.`))return;
+  if(MOCK_MODE){
+    ALL_DOORS.forEach(d=>{if(d.postcode_norm&&outwardOf(d.postcode_norm)===district)d.archived=true});
+  } else {
+    const ids=ALL_DOORS.filter(d=>!d.archived&&d.postcode_norm&&outwardOf(d.postcode_norm)===district).map(d=>d.id);
+    for(let i=0;i<ids.length;i+=100){
+      await api(`/rest/v1/door_records?id=in.(${ids.slice(i,i+100).join(',')})`,{
+        method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({archived:true})});
+    }
+    await loadData();
+  }
+  renderMap();
+  renderOverview();
+}
 
 /* ════════════════════ TABS + RANGES ════════════════════ */
 function switchTab(tab,silent){
@@ -691,8 +869,9 @@ function switchTab(tab,silent){
   // date bar visible everywhere except callbacks & settings
   document.getElementById('datebar').style.display=(tab==='callbacks'||tab==='settings')?'none':'flex';
   if(!silent){
-    if(tab==='team'){closeAgent()}
+    if(tab==='team'){closeAgent();renderLeaderboard()}
     if(tab==='overview')renderOverview();
+    if(tab==='map')renderMap();
     if(tab==='callbacks')renderCallbacks();
     if(tab==='deals')renderDeals();
     if(tab==='settings')renderSettings();
@@ -715,7 +894,8 @@ function setCustomRange(){
 function refreshCurrent(){
   const tab=document.querySelector('.tab.active').dataset.tab;
   if(tab==='overview')renderOverview();
-  else if(tab==='team'){CURRENT_AGENT?renderAgent():renderTeam()}
+  else if(tab==='team'){CURRENT_AGENT?renderAgent():(renderTeam(),renderLeaderboard())}
+  else if(tab==='map')renderMap();
   else if(tab==='deals')renderDeals();
 }
 
