@@ -210,6 +210,15 @@ tbody tr:hover td{background:#fafbfd}
 .dist-reset:hover{background:rgba(229,72,77,.13)}
 .map-toggle{display:flex;align-items:center;gap:6px;font-size:.74rem;color:var(--slate2);cursor:pointer;user-select:none}
 .map-toggle input{accent-color:var(--green)}
+.draw-btn{font-size:.74rem;font-weight:600;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--slate1);cursor:pointer;white-space:nowrap}
+.draw-btn.armed{background:var(--ink,#0a1322);color:#fff;border-color:var(--ink,#0a1322)}
+.patch-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line2);border-radius:10px;margin-bottom:8px;font-size:.8rem}
+.patch-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.patch-del{margin-left:auto;font-size:.72rem;font-weight:600;color:var(--red,#e5484d);background:none;border:none;cursor:pointer}
+#map-canvas.drawing{cursor:crosshair}
+#map-canvas.drawing .leaflet-grab{cursor:crosshair}
+.patch-label{background:rgba(255,255,255,.92);border:none;box-shadow:0 1px 4px rgba(10,19,34,.18);border-radius:6px;font-size:.68rem;font-weight:700;color:#0a1322;padding:2px 7px}
+.patch-label::before{display:none}
 @media(max-width:640px){#map-canvas{height:380px}}
 /* ── EMPTY/LOADING ── */
 .empty{text-align:center;padding:36px 20px;font-size:.83rem;color:var(--slate3)}
@@ -382,8 +391,11 @@ tbody tr:hover td{background:#fafbfd}
           <div class="seg">
             <button class="active" id="mode-worked" onclick="setMapMode('worked')">Worked vs Fresh</button>
             <button id="mode-outcomes" onclick="setMapMode('outcomes')">Outcomes</button>
+            <button id="mode-assign" onclick="setMapMode('assign')">Assign patches</button>
           </div>
           <select class="map-sel" id="map-rep" onchange="renderMap()"><option value="all">All reps</option></select>
+          <input type="date" class="map-sel" id="assign-date" style="display:none" onchange="renderMap()">
+          <button class="draw-btn" id="draw-btn" style="display:none" onclick="armDraw()">✏️ Draw patch</button>
           <select class="map-sel" id="work-window" onchange="renderMap()">
             <option value="7">Worked in last 7 days</option>
             <option value="14">Worked in last 14 days</option>
@@ -393,7 +405,19 @@ tbody tr:hover td{background:#fafbfd}
         </div>
       </div>
       <div class="map-legend" id="map-legend" style="padding:10px 20px;border-bottom:1px solid var(--line2)"></div>
+      <div id="assign-panel" style="display:none;padding:14px 20px;border-bottom:1px solid var(--line2);background:#f4f9f5">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <b style="font-size:.84rem" id="assign-count">0 doors selected</b>
+          <select class="map-sel" id="assign-rep"></select>
+          <input type="text" class="map-sel" id="assign-label" placeholder="Patch name (optional)" style="min-width:170px">
+          <button class="draw-btn" style="background:var(--green);color:#fff;border-color:var(--green)" onclick="confirmAssign()">✓ Assign patch</button>
+          <button class="draw-btn" onclick="cancelAssign()">Cancel</button>
+        </div>
+        <p style="font-size:.7rem;color:var(--slate3);margin-top:6px">Fresh streets show 0 doors — that's fine. The patch is the area itself; the rep sees the green box on their map.</p>
+      </div>
       <div id="map-canvas"></div>
+      <div class="tcard-head" id="patches-head" style="display:none;border-top:1px solid var(--line2);border-bottom:none"><h3>Assigned patches</h3><span style="font-size:.71rem;color:var(--slate3)" id="patches-sub"></span></div>
+      <div id="patches-list" style="display:none;padding:10px 16px 16px"></div>
       <div class="tcard-head" style="border-top:1px solid var(--line2);border-bottom:none"><h3>Reset a district</h3><span style="font-size:.71rem;color:var(--slate3)">Resetting archives worked doors so the patch reads as fresh. Records are kept for reporting.</span></div>
       <div class="district-chips" id="district-chips"></div>
     </div>
@@ -811,8 +835,17 @@ function setMapMode(m){
   MAP_MODE=m;
   document.getElementById('mode-worked').classList.toggle('active',m==='worked');
   document.getElementById('mode-outcomes').classList.toggle('active',m==='outcomes');
+  document.getElementById('mode-assign').classList.toggle('active',m==='assign');
   document.getElementById('work-window').style.display=m==='worked'?'':'none';
   document.getElementById('archived-wrap').style.display=m==='outcomes'?'':'none';
+  document.getElementById('assign-date').style.display=m==='assign'?'':'none';
+  document.getElementById('draw-btn').style.display=m==='assign'?'':'none';
+  document.getElementById('patches-head').style.display=m==='assign'?'':'none';
+  document.getElementById('patches-list').style.display=m==='assign'?'':'none';
+  if(m!=='assign'){disarmDraw();cancelAssign();}
+  if(m==='assign'&&!document.getElementById('assign-date').value){
+    document.getElementById('assign-date').value=new Date().toISOString().slice(0,10);
+  }
   renderMap();
 }
 function propKeyOf(d){return ((d.address||'')+'|'+(d.postcode_norm||'')).toLowerCase()}
@@ -823,18 +856,19 @@ async function renderMap(){
   const rep=document.getElementById('map-rep').value;
   let doors, legend;
 
-  if(MAP_MODE==='worked'){
-    // Worked vs Fresh: latest record per property, two-tone planning view
+  if(MAP_MODE==='worked'||MAP_MODE==='assign'){
+    // Worked vs Fresh: latest record per property, two-tone planning view (also the base layer for Assign mode)
     const windowDays=parseInt(document.getElementById('work-window').value||'7');
     const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-windowDays);
     let pool=ALL_DOORS.filter(d=>!d.archived);
-    if(rep!=='all') pool=pool.filter(d=>d.canvasser_id===rep);
+    if(rep!=='all'&&MAP_MODE==='worked') pool=pool.filter(d=>d.canvasser_id===rep);
     const latest={};
     pool.forEach(d=>{const k=propKeyOf(d);if(!latest[k]||d.created_at>latest[k].created_at)latest[k]=d});
     doors=Object.values(latest).map(d=>({...d,_worked:new Date(d.created_at)>=cutoff}));
     const w=doors.filter(d=>d._worked).length;
     legend=`<span class="ml-item"><span class="ml-dot" style="background:#0a1322"></span>Worked in last ${windowDays} days (${w})</span>
       <span class="ml-item"><span class="ml-dot" style="background:#b8c6d6"></span>Not worked recently — free to re-knock (${doors.length-w})</span>`;
+    if(MAP_MODE==='assign') legend+=`<span class="ml-item" style="color:var(--slate3)">Hit <b>✏️ Draw patch</b>, then drag a box over the streets you want to allocate</span>`;
   } else {
     // Outcomes: density of results, date-range + rep filtered
     const showArchived=document.getElementById('show-archived')?.checked;
@@ -857,6 +891,7 @@ async function renderMap(){
   }
   await geocodeDoors(doors);
   const pts=doors.filter(d=>d.lat&&d.lng);
+  ASSIGN_PTS=pts;
 
   if(!MAP){
     const el=document.getElementById('map-canvas'); el.innerHTML='';
@@ -868,21 +903,185 @@ async function renderMap(){
     });
     carto.addTo(MAP);
     window.addEventListener('resize',()=>MAP&&MAP.invalidateSize());
+    bindDrawEvents();
   }
   if(MAP_LAYER) MAP_LAYER.remove();
   MAP_LAYER=L.layerGroup().addTo(MAP);
   pts.forEach(d=>{
-    const fill = MAP_MODE==='worked' ? (d._worked?'#0a1322':'#b8c6d6')
+    const fill = (MAP_MODE==='worked'||MAP_MODE==='assign') ? (d._worked?'#0a1322':'#b8c6d6')
                : (d.archived?'#c9d4e0':colorFor(d.status));
     L.circleMarker([d.lat,d.lng],{radius:6,color:'#fff',weight:1.5,fillColor:fill,fillOpacity:d.archived?0.55:0.92})
       .bindPopup(`<b style="font-size:.84rem">${d.address||'—'}</b><br>
         <span style="font-size:.76rem">${(d.status||'').replace(/_/g,' ')}${d.archived?' · <i>reset</i>':''} · ${d.canvasser_name||''}</span><br>
         <span style="font-size:.7rem;color:#888">${fmtDateTime(d.created_at)}</span>`).addTo(MAP_LAYER);
   });
-  if(pts.length){MAP.fitBounds(L.latLngBounds(pts.map(d=>[d.lat,d.lng])).pad(0.15));}
-  else{MAP.setView([50.8,-1.08],13);}
+  if(pts.length&&!MAP._fitted){MAP.fitBounds(L.latLngBounds(pts.map(d=>[d.lat,d.lng])).pad(0.15));MAP._fitted=true;}
+  else if(!pts.length&&!MAP._fitted){MAP.setView([50.8,-1.08],13);MAP._fitted=true;}
+  if(MAP_MODE==='assign'){ await loadAssignments(); drawAssignmentRects(); renderPatchList(); }
+  else if(ASSIGN_LAYER){ ASSIGN_LAYER.remove(); ASSIGN_LAYER=null; }
   // Mobile render fix: invalidate repeatedly as layout settles
   [60,350,900].forEach(t=>setTimeout(()=>MAP&&MAP.invalidateSize(),t));
+}
+
+/* ════════════════════ SMART TERRITORY ASSIGNMENT ════════════════════ */
+let ASSIGNMENTS=[], ASSIGN_PTS=[], ASSIGN_LAYER=null;
+let DRAW_ARMED=false, DRAW_START=null, DRAW_RECT=null, PENDING=null, PENDING_RECT=null;
+let MOCK_ASSIGNMENTS=[];
+const REP_PALETTE=['#00b24a','#2f6fed','#9a3fd1','#f0a019','#e5484d','#0aa3a3','#d1437f','#6b7d2c','#8a5a2b','#445'];
+
+function repColor(id){
+  const ids=MEMBERS.filter(m=>m.role!=='manager').map(m=>m.id);
+  let i=ids.indexOf(id); if(i<0)i=Math.abs((id+'').split('').reduce((a,c)=>a+c.charCodeAt(0),0));
+  return REP_PALETTE[i%REP_PALETTE.length];
+}
+function assignDateVal(){return document.getElementById('assign-date').value||new Date().toISOString().slice(0,10)}
+
+async function loadAssignments(){
+  const date=assignDateVal();
+  if(MOCK_MODE){ ASSIGNMENTS=MOCK_ASSIGNMENTS.filter(a=>a.assigned_date===date&&a.status==='active'); return; }
+  ASSIGNMENTS=await api(`/rest/v1/territory_assignments?organisation_id=eq.${PROFILE.organisation_id}&assigned_date=eq.${date}&status=eq.active&select=*&order=created_at.asc`);
+}
+
+function drawAssignmentRects(){
+  if(ASSIGN_LAYER) ASSIGN_LAYER.remove();
+  ASSIGN_LAYER=L.layerGroup().addTo(MAP);
+  ASSIGNMENTS.forEach(a=>{
+    const b=a.bounds; if(!b) return;
+    const col=repColor(a.assigned_to);
+    const rect=L.rectangle([[b.s,b.w],[b.n,b.e]],{color:col,weight:2,fillColor:col,fillOpacity:0.13,dashArray:'6 4'});
+    rect.bindTooltip(`${a.assigned_to_name||'—'}${a.label?' · '+a.label:''}`,{permanent:true,direction:'center',className:'patch-label'});
+    rect.bindPopup(`<b style="font-size:.84rem">${a.label||'Patch'}</b><br>
+      <span style="font-size:.76rem">Assigned to <b>${a.assigned_to_name||'—'}</b> · ${a.door_count||0} known doors</span><br>
+      <span style="font-size:.7rem;color:#888">By ${a.assigned_by_name||'—'}</span><br>
+      <button onclick="deleteAssignment('${a.id}')" style="margin-top:6px;font-size:.72rem;color:#e5484d;background:none;border:1px solid #e5484d;border-radius:6px;padding:3px 8px;cursor:pointer">Remove patch</button>`);
+    rect.addTo(ASSIGN_LAYER);
+  });
+}
+
+function renderPatchList(){
+  const w=document.getElementById('patches-list');
+  document.getElementById('patches-sub').textContent=`For ${new Date(assignDateVal()).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'})} — draw a box per rep to plan the day`;
+  if(!ASSIGNMENTS.length){w.innerHTML='<div class="empty" style="padding:8px">No patches assigned for this date yet. Hit ✏️ Draw patch and drag a box on the map.</div>';return}
+  w.innerHTML=ASSIGNMENTS.map(a=>`
+    <div class="patch-row">
+      <span class="patch-dot" style="background:${repColor(a.assigned_to)}"></span>
+      <b>${a.assigned_to_name||'—'}</b>
+      <span style="color:var(--slate3)">${a.label||'Patch'}</span>
+      <span style="color:var(--slate3)">${a.door_count||0} known doors${(a.postcode_norms||[]).length?' · '+[...new Set((a.postcode_norms||[]).map(outwardOf))].join(', '):''}</span>
+      <button class="patch-del" onclick="deleteAssignment('${a.id}')">Remove</button>
+    </div>`).join('');
+}
+
+function armDraw(){
+  DRAW_ARMED=!DRAW_ARMED;
+  const btn=document.getElementById('draw-btn');
+  btn.classList.toggle('armed',DRAW_ARMED);
+  btn.textContent=DRAW_ARMED?'Drag a box on the map…':'✏️ Draw patch';
+  document.getElementById('map-canvas').classList.toggle('drawing',DRAW_ARMED);
+  if(MAP){DRAW_ARMED?MAP.dragging.disable():MAP.dragging.enable();}
+}
+function disarmDraw(){
+  if(!DRAW_ARMED)return;
+  DRAW_ARMED=false;
+  const btn=document.getElementById('draw-btn');
+  btn.classList.remove('armed');btn.textContent='✏️ Draw patch';
+  document.getElementById('map-canvas').classList.remove('drawing');
+  if(MAP)MAP.dragging.enable();
+}
+
+function bindDrawEvents(){
+  const el=document.getElementById('map-canvas');
+  el.style.touchAction='auto';
+  el.addEventListener('pointerdown',e=>{
+    if(MAP_MODE!=='assign'||!DRAW_ARMED)return;
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    el.style.touchAction='none';
+    DRAW_START=MAP.mouseEventToLatLng(e);
+    if(DRAW_RECT){DRAW_RECT.remove();DRAW_RECT=null;}
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!DRAW_START)return;
+    e.preventDefault();
+    const cur=MAP.mouseEventToLatLng(e);
+    const b=L.latLngBounds(DRAW_START,cur);
+    if(DRAW_RECT)DRAW_RECT.setBounds(b);
+    else DRAW_RECT=L.rectangle(b,{color:'#0a1322',weight:2,fillColor:'#0a1322',fillOpacity:0.1,dashArray:'4 4'}).addTo(MAP);
+  });
+  const finish=e=>{
+    if(!DRAW_START)return;
+    el.style.touchAction='auto';
+    const cur=MAP.mouseEventToLatLng(e);
+    const b=L.latLngBounds(DRAW_START,cur);
+    DRAW_START=null;
+    if(b.getNorth()-b.getSouth()<0.0001&&b.getEast()-b.getWest()<0.0001){
+      if(DRAW_RECT){DRAW_RECT.remove();DRAW_RECT=null;} return; // accidental click
+    }
+    openAssignPanel(b);
+  };
+  el.addEventListener('pointerup',finish);
+  el.addEventListener('pointercancel',()=>{DRAW_START=null;if(DRAW_RECT){DRAW_RECT.remove();DRAW_RECT=null;}el.style.touchAction='auto';});
+}
+
+function openAssignPanel(bounds){
+  disarmDraw();
+  PENDING={bounds:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()}};
+  const inside=ASSIGN_PTS.filter(d=>bounds.contains([d.lat,d.lng]));
+  PENDING.door_count=inside.length;
+  PENDING.postcode_norms=[...new Set(inside.map(d=>(d.postcode_norm||'').replace(/\s/g,'').toUpperCase()).filter(Boolean))];
+  PENDING_RECT=DRAW_RECT; DRAW_RECT=null;
+  document.getElementById('assign-count').textContent=`${inside.length} known door${inside.length===1?'':'s'} in this patch`;
+  const sel=document.getElementById('assign-rep');
+  sel.innerHTML=MEMBERS.filter(m=>m.active!==false).map(m=>`<option value="${m.id}">${m.full_name}${m.role==='manager'?' (manager)':''}</option>`).join('');
+  document.getElementById('assign-label').value='';
+  document.getElementById('assign-panel').style.display='block';
+}
+
+function cancelAssign(){
+  PENDING=null;
+  if(PENDING_RECT){PENDING_RECT.remove();PENDING_RECT=null;}
+  const p=document.getElementById('assign-panel'); if(p)p.style.display='none';
+}
+
+async function confirmAssign(){
+  if(!PENDING)return;
+  const sel=document.getElementById('assign-rep');
+  const rec={
+    organisation_id: MOCK_MODE?'mock-org':PROFILE.organisation_id,
+    assigned_to: sel.value,
+    assigned_to_name: sel.options[sel.selectedIndex].textContent.replace(' (manager)',''),
+    assigned_by: MOCK_MODE?'mock-mgr':SESSION.user.id,
+    assigned_by_name: MOCK_MODE?'You':(PROFILE.full_name||'Manager'),
+    assigned_date: assignDateVal(),
+    label: document.getElementById('assign-label').value.trim()||null,
+    bounds: PENDING.bounds,
+    postcode_norms: PENDING.postcode_norms,
+    door_count: PENDING.door_count,
+    status:'active'
+  };
+  if(MOCK_MODE){ rec.id='ma'+Date.now(); MOCK_ASSIGNMENTS.push(rec); }
+  else{
+    const r=await fetch(`${SUPA}/rest/v1/territory_assignments`,{method:'POST',
+      headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify(rec)});
+    if(!r.ok){alert('Could not save the patch — please try again.');return;}
+  }
+  cancelAssign();
+  await loadAssignments();
+  drawAssignmentRects();
+  renderPatchList();
+}
+
+async function deleteAssignment(id){
+  if(!confirm('Remove this patch?'))return;
+  if(MOCK_MODE){ MOCK_ASSIGNMENTS=MOCK_ASSIGNMENTS.filter(a=>a.id!==id); }
+  else{
+    await fetch(`${SUPA}/rest/v1/territory_assignments?id=eq.${id}`,{method:'DELETE',
+      headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`}});
+  }
+  await loadAssignments();
+  drawAssignmentRects();
+  renderPatchList();
 }
 
 function populateRepFilter(){
