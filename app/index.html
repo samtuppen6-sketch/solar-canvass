@@ -2541,6 +2541,39 @@ async function verifyEPCData(p) {
   return (d && d.verified) ? d : null;
 }
 
+// ── EPC visual scale (official GOV.UK band colours + ranges) ──
+function epcScaleHTML(curRating, curScore){
+  const bands = [
+    {b:'A', lo:92, hi:100, col:'#00C781'},
+    {b:'B', lo:81, hi:91,  col:'#19b459'},
+    {b:'C', lo:69, hi:80,  col:'#8dce46'},
+    {b:'D', lo:55, hi:68,  col:'#ffd500'},
+    {b:'E', lo:39, hi:54,  col:'#fcaa65'},
+    {b:'F', lo:21, hi:38,  col:'#ef8023'},
+    {b:'G', lo:1,  hi:20,  col:'#e9153b'}
+  ];
+  let rows = bands.map(function(x){
+    const active = x.b === curRating;
+    const here = active
+      ? '<span style="margin-left:auto;font-weight:800;color:#0b0c0c;font-size:12px">'+(curScore!=null?curScore:'')+' ◄ THIS HOME</span>'
+      : '';
+    return '<div style="display:flex;align-items:center;gap:8px;background:'+x.col+';'
+      + 'padding:'+(active?'9px 10px':'5px 10px')+';border-radius:6px;'
+      + (active?'box-shadow:0 0 0 3px #fff, 0 0 0 5px '+x.col+';margin:5px 0;':'opacity:.82;')
+      + '">'
+      + '<span style="font-weight:800;color:#0b0c0c;font-size:'+(active?'17px':'13px')+';min-width:18px">'+x.b+'</span>'
+      + '<span style="color:#0b0c0c;font-size:11px;opacity:.85">'+x.lo+'–'+x.hi+'</span>'
+      + here
+      + '</div>';
+  }).join('');
+  return '<div style="margin-top:10px">'
+    + '<div style="font-size:11px;color:var(--m);margin-bottom:6px">Energy efficiency scale — higher is better</div>'
+    + rows
+    + '<div style="font-size:10px;color:var(--m);margin-top:6px;display:flex;justify-content:space-between">'
+    + '<span>🟢 A = most efficient</span><span>🔴 G = least efficient</span></div>'
+    + '</div>';
+}
+
 async function verifyEPC() {
   const p = curPropData;
   if (!p || !p.certUrl) { toast('No certificate on register for this property'); return; }
@@ -2562,16 +2595,37 @@ async function verifyEPC() {
     epcEl.innerHTML = '<span style="background:'+(epcColors[d.rating]||'#334155')+';color:#fff;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">'+d.rating+'</span>';
     renderList();
   }
+  // Band upper bounds for "points to next band up"
+  const bandHi = {A:100,B:91,C:80,D:68,E:54,F:38,G:20};
+  const nextUp = {B:'A',C:'B',D:'C',E:'D',F:'E',G:'F'};
+  let gapLine = '';
+  if (d.score != null && nextUp[d.rating]) {
+    const need = (bandHi[d.rating] + 1) - d.score; // points to cross into next band
+    if (need > 0) gapLine = '<div style="font-size:12px;color:var(--m);margin-top:2px">'
+      + need + ' point' + (need===1?'':'s') + ' below band ' + nextUp[d.rating] + '</div>';
+  }
+  const scoreTxt = (d.score != null) ? ' · score ' + d.score + '/100' : '';
+  const potLine = (d.potentialRating && d.potentialScore != null)
+    ? '<div style="font-size:12px;color:#93c5fd;margin-top:4px">Potential after upgrades: '
+      + d.potentialRating + ' (' + d.potentialScore + ')</div>'
+    : '';
+
   res.innerHTML =
-    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
-      '<span style="font-size:16px">' + (qualifies ? '✅' : '🚫') + '</span>' +
-      '<strong style="color:' + (qualifies ? '#34d399' : '#f87171') + '">Verified rating: ' + d.rating +
-      (qualifies ? ' — qualifies' : ' — does NOT qualify (must be D–G)') + '</strong></div>' +
-    (d.validUntil ? '<div>Valid until: <strong>' + d.validUntil + '</strong>' + (d.expired ? ' <span style="color:#fbbf24">⚠ EXPIRED</span>' : '') + '</div>' : '') +
-    (d.certificateNumber ? '<div>Certificate: ' + d.certificateNumber + '</div>' : '') +
-    (d.supersedes ? '<div style="color:#fbbf24">⚠ An older certificate exists — newest used.</div>' : '') +
-    (mismatch ? '<div style="color:#fbbf24">⚠ Listed rating was out of date — corrected to ' + d.rating + '.</div>' : '') +
-    '<a href="' + d.source + '" target="_blank" style="color:#60a5fa">View official certificate ↗</a>';
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+      '<span style="font-size:18px">' + (qualifies ? '✅' : '🚫') + '</span>' +
+      '<strong style="color:' + (qualifies ? '#34d399' : '#f87171') + ';font-size:15px">Verified: ' +
+      d.rating + scoreTxt + '</strong></div>' +
+    '<div style="font-size:12px;color:' + (qualifies ? '#34d399' : '#f87171') + ';margin-bottom:2px">' +
+      (qualifies ? 'Qualifies for Warm Homes (D–G)' : 'Does NOT qualify — must be D–G') + '</div>' +
+    gapLine + potLine +
+    epcScaleHTML(d.rating, d.score) +
+    '<div style="margin-top:8px;font-size:12px">' +
+    (d.validUntil ? 'Valid until <strong>' + d.validUntil + '</strong>' + (d.expired ? ' <span style="color:#fbbf24">⚠ EXPIRED</span>' : '') : '') +
+    '</div>' +
+    (d.certificateNumber ? '<div style="font-size:11px;color:var(--m)">Cert: ' + d.certificateNumber + '</div>' : '') +
+    (d.supersedes ? '<div style="color:#fbbf24;font-size:12px">⚠ Older certificate exists — newest used.</div>' : '') +
+    (mismatch ? '<div style="color:#fbbf24;font-size:12px">⚠ Listed rating was out of date — corrected to ' + d.rating + '.</div>' : '') +
+    '<a href="' + d.source + '" target="_blank" style="color:#60a5fa;font-size:12px;display:inline-block;margin-top:6px">View official certificate ↗</a>';
 }
 
 async function openSignup() {
