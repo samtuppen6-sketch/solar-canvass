@@ -2155,7 +2155,7 @@ function pCard(i,p,nc) {
   }
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
-  storeProp(uid,p); return '<div class="pc2" onclick="openPropDetail(\\\'\'+esc(uid)+\'\\\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
+  storeProp(uid,p); return '<div class="pc2" onclick="openPropDetail(\''+esc(uid)+'\')" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
     +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold?'<span>Sold '+p.lastSold+'</span>':'')+'</div>'
     +badge
     +lastActionLine+noteLine
