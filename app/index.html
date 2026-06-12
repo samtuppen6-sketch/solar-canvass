@@ -1917,6 +1917,7 @@ async function doSearch() {
   }
   if (c) {
     if (srMk) srMk.remove();
+    clearPropDots();
     srMk = L.circleMarker([c.lat,c.lng], {radius:14, fillColor:'#3b82f6', color:'#fff', weight:2.5, fillOpacity:.9}).addTo(map);
     map.flyTo([c.lat,c.lng], 17, {duration:.9});
   }
@@ -2022,6 +2023,36 @@ async function loadPC(pc) {
   propC[nc]=combined; allProps=combined;
   renderList();
   if (map.getZoom()>=12) loadVis();
+  showPropDots(nc, combined);
+}
+
+let propDotLayer = null;
+function clearPropDots() { if (propDotLayer) { propDotLayer.clearLayers(); propDotLayer = null; } }
+function strHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  return ((h >>> 0) % 10000) / 10000;
+}
+function showPropDots(nc, props) {
+  clearPropDots();
+  const base = geoC[nc]; if (!base) return;
+  propDotLayer = L.layerGroup().addTo(map);
+  const epcCols = {A:'#15803d',B:'#19b459',C:'#8dce46',D:'#ffd500',E:'#fcaa65',F:'#ef8023',G:'#e9153b',NE:'#7c3aed'};
+  const SPREAD = 0.0004;
+  props.forEach(function(p) {
+    var seed = p.addr || ((p.address1||'') + (p.address2||''));
+    var h1 = strHash(seed), h2 = strHash(seed + '_y');
+    var angle = h1 * 2 * Math.PI;
+    var radius = 0.2 * SPREAD + h2 * 0.8 * SPREAD;
+    var lat = base.lat + radius * Math.cos(angle);
+    var lng = base.lng + radius * Math.sin(angle) / Math.cos(base.lat * Math.PI / 180);
+    var col = epcCols[p.rating] || '#10b981';
+    var tip = '<strong>' + (p.addr||'') + '</strong><br>EPC: ' + (p.rating==='NE'?'No EPC':p.rating) + (p.lastSold ? '<br>Sold ' + p.lastSold : '');
+    var dot = L.circleMarker([lat, lng], {radius:7, fillColor:col, color:'#fff', weight:1.5, fillOpacity:0.9});
+    dot.bindTooltip(tip, {sticky:true, offset:[8,0]});
+    dot.on('click', function(e) { L.DomEvent.stopPropagation(e); loadPC(p.postcode||curPC); });
+    propDotLayer.addLayer(dot);
+  });
 }
 
 // Fetch Land Registry private-sale houses for a postcode
