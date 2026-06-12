@@ -193,7 +193,12 @@ tbody tr:hover td{background:#fafbfd}
 .lb-stat span{font-size:.6rem;color:var(--slate3);text-transform:uppercase;letter-spacing:.04em}
 .lb-stat.g b{color:var(--green-deep)}
 /* ── MAP TAB ── */
-#map-canvas{height:480px;border-radius:0 0 13px 13px;z-index:1}
+.map-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:flex;background:var(--line2);border-radius:8px;padding:3px}
+.seg button{font-size:.72rem;font-weight:600;padding:5px 11px;border:none;background:transparent;border-radius:6px;color:var(--slate2);cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+.seg button.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(10,20,40,.1)}
+.map-sel{font-size:.73rem;font-weight:500;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);font-family:'Inter',sans-serif;cursor:pointer}
+#map-canvas{height:480px;width:100%;border-radius:0;z-index:1;position:relative}
 .map-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 .ml-item{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--slate2);font-weight:500}
 .ml-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
@@ -323,7 +328,7 @@ tbody tr:hover td{background:#fafbfd}
   <div class="view" id="view-team">
     <div id="team-master">
       <div class="tcard">
-        <div class="tcard-head"><h3>🏆 Leaderboard</h3><span style="font-size:.72rem;color:var(--slate3)">Ranked by qualified leads</span></div>
+        <div class="tcard-head"><h3>🏆 Leaderboard</h3><span style="font-size:.72rem;color:var(--slate3)">Ranked by deals signed</span></div>
         <div id="leaderboard"></div>
       </div>
       <div class="tcard">
@@ -371,16 +376,23 @@ tbody tr:hover td{background:#fafbfd}
   <!-- ════ MAP ════ -->
   <div class="view" id="view-map">
     <div class="tcard">
-      <div class="tcard-head">
+      <div class="tcard-head" style="gap:10px">
         <h3>Territory map</h3>
-        <div class="map-legend">
-          <span class="ml-item"><span class="ml-dot" style="background:#00b24a"></span>Qualified</span>
-          <span class="ml-item"><span class="ml-dot" style="background:#f0a019"></span>Callback</span>
-          <span class="ml-item"><span class="ml-dot" style="background:#8195ad"></span>No answer</span>
-          <span class="ml-item"><span class="ml-dot" style="background:#e5484d"></span>Not suitable</span>
-          <label class="map-toggle"><input type="checkbox" id="show-archived" onchange="renderMap()">Show reset doors</label>
+        <div class="map-controls">
+          <div class="seg">
+            <button class="active" id="mode-worked" onclick="setMapMode('worked')">Worked vs Fresh</button>
+            <button id="mode-outcomes" onclick="setMapMode('outcomes')">Outcomes</button>
+          </div>
+          <select class="map-sel" id="map-rep" onchange="renderMap()"><option value="all">All reps</option></select>
+          <select class="map-sel" id="work-window" onchange="renderMap()">
+            <option value="7">Worked in last 7 days</option>
+            <option value="14">Worked in last 14 days</option>
+            <option value="30">Worked in last 30 days</option>
+          </select>
+          <label class="map-toggle" id="archived-wrap"><input type="checkbox" id="show-archived" onchange="renderMap()">Show reset</label>
         </div>
       </div>
+      <div class="map-legend" id="map-legend" style="padding:10px 20px;border-bottom:1px solid var(--line2)"></div>
       <div id="map-canvas"></div>
       <div class="tcard-head" style="border-top:1px solid var(--line2);border-bottom:none"><h3>Reset a district</h3><span style="font-size:.71rem;color:var(--slate3)">Resetting archives worked doors so the patch reads as fresh. Records are kept for reporting.</span></div>
       <div class="district-chips" id="district-chips"></div>
@@ -749,7 +761,7 @@ function renderLeaderboard(){
   const reps=groupReps(doorsInRange());
   const deals=dealsInRange();
   const dealsBy={};deals.forEach(d=>{dealsBy[d.canvasser_id]=(dealsBy[d.canvasser_id]||0)+1});
-  const ranked=[...reps].sort((a,b)=> b.q-a.q || b.total-a.total);
+  const ranked=[...reps].sort((a,b)=> (dealsBy[b.id]||0)-(dealsBy[a.id]||0) || b.q-a.q || b.total-a.total);
   const w=document.getElementById('leaderboard');
   if(!ranked.length){w.innerHTML='<div class="empty">No activity in this period.</div>';return}
   w.innerHTML=ranked.map((r,i)=>`
@@ -757,8 +769,8 @@ function renderLeaderboard(){
       <div class="lb-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div>
       <div class="lb-info"><div class="lb-name">${r.name}</div><div class="lb-meta">${r.total} doors · ${r.total?(r.q/r.total*100).toFixed(0):0}% conversion</div></div>
       <div class="lb-stats">
-        <div class="lb-stat g"><b>${r.q}</b><span>Qualified</span></div>
-        <div class="lb-stat"><b>${dealsBy[r.id]||0}</b><span>Deals</span></div>
+        <div class="lb-stat g"><b>${dealsBy[r.id]||0}</b><span>Deals</span></div>
+        <div class="lb-stat"><b>${r.q}</b><span>Qualified</span></div>
       </div>
     </div>`).join('');
 }
@@ -794,38 +806,94 @@ async function geocodeDoors(doors){
 
 function colorFor(s){if(s==='qualified'||s==='interested')return '#00b24a';if(s==='callback')return '#f0a019';if(s==='no_answer'||s==='no answer')return '#8195ad';return '#e5484d'}
 
+let MAP_MODE='worked';
+function setMapMode(m){
+  MAP_MODE=m;
+  document.getElementById('mode-worked').classList.toggle('active',m==='worked');
+  document.getElementById('mode-outcomes').classList.toggle('active',m==='outcomes');
+  document.getElementById('work-window').style.display=m==='worked'?'':'none';
+  document.getElementById('archived-wrap').style.display=m==='outcomes'?'':'none';
+  renderMap();
+}
+function propKeyOf(d){return ((d.address||'')+'|'+(d.postcode_norm||'')).toLowerCase()}
+
 async function renderMap(){
   renderDistricts();
+  populateRepFilter();
+  const rep=document.getElementById('map-rep').value;
+  let doors, legend;
+
+  if(MAP_MODE==='worked'){
+    // Worked vs Fresh: latest record per property, two-tone planning view
+    const windowDays=parseInt(document.getElementById('work-window').value||'7');
+    const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-windowDays);
+    let pool=ALL_DOORS.filter(d=>!d.archived);
+    if(rep!=='all') pool=pool.filter(d=>d.canvasser_id===rep);
+    const latest={};
+    pool.forEach(d=>{const k=propKeyOf(d);if(!latest[k]||d.created_at>latest[k].created_at)latest[k]=d});
+    doors=Object.values(latest).map(d=>({...d,_worked:new Date(d.created_at)>=cutoff}));
+    const w=doors.filter(d=>d._worked).length;
+    legend=`<span class="ml-item"><span class="ml-dot" style="background:#0a1322"></span>Worked in last ${windowDays} days (${w})</span>
+      <span class="ml-item"><span class="ml-dot" style="background:#b8c6d6"></span>Not worked recently — free to re-knock (${doors.length-w})</span>`;
+  } else {
+    // Outcomes: density of results, date-range + rep filtered
+    const showArchived=document.getElementById('show-archived')?.checked;
+    doors=ALL_DOORS.filter(d=>{const t=new Date(d.created_at);return t>=RANGE.since&&t<=RANGE.until});
+    if(!showArchived) doors=doors.filter(d=>!d.archived);
+    if(rep!=='all') doors=doors.filter(d=>d.canvasser_id===rep);
+    const c={q:0,cb:0,na:0,ns:0};
+    doors.forEach(d=>{const s=d.status;if(s==='qualified'||s==='interested')c.q++;else if(s==='callback')c.cb++;else if(s==='no_answer'||s==='no answer')c.na++;else c.ns++});
+    legend=`<span class="ml-item"><span class="ml-dot" style="background:#00b24a"></span>Qualified (${c.q})</span>
+      <span class="ml-item"><span class="ml-dot" style="background:#f0a019"></span>Callback (${c.cb})</span>
+      <span class="ml-item"><span class="ml-dot" style="background:#8195ad"></span>No answer (${c.na})</span>
+      <span class="ml-item"><span class="ml-dot" style="background:#e5484d"></span>Not suitable (${c.ns})</span>`;
+  }
+  document.getElementById('map-legend').innerHTML=legend;
+
   if(typeof L==='undefined'){
     document.getElementById('map-canvas').innerHTML='<div class="empty" style="padding:60px 20px">Map is loading — if this persists, check your connection and reopen this tab.</div>';
+    setTimeout(()=>{if(typeof L!=='undefined')renderMap()},1200);
     return;
   }
-  const showArchived=document.getElementById('show-archived')?.checked;
-  let doors=ALL_DOORS.filter(d=>{const t=new Date(d.created_at);return t>=RANGE.since&&t<=RANGE.until});
-  if(!showArchived) doors=doors.filter(d=>!d.archived);
   await geocodeDoors(doors);
   const pts=doors.filter(d=>d.lat&&d.lng);
 
   if(!MAP){
-    MAP=L.map('map-canvas',{scrollWheelZoom:true});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19}).addTo(MAP);
+    const el=document.getElementById('map-canvas'); el.innerHTML='';
+    MAP=L.map(el,{scrollWheelZoom:true,tap:true});
+    const carto=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19});
+    carto.on('tileerror',()=>{ // fallback to OSM if CARTO unreachable
+      if(!MAP._osmFallback){MAP._osmFallback=true;carto.remove();
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(MAP);}
+    });
+    carto.addTo(MAP);
+    window.addEventListener('resize',()=>MAP&&MAP.invalidateSize());
   }
   if(MAP_LAYER) MAP_LAYER.remove();
   MAP_LAYER=L.layerGroup().addTo(MAP);
   pts.forEach(d=>{
-    L.circleMarker([d.lat,d.lng],{
-      radius:6,color:'#fff',weight:1.5,
-      fillColor:d.archived?'#c9d4e0':colorFor(d.status),fillOpacity:d.archived?0.55:0.92
-    }).bindPopup(`<b style="font-size:.84rem">${d.address||'—'}</b><br>
-      <span style="font-size:.76rem">${(d.status||'').replace(/_/g,' ')}${d.archived?' · <i>reset</i>':''} · ${d.canvasser_name||''}</span><br>
-      <span style="font-size:.7rem;color:#888">${fmtDateTime(d.created_at)}</span>`).addTo(MAP_LAYER);
+    const fill = MAP_MODE==='worked' ? (d._worked?'#0a1322':'#b8c6d6')
+               : (d.archived?'#c9d4e0':colorFor(d.status));
+    L.circleMarker([d.lat,d.lng],{radius:6,color:'#fff',weight:1.5,fillColor:fill,fillOpacity:d.archived?0.55:0.92})
+      .bindPopup(`<b style="font-size:.84rem">${d.address||'—'}</b><br>
+        <span style="font-size:.76rem">${(d.status||'').replace(/_/g,' ')}${d.archived?' · <i>reset</i>':''} · ${d.canvasser_name||''}</span><br>
+        <span style="font-size:.7rem;color:#888">${fmtDateTime(d.created_at)}</span>`).addTo(MAP_LAYER);
   });
-  if(pts.length){
-    MAP.fitBounds(L.latLngBounds(pts.map(d=>[d.lat,d.lng])).pad(0.15));
-  } else {
-    MAP.setView([50.8,-1.08],13);
-  }
-  setTimeout(()=>MAP.invalidateSize(),60);
+  if(pts.length){MAP.fitBounds(L.latLngBounds(pts.map(d=>[d.lat,d.lng])).pad(0.15));}
+  else{MAP.setView([50.8,-1.08],13);}
+  // Mobile render fix: invalidate repeatedly as layout settles
+  [60,350,900].forEach(t=>setTimeout(()=>MAP&&MAP.invalidateSize(),t));
+}
+
+function populateRepFilter(){
+  const sel=document.getElementById('map-rep');
+  if(sel.options.length>1) return; // already populated
+  const seen={};
+  ALL_DOORS.forEach(d=>{if(d.canvasser_id&&!seen[d.canvasser_id]){seen[d.canvasser_id]=d.canvasser_name||'Unknown'}});
+  MEMBERS.forEach(m=>{if(m.role!=='manager'&&!seen[m.id])seen[m.id]=m.full_name});
+  Object.entries(seen).forEach(([id,name])=>{
+    const o=document.createElement('option');o.value=id;o.textContent=name;sel.appendChild(o);
+  });
 }
 
 function renderDistricts(){
@@ -871,7 +939,7 @@ function switchTab(tab,silent){
   if(!silent){
     if(tab==='team'){closeAgent();renderLeaderboard()}
     if(tab==='overview')renderOverview();
-    if(tab==='map')renderMap();
+    if(tab==='map'){document.getElementById('archived-wrap').style.display=MAP_MODE==='outcomes'?'':'none';document.getElementById('work-window').style.display=MAP_MODE==='worked'?'':'none';renderMap()}
     if(tab==='callbacks')renderCallbacks();
     if(tab==='deals')renderDeals();
     if(tab==='settings')renderSettings();
