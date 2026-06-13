@@ -458,6 +458,14 @@ tbody tr:hover td{background:#fafbfd}
 <script>
 /* ════════════════════ CONFIG ════════════════════ */
 const MOCK_MODE = false;  /* preview file sets this true */
+/* DEMO: client-side sales demo — uses mock data, never reads/writes real cloud data */
+let DEMO = (function(){try{
+  const q=new URLSearchParams(location.search).get('demo');
+  if(q==='1'){localStorage.setItem('solpath-demo','1');return true;}
+  if(q==='0'){localStorage.removeItem('solpath-demo');return false;}
+  return localStorage.getItem('solpath-demo')==='1';
+}catch(e){return false;}})();
+const SANDBOX = MOCK_MODE || DEMO;  /* either => no real cloud, mock data */
 const SUPA='https://xdoqclrwdduncjaxtixp.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkb3FjbHJ3ZGR1bmNqYXh0aXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjkyNjMsImV4cCI6MjA5NjYwNTI2M30.vLCzN7-eNJh32tvy0zySDGX5bp6X1v9WlST59BSmIkk';
 
@@ -938,7 +946,7 @@ function assignDateVal(){return document.getElementById('assign-date').value||ne
 
 async function loadAssignments(){
   const date=assignDateVal();
-  if(MOCK_MODE){ ASSIGNMENTS=MOCK_ASSIGNMENTS.filter(a=>a.assigned_date===date&&a.status==='active'); return; }
+  if(SANDBOX){ ASSIGNMENTS=MOCK_ASSIGNMENTS.filter(a=>a.assigned_date===date&&a.status==='active'); return; }
   ASSIGNMENTS=await api(`/rest/v1/territory_assignments?organisation_id=eq.${PROFILE.organisation_id}&assigned_date=eq.${date}&status=eq.active&select=*&order=created_at.asc`);
 }
 
@@ -1059,7 +1067,7 @@ async function confirmAssign(){
     door_count: PENDING.door_count,
     status:'active'
   };
-  if(MOCK_MODE){ rec.id='ma'+Date.now(); MOCK_ASSIGNMENTS.push(rec); }
+  if(SANDBOX){ rec.id='ma'+Date.now(); MOCK_ASSIGNMENTS.push(rec); }
   else{
     const r=await fetch(`${SUPA}/rest/v1/territory_assignments`,{method:'POST',
       headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`,'Content-Type':'application/json','Prefer':'return=minimal'},
@@ -1074,7 +1082,7 @@ async function confirmAssign(){
 
 async function deleteAssignment(id){
   if(!confirm('Remove this patch?'))return;
-  if(MOCK_MODE){ MOCK_ASSIGNMENTS=MOCK_ASSIGNMENTS.filter(a=>a.id!==id); }
+  if(SANDBOX){ MOCK_ASSIGNMENTS=MOCK_ASSIGNMENTS.filter(a=>a.id!==id); }
   else{
     await fetch(`${SUPA}/rest/v1/territory_assignments?id=eq.${id}`,{method:'DELETE',
       headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`}});
@@ -1173,6 +1181,18 @@ async function sendInvite(){
   const role=document.getElementById('inv-role').value;
   const ok=document.getElementById('inv-ok');
   if(!email)return;
+  if(DEMO){
+    // Build a real, shareable join link that opens the canvasser app in demo mode
+    const link=`${location.origin}/app/?demo=1&invited=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}&org=${encodeURIComponent(ORG.name||'Demo Team')}`;
+    const subject=encodeURIComponent(`You're invited to join ${ORG.name||'the team'} on Solpath`);
+    const body=encodeURIComponent(`You've been invited to join ${ORG.name||'the team'} as a ${role} on Solpath.\n\nTap to set up your account:\n${link}\n\n— Sent from Solpath`);
+    ok.innerHTML=`✓ Invite ready for <b>${email}</b>.<br>`
+      +`<a href="mailto:${email}?subject=${subject}&body=${body}" style="color:var(--green);font-weight:700">✉️ Open in email</a> &nbsp;·&nbsp; `
+      +`<a href="#" onclick="navigator.clipboard&&navigator.clipboard.writeText('${link}');this.textContent='Link copied ✓';return false;" style="color:var(--green);font-weight:700">🔗 Copy join link</a>`;
+    ok.style.display='block';
+    document.getElementById('inv-email').value='';
+    return;
+  }
   if(!MOCK_MODE){
     await api('/rest/v1/invitations',{method:'POST',headers:{'Prefer':'return=minimal'},
       body:JSON.stringify({organisation_id:PROFILE.organisation_id,email,role,invited_by:SESSION.user.id})});
@@ -1182,18 +1202,26 @@ async function sendInvite(){
   document.getElementById('inv-email').value='';
   setTimeout(()=>ok.style.display='none',5000);
 }
+function exitDemo(){try{localStorage.removeItem('solpath-demo');}catch(e){}location='/app/manager';}
 
 function signOut(){localStorage.removeItem('sb-session');location='/app/login'}
 
 /* ════════════════════ INIT ════════════════════ */
 async function init(){
   RANGE={key:'today',...computeRange('today')};
-  if(MOCK_MODE){
+  if(SANDBOX){
     mockData();
     PROFILE={role:'manager'};
     document.getElementById('org-label').textContent=ORG.name;
     document.getElementById('auth-check').style.display='none';
     document.getElementById('dash').style.display='block';
+    if(DEMO && !document.getElementById('demo-banner')){
+      const b=document.createElement('div');b.id='demo-banner';
+      b.innerHTML='🎬 DEMO MODE — sample data, nothing is saved · <span style="text-decoration:underline;cursor:pointer" onclick="exitDemo()">Exit demo</span>';
+      b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#6366f1;color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:800;letter-spacing:.04em';
+      document.body.appendChild(b);
+      document.body.style.paddingTop='30px';
+    }
     renderOverview();
     return;
   }
