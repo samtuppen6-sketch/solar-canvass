@@ -1364,5 +1364,6 @@ async function init(){
 }
 init();
 </script>
+<script>(function(){try{var v=localStorage.getItem('sp_vid');if(!v){v=(Date.now().toString(36)+Math.random().toString(36).slice(2,10));localStorage.setItem('sp_vid',v);}fetch('https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({surface:'manager',path:location.pathname,ref:document.referrer||'',visitor:v})}).catch(function(){});}catch(e){}})();</script>
 </body>
 </html>
