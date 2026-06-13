@@ -284,7 +284,7 @@ tbody tr:hover td{background:#fafbfd}
 <body>
 
 <div class="topbar">
-  <div class="brand"><img src="/icon-192.png" alt=""><button class="btn-sm btn-green" onclick="location='/app/?field=1'">Open Field App</button><span class="org-name" id="org-label" style="display:none"></span></div>
+  <div class="brand"><img src="/icon-192.png" alt=""><button class="btn-sm btn-green" onclick="openFieldApp()">Open Field App</button><span class="org-name" id="org-label" style="display:none"></span></div>
   <div class="topbar-right">
     <button class="btn-sm btn-green" onclick="goInvite()">+ Invite</button>
     <button class="btn-sm" onclick="signOut()">Sign out</button>
@@ -924,6 +924,7 @@ async function geocodeDoors(doors){
 function colorFor(s){if(s==='qualified'||s==='interested')return '#00b24a';if(s==='callback')return '#f0a019';if(s==='no_answer'||s==='no answer')return '#8195ad';return '#e5484d'}
 
 let MAP_MODE='worked';
+function openFieldApp(){ location.href='/app/?field=1'+(DEMO?'&demo=1':''); }
 function setMapMode(m){
   MAP_MODE=m;
   document.getElementById('mode-worked').classList.toggle('active',m==='worked');
