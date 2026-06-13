@@ -521,6 +521,7 @@ let DEMO = (function(){try{
   const q=new URLSearchParams(location.search).get('demo');
   if(q==='1'){localStorage.setItem('solpath-demo','1');return true;}
   if(q==='0'){localStorage.removeItem('solpath-demo');return false;}
+  if(localStorage.getItem('sb-session')){ localStorage.removeItem('solpath-demo'); return false; }
   return localStorage.getItem('solpath-demo')==='1';
 }catch(e){return false;}})();
 const SANDBOX = MOCK_MODE || DEMO;  /* either => no real cloud, mock data */
