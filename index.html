@@ -142,7 +142,7 @@ button{font-family:inherit;cursor:pointer}
 .brand img{width:30px;height:30px;border-radius:7px;box-shadow:var(--shadow-sm)}
 .brand span{font-family:'DM Sans',sans-serif;font-size:1.18rem;font-weight:700;letter-spacing:-.04em;color:var(--ink)}
 .nav-tabs{display:flex;align-items:center;gap:2px;list-style:none}
-.nav-tabs a{font-size:.86rem;font-weight:500;color:var(--slate);padding:7px 13px;border-radius:7px;transition:all .15s;position:relative}
+.nav-tabs a{font-size:.86rem;font-weight:500;color:var(--slate);padding:7px 13px;border-radius:7px;transition:all .15s;position:relative;white-space:nowrap}
 .nav-tabs a:hover{color:var(--ink);background:var(--soft)}
 .nav-tabs a.active{color:var(--green)}
 .nav-act{display:flex;align-items:center;gap:8px}
@@ -399,7 +399,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .fbot .dscl{font-size:.68rem;color:#56688a;max-width:520px;text-align:right;line-height:1.5}
 
 /* ── RESPONSIVE ───────────────────────────── */
-@media(max-width:1023px){
+@media(max-width:1140px){
   .nav-tabs{display:none}
   .burger{display:flex;align-items:center;justify-content:center}
   .nav-act .btn-ghost{display:none}
@@ -535,16 +535,14 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
   <div class="wrap nav-in">
     <a href="#home" class="brand"><img src="/icon-192.png" alt="Solpath"><span>Solpath</span></a>
     <ul class="nav-tabs" id="tabs">
-      <li><a href="#home" class="active">Home</a></li>
-      <li><a href="#how">How It Works</a></li>
+      <li><a href="#how" class="active">How it works</a></li>
       <li><a href="#managers">For Managers</a></li>
-      <li><a href="#epc-verify">EPC Verify</a></li><li><a href="#features">Features</a></li>
+      <li><a href="#features">Features</a></li>
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#compliance">Compliance</a></li>
     </ul>
     <div class="nav-act">
       <a href="/app/login" class="btn btn-ghost">Team Login</a>
-      <a href="/signup" class="btn btn-secondary" style="font-size:.85rem;padding:9px 16px">Sign Up</a>
       <a href="#demo" class="btn btn-primary">Book Demo</a>
     </div>
     <button class="burger" id="burger" aria-label="Menu" aria-expanded="false">
@@ -553,10 +551,8 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
   </div>
 </nav>
 <div class="mnav" id="mnav">
-  <a href="#home">Home</a>
   <a href="#how">How It Works</a>
   <a href="#managers">For Managers</a>
-  <a href="#epc-verify">EPC Verify</a>
   <a href="#features">Features</a>
   <a href="#pricing">Pricing</a>
   <a href="#compliance">Compliance</a>
