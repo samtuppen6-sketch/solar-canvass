@@ -472,12 +472,15 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .mgr-tabs span.on{color:#fff;border-bottom-color:#00b24a}
 .mgr-body{display:grid;grid-template-columns:1fr 232px;background:#eef3f9}
 .mgr-map{position:relative;height:366px;overflow:hidden;background:#e8edf2}
-.mgr-tiles{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:1024px;height:768px;display:grid;grid-template-columns:repeat(4,256px);grid-template-rows:repeat(3,256px)}
-.mgr-tiles img{width:256px;height:256px;display:block;border:0}
+#mgr-leaflet{position:absolute;inset:0;z-index:0}
+.mgr-map .mgr-patch,.mgr-map .mgr-drag,.mgr-map .mgr-chip,.mgr-map .mgr-cur{z-index:2}
+.mgr-map .mgr-pin{z-index:3}
+.mgr-map .mgr-attr{z-index:5}
+.leaflet-container{background:#e8edf2!important;font-family:inherit}
 .mgr-attr{position:absolute;right:4px;bottom:3px;font-size:8px;color:#5f7088;background:rgba(255,255,255,.72);padding:1px 5px;border-radius:4px;font-family:'Inter',sans-serif;z-index:2}
 .mgr-worked{position:absolute;left:0;top:0;width:44%;height:100%;background:linear-gradient(90deg,rgba(10,19,34,.10),rgba(10,19,34,0));pointer-events:none;z-index:1}
 .mgr-patch{position:absolute;border:2px dashed;border-radius:8px}
-.mgr-plabel{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);font-size:10px;font-weight:800;color:#0a1322;padding:2px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 5px rgba(10,19,34,.25);font-family:'DM Sans',sans-serif;z-index:3}
+.mgr-plabel{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);font-size:10px;font-weight:800;color:#0a1322;padding:2px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 5px rgba(10,19,34,.25);font-family:'DM Sans',sans-serif;z-index:4}
 .mgr-drag{position:absolute;border:2px dashed #0a1322;background:rgba(10,19,34,.07);border-radius:6px}
 .mgr-cur{position:absolute;width:15px;height:15px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .mgr-chip{position:absolute;background:#0a1322;color:#fff;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:5px;white-space:nowrap;font-family:'DM Sans',sans-serif}
@@ -499,7 +502,13 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .mgr-callout{position:absolute;z-index:6;display:inline-flex;align-items:center;gap:8px;font-size:.76rem;font-weight:600;color:#0a1322;background:#fff;border:1px solid #e3eaf3;border-radius:9px;padding:7px 11px;box-shadow:0 10px 26px -10px rgba(9,19,34,.4)}
 .mgr-callout i{width:8px;height:8px;border-radius:50%;background:#00b24a;box-shadow:0 0 0 4px rgba(0,178,74,.16);flex:none}
 @media(max-width:1000px){.mgr-callout{display:none}}
-.mgr-legend{display:flex;flex-wrap:wrap;gap:10px 22px;justify-content:center;margin:22px auto 0;max-width:760px}
+.mgr-toggles{margin-top:30px;text-align:center}
+.mgr-tog-h{font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;color:var(--ink);margin-bottom:13px}
+.mgr-legend{display:flex;flex-wrap:wrap;gap:11px 20px;justify-content:center;margin:0 auto;max-width:820px}
+.mgr-tg{display:inline-flex;width:19px;height:19px;border-radius:5px;background:var(--ink);color:#fff;align-items:center;justify-content:center;font-size:.66rem;font-weight:800;font-family:'DM Sans',sans-serif;flex:none}
+.mgr-dots{display:inline-flex;gap:3px}
+.mgr-dots i{width:9px;height:9px;border-radius:50%}
+.mgr-leg em{font-style:normal;color:var(--slate-2);font-size:.78rem}
 .mgr-leg{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;color:var(--slate);font-weight:500}
 .mgr-leg b{width:14px;height:14px;border-radius:4px;flex:none}
 .mgr-feats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:48px auto 0;max-width:980px}
@@ -512,6 +521,8 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 @media(max-width:720px){.mgr-body{grid-template-columns:1fr}.mgr-rail{border-left:none;border-top:1px solid #e3eaf3}.mgr-map{height:300px}.mgr-feats{grid-template-columns:1fr}}
 
 </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 </head>
 <body>
 
@@ -700,7 +711,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
         <div class="mgr-tabs"><span>Overview</span><span>Team</span><span class="on">Map</span><span>Callbacks</span><span>Deals</span></div>
         <div class="mgr-body">
           <div class="mgr-map">
-            <div class="mgr-tiles"><img src="https://a.basemaps.cartocdn.com/light_all/15/16284/11004@2x.png" alt="" loading="lazy"><img src="https://b.basemaps.cartocdn.com/light_all/15/16285/11004@2x.png" alt="" loading="lazy"><img src="https://c.basemaps.cartocdn.com/light_all/15/16286/11004@2x.png" alt="" loading="lazy"><img src="https://d.basemaps.cartocdn.com/light_all/15/16287/11004@2x.png" alt="" loading="lazy"><img src="https://a.basemaps.cartocdn.com/light_all/15/16284/11005@2x.png" alt="" loading="lazy"><img src="https://b.basemaps.cartocdn.com/light_all/15/16285/11005@2x.png" alt="" loading="lazy"><img src="https://c.basemaps.cartocdn.com/light_all/15/16286/11005@2x.png" alt="" loading="lazy"><img src="https://d.basemaps.cartocdn.com/light_all/15/16287/11005@2x.png" alt="" loading="lazy"><img src="https://a.basemaps.cartocdn.com/light_all/15/16284/11006@2x.png" alt="" loading="lazy"><img src="https://b.basemaps.cartocdn.com/light_all/15/16285/11006@2x.png" alt="" loading="lazy"><img src="https://c.basemaps.cartocdn.com/light_all/15/16286/11006@2x.png" alt="" loading="lazy"><img src="https://d.basemaps.cartocdn.com/light_all/15/16287/11006@2x.png" alt="" loading="lazy"></div>
+            <div id="mgr-leaflet"></div>
             <div class="mgr-worked"></div>
             <div class="mgr-patch" style="left:6%;top:16%;width:32%;height:33%;border-color:#00b24a;background:rgba(0,178,74,.10)"><span class="mgr-plabel">Sarah &middot; Albert Rd</span></div>
             <div class="mgr-patch" style="left:44%;top:53%;width:30%;height:32%;border-color:#2f6bff;background:rgba(47,107,255,.10)"><span class="mgr-plabel">Jake &middot; Festing Gr</span></div>
@@ -723,10 +734,13 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
       </div>
     </div>
 
-    <div class="mgr-legend">
-      <span class="mgr-leg"><b style="background:#0a1322"></b>Worked vs fresh streets</span>
-      <span class="mgr-leg"><b style="background:#00b24a"></b>Assigned patches</span>
-      <span class="mgr-leg"><b style="background:#8b5cf6"></b>Live canvasser pins</span>
+    <div class="mgr-toggles">
+      <div class="mgr-tog-h">Available toggles</div>
+      <div class="mgr-legend">
+        <span class="mgr-leg"><span class="mgr-tg">A</span><b style="background:#0a1322"></b>Worked vs fresh streets</span>
+        <span class="mgr-leg"><span class="mgr-tg">B</span><b style="background:#00b24a"></b>Assigned patches</span>
+        <span class="mgr-leg"><span class="mgr-tg">C</span><span class="mgr-dots"><i style="background:#00b24a"></i><i style="background:#2f6bff"></i><i style="background:#8b5cf6"></i></span>Live canvasser pins <em>&mdash; one colour per canvasser</em></span>
+      </div>
     </div>
 
     <div class="mgr-feats">
@@ -1039,6 +1053,25 @@ async function submitDemo(e) {
   btn.style.background = '#009a40';
   e.target.querySelectorAll('input,select,textarea').forEach(f => f.disabled = true);
 }
+</script>
+<script>
+(function(){
+  function initMgrMap(){
+    if(typeof L==='undefined') return;
+    var el=document.getElementById('mgr-leaflet');
+    if(!el||el._inited) return; el._inited=true;
+    var map=L.map(el,{center:[50.7965,-1.0850],zoom:14,zoomControl:false,attributionControl:false,
+      dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,
+      touchZoom:false,tap:false,inertia:false,fadeAnimation:false});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      {subdomains:'abcd',maxZoom:19,detectRetina:true}).addTo(map);
+    setTimeout(function(){try{map.invalidateSize();}catch(e){}},150);
+    setTimeout(function(){try{map.invalidateSize();}catch(e){}},700);
+  }
+  if(document.readyState!=='loading') initMgrMap();
+  else document.addEventListener('DOMContentLoaded', initMgrMap);
+  window.addEventListener('load', initMgrMap);
+})();
 </script>
 </body>
 </html>
