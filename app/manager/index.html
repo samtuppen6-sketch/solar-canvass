@@ -1193,14 +1193,23 @@ async function sendInvite(){
     document.getElementById('inv-email').value='';
     return;
   }
-  if(!MOCK_MODE){
-    await api('/rest/v1/invitations',{method:'POST',headers:{'Prefer':'return=minimal'},
-      body:JSON.stringify({organisation_id:PROFILE.organisation_id,email,role,invited_by:SESSION.user.id})});
-  }
-  ok.textContent=`✓ Invite sent to ${email} — they'll get a one-click link to join your team.`;
-  ok.style.display='block';
+  // Real invite: secure server function records the invite + emails a join link.
+  // The person only appears in your team once they create their account.
+  ok.style.display='block'; ok.textContent='Sending…';
+  try{
+    const res=await fetch(`${SUPA}/functions/v1/invites`,{method:'POST',
+      headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`},
+      body:JSON.stringify({action:'send',email,role})});
+    const d=await res.json().catch(()=>({}));
+    if(!res.ok){ ok.textContent='⚠️ '+(d.error||'Could not send invite — please try again.'); return; }
+    if(d.emailed){
+      ok.textContent=`✓ Invite emailed to ${email}. They'll appear in your team once they create their account.`;
+    } else {
+      ok.innerHTML=`✓ Invite created for <b>${email}</b>. Email delivery isn't switched on yet — copy the link and send it to them:<br>`
+        +`<a href="#" onclick="navigator.clipboard&&navigator.clipboard.writeText('${d.link}');this.textContent='Link copied ✓';return false;" style="color:var(--green);font-weight:700">🔗 Copy join link</a>`;
+    }
+  }catch(e){ ok.textContent='⚠️ Could not reach the invite service — please try again.'; }
   document.getElementById('inv-email').value='';
-  setTimeout(()=>ok.style.display='none',5000);
 }
 function exitDemo(){try{localStorage.removeItem('solpath-demo');}catch(e){}location='/app/manager';}
 
