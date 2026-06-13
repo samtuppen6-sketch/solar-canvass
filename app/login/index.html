@@ -115,8 +115,16 @@
   <div class="back"><a href="/">← Back to solpath.energy</a></div>
   <script>
     function doLogin() {
-      const e = document.getElementById('email').value;
-      const p = document.getElementById('pass').value;
+      const e = (document.getElementById('email').value||'').trim().toLowerCase();
+      const p = (document.getElementById('pass').value||'').trim().toLowerCase();
+      // Demo manager login → manager dashboard in demo mode (no real data)
+      if (e === 'demo.manager@solpath.energy' && p === 'demo') {
+        window.location.href = '/app/manager?demo=1'; return;
+      }
+      // Demo canvasser login → app handles demo@solpath.energy/demo on its own auth screen
+      if (e === 'demo@solpath.energy' && p === 'demo') {
+        window.location.href = '/app/?demo=1'; return;
+      }
       // Route to app — access validation happens inside the app
       if (e || p) {
         window.location.href = '/app/?ref=login';
