@@ -455,6 +455,60 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
   .pcard{width:54%}
   .flinks{grid-template-columns:1fr}
 }
+
+/* ===== Manager dashboard showcase ===== */
+#managers .sh{max-width:680px}
+.mgr-stage{position:relative;margin-top:6px}
+.mgr-frame{position:relative;max-width:980px;margin:0 auto;background:#0b1626;border:1px solid #1c2f4d;border-radius:16px;overflow:hidden;box-shadow:0 34px 80px -34px rgba(9,19,34,.6),0 2px 10px rgba(9,19,34,.08)}
+.mgr-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;background:#0a1322;border-bottom:1px solid #18283f}
+.mgr-bd{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,#00e87a,#00b24a);flex:none}
+.mgr-bar b{color:#fff;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.9rem}
+.mgr-role{font-size:.56rem;font-weight:700;letter-spacing:.1em;color:#00e87a;border:1px solid rgba(0,232,122,.35);background:rgba(0,232,122,.1);border-radius:5px;padding:2px 7px}
+.mgr-org{font-size:.72rem;color:#7e93b0}
+.mgr-live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:700;color:#bfe8d2}
+.mgr-live i{width:7px;height:7px;border-radius:50%;background:#00e87a;box-shadow:0 0 0 3px rgba(0,232,122,.18)}
+.mgr-tabs{display:flex;gap:2px;background:#0b1626;padding:0 12px;border-bottom:1px solid #18283f;overflow:hidden}
+.mgr-tabs span{font-size:.73rem;font-weight:600;color:#6f87a6;padding:10px 13px;border-bottom:2px solid transparent;white-space:nowrap}
+.mgr-tabs span.on{color:#fff;border-bottom-color:#00b24a}
+.mgr-body{display:grid;grid-template-columns:1fr 232px;background:#eef3f9}
+.mgr-map{position:relative;height:366px;overflow:hidden;background:radial-gradient(circle at 45% 38%,#f0f5fb,#e1eaf4)}
+.mgr-map::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(110,132,160,.5) 1.5px,transparent 1.6px);background-size:22px 18px;opacity:.45}
+.mgr-worked{position:absolute;left:0;top:0;width:46%;height:100%;background:linear-gradient(90deg,rgba(10,19,34,.12),rgba(10,19,34,0));pointer-events:none}
+.mgr-patch{position:absolute;border:2px dashed;border-radius:8px}
+.mgr-plabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.95);font-size:10px;font-weight:800;color:#0a1322;padding:2px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 5px rgba(10,19,34,.22);font-family:'DM Sans',sans-serif}
+.mgr-drag{position:absolute;border:2px dashed #0a1322;background:rgba(10,19,34,.07);border-radius:6px}
+.mgr-cur{position:absolute;width:15px;height:15px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.mgr-chip{position:absolute;background:#0a1322;color:#fff;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:5px;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.mgr-pin{position:absolute;width:15px;height:15px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.3)}
+.mgr-pin::after{content:'';position:absolute;inset:-5px;border-radius:50%;border:2px solid currentColor;opacity:.5;animation:mgrpulse 2.2s ease-out infinite}
+@keyframes mgrpulse{0%{transform:scale(.55);opacity:.55}100%{transform:scale(1.75);opacity:0}}
+.mgr-pname{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(10,19,34,.92);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.mgr-pname::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:rgba(10,19,34,.92)}
+.mgr-rail{background:#fff;border-left:1px solid #e3eaf3;padding:14px}
+.mgr-rh{font-family:'DM Sans',sans-serif;font-weight:700;font-size:.8rem;color:#0a1322;margin-bottom:11px}
+.mgr-rh span{color:#00913d;font-weight:700;font-size:.62rem;text-transform:uppercase;letter-spacing:.05em}
+.mgr-lrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f4f8;font-size:.79rem}
+.mgr-lrow:last-child{border-bottom:none}
+.mgr-rk{width:13px;color:#a0b0c4;font-weight:700;font-family:'DM Sans',sans-serif}
+.mgr-av{width:21px;height:21px;border-radius:50%;background:linear-gradient(135deg,#dfe9f5,#b8c9dd);display:flex;align-items:center;justify-content:center;font-size:.56rem;font-weight:700;color:#4f6379;flex:none}
+.mgr-nm{flex:1;font-weight:600;color:#0a1322}
+.mgr-ld{width:6px;height:6px;border-radius:50%;background:#00b24a;flex:none}
+.mgr-dl{font-family:'DM Sans',sans-serif;font-weight:700;color:#00913d}
+.mgr-callout{position:absolute;z-index:6;display:inline-flex;align-items:center;gap:8px;font-size:.76rem;font-weight:600;color:#0a1322;background:#fff;border:1px solid #e3eaf3;border-radius:9px;padding:7px 11px;box-shadow:0 10px 26px -10px rgba(9,19,34,.4)}
+.mgr-callout i{width:8px;height:8px;border-radius:50%;background:#00b24a;box-shadow:0 0 0 4px rgba(0,178,74,.16);flex:none}
+@media(max-width:1000px){.mgr-callout{display:none}}
+.mgr-legend{display:flex;flex-wrap:wrap;gap:10px 22px;justify-content:center;margin:22px auto 0;max-width:760px}
+.mgr-leg{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;color:var(--slate);font-weight:500}
+.mgr-leg b{width:14px;height:14px;border-radius:4px;flex:none}
+.mgr-feats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:48px auto 0;max-width:980px}
+.mgr-feat{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px}
+.mgr-feat .fi{width:38px;height:38px;border-radius:10px;background:rgba(0,178,74,.09);display:flex;align-items:center;justify-content:center;margin-bottom:13px}
+.mgr-feat .fi svg{width:20px;height:20px;stroke:var(--green);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.mgr-feat h4{font-family:'DM Sans',sans-serif;font-size:.98rem;font-weight:700;color:var(--ink);margin-bottom:6px}
+.mgr-feat p{font-size:.86rem;color:var(--slate);line-height:1.6}
+@media(max-width:880px){.mgr-feats{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.mgr-body{grid-template-columns:1fr}.mgr-rail{border-left:none;border-top:1px solid #e3eaf3}.mgr-map{height:300px}.mgr-feats{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -466,6 +520,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
     <ul class="nav-tabs" id="tabs">
       <li><a href="#home" class="active">Home</a></li>
       <li><a href="#how">How It Works</a></li>
+      <li><a href="#managers">For Managers</a></li>
       <li><a href="#epc-verify">EPC Verify</a></li><li><a href="#features">Features</a></li>
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#compliance">Compliance</a></li>
@@ -483,6 +538,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 <div class="mnav" id="mnav">
   <a href="#home">Home</a>
   <a href="#how">How It Works</a>
+  <a href="#managers">For Managers</a>
   <a href="#epc-verify">EPC Verify</a>
   <a href="#features">Features</a>
   <a href="#pricing">Pricing</a>
@@ -615,6 +671,71 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
     <div class="solve">
       <div class="solve-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.5 7.5H22l-6 4.5 2.5 7.5L12 17l-6.5 4.5L8 14 2 9.5h7.5L12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
       <p><strong>Solpath gives teams one shared view</strong> of where to go, what to check and what happened at the door — updated in real time, before a rep sets foot on a street.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- MANAGER DASHBOARD -->
+<section class="section sec-soft" id="managers">
+  <div class="wrap">
+    <div class="sh center">
+      <span class="eyebrow">For managers</span>
+      <h2 class="display d2">Run your whole team from one screen.</h2>
+      <p class="lead">The manager dashboard turns the field into something you can see and steer &mdash; who's out, where they are, which streets are worked, and who's signing deals. No spreadsheets, no guesswork.</p>
+    </div>
+
+    <div class="mgr-stage">
+      <div class="mgr-callout" style="top:-15px;left:1%"><i></i>Drag streets onto a rep</div>
+      <div class="mgr-callout" style="top:34%;right:-12px"><i></i>Live team location</div>
+
+      <div class="mgr-frame">
+        <div class="mgr-bar">
+          <span class="mgr-bd"></span><b>Solpath</b><span class="mgr-role">MANAGER</span>
+          <span class="mgr-org">Greenfield Energy &middot; Team Growth</span>
+          <span class="mgr-live"><i></i>Live 3</span>
+        </div>
+        <div class="mgr-tabs"><span>Overview</span><span>Team</span><span class="on">Map</span><span>Callbacks</span><span>Deals</span></div>
+        <div class="mgr-body">
+          <div class="mgr-map">
+            <div class="mgr-worked"></div>
+            <div class="mgr-patch" style="left:7%;top:13%;width:33%;height:31%;border-color:#00b24a;background:rgba(0,178,74,.08)"><span class="mgr-plabel">Sarah &middot; Albert Rd</span></div>
+            <div class="mgr-patch" style="left:46%;top:50%;width:31%;height:33%;border-color:#2f6bff;background:rgba(47,107,255,.08)"><span class="mgr-plabel">Jake &middot; Festing Gr</span></div>
+            <div class="mgr-drag" style="right:8%;top:12%;width:24%;height:27%"></div>
+            <div class="mgr-chip" style="right:6%;top:42%">Assign to Maria &#9654;</div>
+            <svg class="mgr-cur" style="right:7%;top:35%" viewBox="0 0 24 24"><path d="M5 2 L5 19 L9.5 15 L12.5 21.5 L15.5 20 L12.5 13.8 L19 13.5 Z" fill="#fff" stroke="#0a1322" stroke-width="1.5"/></svg>
+            <div class="mgr-pin" style="left:22%;top:28%;color:#00b24a;background:#00b24a"><span class="mgr-pname">Sarah</span></div>
+            <div class="mgr-pin" style="left:60%;top:70%;color:#2f6bff;background:#2f6bff"><span class="mgr-pname">Jake</span></div>
+            <div class="mgr-pin" style="left:82%;top:54%;color:#8b5cf6;background:#8b5cf6"><span class="mgr-pname">Maria</span></div>
+          </div>
+          <div class="mgr-rail">
+            <div class="mgr-rh">Leaderboard <span>&middot; deals</span></div>
+            <div class="mgr-lrow"><span class="mgr-rk">1</span><span class="mgr-av">JM</span><span class="mgr-nm">Jake</span><i class="mgr-ld"></i><span class="mgr-dl">6</span></div>
+            <div class="mgr-lrow"><span class="mgr-rk">2</span><span class="mgr-av">SP</span><span class="mgr-nm">Sarah</span><i class="mgr-ld"></i><span class="mgr-dl">5</span></div>
+            <div class="mgr-lrow"><span class="mgr-rk">3</span><span class="mgr-av">MK</span><span class="mgr-nm">Maria</span><i class="mgr-ld"></i><span class="mgr-dl">4</span></div>
+            <div class="mgr-lrow"><span class="mgr-rk">4</span><span class="mgr-av">TC</span><span class="mgr-nm">Tom</span><span style="width:6px"></span><span class="mgr-dl">2</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mgr-legend">
+      <span class="mgr-leg"><b style="background:#0a1322"></b>Worked vs fresh streets</span>
+      <span class="mgr-leg"><b style="background:#00b24a"></b>Assigned patches</span>
+      <span class="mgr-leg"><b style="background:#8b5cf6"></b>Live canvasser pins</span>
+    </div>
+
+    <div class="mgr-feats">
+      <div class="mgr-feat"><div class="fi"><svg viewBox="0 0 22 22"><path d="M4 5h14M4 11h9M4 17h6"/><circle cx="17" cy="16" r="3"/></svg></div><h4>Deals-first leaderboard</h4><p>Rank the team on sign-ups, not knocks &mdash; everyone is measured on what actually pays.</p></div>
+      <div class="mgr-feat"><div class="fi"><svg viewBox="0 0 22 22"><rect x="3" y="3" width="16" height="16" rx="2"/><path d="M3 9h16M9 9v10"/></svg></div><h4>Drag-and-drop territory</h4><p>Draw a box over real streets and hand it to a rep for the day in seconds.</p></div>
+      <div class="mgr-feat"><div class="fi"><svg viewBox="0 0 22 22"><path d="M11 2C7 2 4 5 4 9c0 5 7 11 7 11s7-6 7-11c0-4-3-7-7-7z"/><circle cx="11" cy="9" r="2.5"/></svg></div><h4>Live team location</h4><p>See where every canvasser is in real time and pass the nearest fresh streets straight to them.</p></div>
+      <div class="mgr-feat"><div class="fi"><svg viewBox="0 0 22 22"><path d="M3 6l8 5 8-5"/><rect x="3" y="5" width="16" height="12" rx="2"/></svg></div><h4>Invite by email</h4><p>Add canvassers with a one-click link &mdash; any personal email works, and they're sandboxed to your organisation.</p></div>
+      <div class="mgr-feat"><div class="fi"><svg viewBox="0 0 22 22"><circle cx="11" cy="11" r="8"/><path d="M11 3v16M3 11h16"/></svg></div><h4>Worked-vs-fresh map</h4><p>Dark is worked, light is fresh &mdash; so two reps never knock the same street twice.</p></div>
+      <div class="mgr-feat"><div class="fi"><svg viewBox="0 0 22 22"><circle cx="11" cy="7" r="3.2"/><path d="M5 19c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg></div><h4>Team control</h4><p>Add people the moment they start, and switch off access the moment they leave.</p></div>
+    </div>
+
+    <div style="text-align:center;margin-top:42px">
+      <a href="/signup" class="btn btn-primary btn-lg">Start your team</a>
     </div>
   </div>
 </section>
