@@ -266,6 +266,13 @@ tbody tr:hover td{background:#fafbfd}
 .inv-chips{display:flex;flex-wrap:wrap;gap:6px}
 .rchip{font:inherit;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid #d4deeb;background:#fff;color:#4f6379;cursor:pointer;line-height:1}
 .rchip.on{background:#00b24a;border-color:#00b24a;color:#fff;font-weight:600}
+.dens-list{display:flex;flex-direction:column;gap:5px;max-height:320px;overflow:auto}
+.dens-row{display:flex;align-items:center;gap:10px;cursor:pointer;padding:3px 4px;border-radius:6px}
+.dens-row:hover{background:var(--soft)}
+.dens-oc{font-weight:700;font-size:.8rem;min-width:56px;color:var(--ink)}
+.dens-bar{flex:1;height:9px;background:#eef3f9;border-radius:6px;overflow:hidden}
+.dens-fill{display:block;height:100%;border-radius:6px}
+.dens-n{font-size:.76rem;color:var(--slate);min-width:50px;text-align:right;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -434,8 +441,10 @@ tbody tr:hover td{background:#fafbfd}
             <button class="active" id="mode-worked" onclick="setMapMode('worked')">Worked vs Fresh</button>
             <button id="mode-outcomes" onclick="setMapMode('outcomes')">Outcomes</button>
             <button id="mode-assign" onclick="setMapMode('assign')">Assign patches</button>
+            <button id="mode-density" onclick="setMapMode('density')">Eligible density</button>
           </div>
           <select class="map-sel" id="map-rep" onchange="renderMap()"><option value="all">All reps</option></select>
+          <select class="map-sel" id="dens-region" style="display:none" onchange="renderMap()"></select>
           <span class="map-sel" id="live-ind" title="Canvassers sharing location now"><span class="dot"></span>Live <b id="live-count">0</b></span>
           <input type="date" class="map-sel" id="assign-date" style="display:none" onchange="renderMap()">
           <button class="draw-btn" id="draw-btn" style="display:none" onclick="armDraw()">✏️ Draw patch</button>
@@ -463,6 +472,7 @@ tbody tr:hover td{background:#fafbfd}
       <div id="patches-list" style="display:none;padding:10px 16px 16px"></div>
       <div class="tcard-head" style="border-top:1px solid var(--line2);border-bottom:none"><h3>Reset a district</h3><span style="font-size:.71rem;color:var(--slate3)">Resetting archives worked doors so the patch reads as fresh. Records are kept for reporting.</span></div>
       <div class="district-chips" id="district-chips"></div>
+    <div id="dens-wrap" style="display:none;padding:8px 20px 18px"><div class="dens-list" id="dens-list"></div></div>
     </div>
   </div>
 
@@ -914,6 +924,10 @@ function setMapMode(m){
   document.getElementById('mode-worked').classList.toggle('active',m==='worked');
   document.getElementById('mode-outcomes').classList.toggle('active',m==='outcomes');
   document.getElementById('mode-assign').classList.toggle('active',m==='assign');
+  var _md=document.getElementById('mode-density'); if(_md)_md.classList.toggle('active',m==='density');
+  var _dr=document.getElementById('dens-region'); if(_dr)_dr.style.display=m==='density'?'':'none';
+  var _dw=document.getElementById('dens-wrap'); if(_dw)_dw.style.display=m==='density'?'':'none';
+  var _dc=document.getElementById('district-chips'); if(_dc)_dc.style.display=m==='density'?'none':'';
   document.getElementById('work-window').style.display=m==='worked'?'':'none';
   document.getElementById('archived-wrap').style.display=m==='outcomes'?'':'none';
   document.getElementById('assign-date').style.display=m==='assign'?'':'none';
@@ -928,9 +942,59 @@ function setMapMode(m){
 }
 function propKeyOf(d){return ((d.address||'')+'|'+(d.postcode_norm||'')).toLowerCase()}
 
+function ensureMap(){
+  if(MAP)return;
+  const el=document.getElementById('map-canvas'); el.innerHTML='';
+  MAP=L.map(el,{scrollWheelZoom:true,tap:true});
+  const carto=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19});
+  carto.on('tileerror',()=>{ if(!MAP._osmFallback){MAP._osmFallback=true;carto.remove();
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(MAP);} });
+  carto.addTo(MAP);
+  window.addEventListener('resize',()=>MAP&&MAP.invalidateSize());
+  bindDrawEvents();
+  startLivePolling();
+}
+let DENSITY=null, DENS_LAYER=null;
+async function loadDensity(){
+  if(DENSITY)return DENSITY;
+  try{const r=await fetch('/app/regions/_density.json');DENSITY=await r.json();}
+  catch(e){DENSITY={total:0,regions:[],outcodes:[]};}
+  return DENSITY;
+}
+function densColor(t){const a=[0xd2,0xea,0xdd],b=[0x00,0x86,0x38];const c=a.map((x,i)=>Math.round(x+(b[i]-x)*Math.sqrt(t)));return 'rgb('+c[0]+','+c[1]+','+c[2]+')';}
+function densFocus(lat,lng){ if(MAP&&lat!=null&&lng!=null) MAP.setView([lat,lng],11); }
+async function renderDensity(){
+  ensureMap();
+  if(MAP_LAYER){MAP_LAYER.remove();MAP_LAYER=null;}
+  const d=await loadDensity();
+  const sel=document.getElementById('dens-region');
+  if(sel&&!sel._filled){
+    sel.innerHTML='<option value="all">All regions</option>'+d.regions.map(r=>'<option value="'+r[0]+'">'+r[1]+' ('+r[2].toLocaleString()+')</option>').join('');
+    sel._filled=true;
+  }
+  const reg=sel?sel.value:'all';
+  const ocs=d.outcodes.filter(o=>reg==='all'||o[2]===reg);
+  const tot=ocs.reduce((s,o)=>s+o[1],0);
+  document.getElementById('map-legend').innerHTML='<span class="ml-item"><b>'+tot.toLocaleString()+'</b>&nbsp;eligible postcodes · <b>'+ocs.length+'</b> areas</span><span class="ml-item" style="color:var(--slate2)">Bigger, greener = higher concentration · tap an area to zoom</span>';
+  if(DENS_LAYER){DENS_LAYER.remove();}
+  DENS_LAYER=L.layerGroup().addTo(MAP);
+  const max=Math.max(1,...ocs.map(o=>o[1]));
+  const pts=[];
+  ocs.forEach(o=>{const c=o[3];if(!c)return;pts.push(c);const t=o[1]/max;
+    L.circleMarker(c,{radius:5+Math.sqrt(t)*24,color:'#fff',weight:1,fillColor:densColor(t),fillOpacity:.8})
+     .bindPopup('<b>'+o[0]+'</b><br><span style="font-size:.8rem">'+o[1].toLocaleString()+' eligible postcodes</span>').addTo(DENS_LAYER);});
+  if(pts.length){MAP.fitBounds(L.latLngBounds(pts).pad(0.12));}
+  const list=document.getElementById('dens-list');
+  if(list){
+    list.innerHTML=ocs.slice(0,60).map(o=>{const t=o[1]/max;const c=o[3];
+      return '<div class="dens-row" onclick="densFocus('+(c?c[0]:'null')+','+(c?c[1]:'null')+')"><span class="dens-oc">'+o[0]+'</span><span class="dens-bar"><span class="dens-fill" style="width:'+Math.max(4,Math.round(t*100))+'%;background:'+densColor(t)+'"></span></span><span class="dens-n">'+o[1].toLocaleString()+'</span></div>';}).join('');
+  }
+}
+
 async function renderMap(){
   renderDistricts();
   populateRepFilter();
+  if(MAP_MODE==='density'){ await renderDensity(); return; }
   const rep=document.getElementById('map-rep').value;
   let doors, legend;
 
@@ -971,21 +1035,10 @@ async function renderMap(){
   const pts=doors.filter(d=>d.lat&&d.lng);
   ASSIGN_PTS=pts;
 
-  if(!MAP){
-    const el=document.getElementById('map-canvas'); el.innerHTML='';
-    MAP=L.map(el,{scrollWheelZoom:true,tap:true});
-    const carto=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19});
-    carto.on('tileerror',()=>{ // fallback to OSM if CARTO unreachable
-      if(!MAP._osmFallback){MAP._osmFallback=true;carto.remove();
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(MAP);}
-    });
-    carto.addTo(MAP);
-    window.addEventListener('resize',()=>MAP&&MAP.invalidateSize());
-    bindDrawEvents();
-    startLivePolling();
-  }
+  ensureMap();
   if(MAP_LAYER) MAP_LAYER.remove();
   MAP_LAYER=L.layerGroup().addTo(MAP);
+  if(DENS_LAYER){DENS_LAYER.remove();DENS_LAYER=null;}
   pts.forEach(d=>{
     const fill = (MAP_MODE==='worked'||MAP_MODE==='assign') ? (d._worked?'#0a1322':'#b8c6d6')
                : (d.archived?'#c9d4e0':colorFor(d.status));
