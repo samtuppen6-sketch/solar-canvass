@@ -1209,6 +1209,7 @@ async function onAuthed() {
     currentUser = user;
     const { data: prof } = await sb.from('profiles').select('*').eq('id', user.id).single();
     currentProfile = prof;
+    try { applyRegionSandbox(); } catch(e){}
     if (prof && prof.active===false) {
       authErr('Your account is inactive. Contact your manager.');
       await sb.auth.signOut();
@@ -1806,8 +1807,23 @@ window.addEventListener('load', () => {
   curRegionId = null;
 });
 
+function applyRegionSandbox(){
+  const p = currentProfile;
+  const allowed = (p && Array.isArray(p.allowed_regions)) ? p.allowed_regions : null;
+  const restrict = !!(allowed && allowed.length && (!p || p.role!=='manager'));
+  document.querySelectorAll('.reg-card').forEach(function(card){
+    const mm = (card.getAttribute('onclick')||'').match(/selectRegion\('([^']+)'\)/);
+    const rid = mm ? mm[1] : null;
+    card.style.display = (!restrict || (rid && allowed.indexOf(rid)>=0)) ? '' : 'none';
+  });
+}
+
 async function selectRegion(rid) {
   const reg = REGIONS[rid];
+  const _sb = currentProfile;
+  if (_sb && _sb.role!=='manager' && Array.isArray(_sb.allowed_regions) && _sb.allowed_regions.length && !_sb.allowed_regions.includes(rid)) {
+    toast('That region isn’t assigned to you'); return;
+  }
   if (reg && !reg.keys && reg.dataUrl) {
     try {
       toast('Loading ' + (reg.name||'region') + '…');
@@ -3051,7 +3067,7 @@ function formatTime(ts) {
 // Also show notes indicator on cards if notes exist
 
 if('serviceWorker' in navigator){
-  const sw='const V=\'sc-v12\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
+  const sw='const V=\'sc-v13\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
   const blob=new Blob([sw],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
