@@ -273,7 +273,7 @@ tbody tr:hover td{background:#fafbfd}
 <div class="topbar">
   <div class="brand"><img src="/icon-192.png" alt=""><span>Solpath</span><span class="org-name" id="org-label"></span></div>
   <div class="topbar-right">
-    <button class="btn-sm" onclick="location='/app'">Open Map</button>
+    <button class="btn-sm" onclick="location='/app/?field=1'">Open Field App</button>
     <button class="btn-sm btn-green" onclick="goInvite()">+ Invite</button>
     <button class="btn-sm" onclick="signOut()">Sign out</button>
   </div>
@@ -1328,6 +1328,7 @@ function signOut(){localStorage.removeItem('sb-session');location='/app/login'}
 
 /* ════════════════════ INIT ════════════════════ */
 async function init(){
+  try{sessionStorage.removeItem('sp_field');}catch(e){}
   RANGE={key:'today',...computeRange('today')};
   if(SANDBOX){
     mockData();
