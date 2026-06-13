@@ -219,6 +219,13 @@ tbody tr:hover td{background:#fafbfd}
 #map-canvas.drawing .leaflet-grab{cursor:crosshair}
 .patch-label{background:rgba(255,255,255,.92);border:none;box-shadow:0 1px 4px rgba(10,19,34,.18);border-radius:6px;font-size:.68rem;font-weight:700;color:#0a1322;padding:2px 7px}
 .patch-label::before{display:none}
+.live-pin{width:18px;height:18px;border-radius:50%;background:var(--c,#2a5ec4);border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);position:relative}
+.live-pin::after{content:'';position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--c,#2a5ec4);opacity:.45;animation:livepulse 2s ease-out infinite}
+@keyframes livepulse{0%{transform:scale(.7);opacity:.5}100%{transform:scale(1.6);opacity:0}}
+.live-name{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);background:rgba(10,19,34,.92);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.35);font-family:'DM Sans',sans-serif}
+.live-name::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:rgba(10,19,34,.92)}
+#live-ind{display:inline-flex;align-items:center;gap:5px}
+#live-ind .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(0,178,74,.2)}
 @media(max-width:640px){#map-canvas{height:380px}}
 /* ── EMPTY/LOADING ── */
 .empty{text-align:center;padding:36px 20px;font-size:.83rem;color:var(--slate3)}
@@ -394,6 +401,7 @@ tbody tr:hover td{background:#fafbfd}
             <button id="mode-assign" onclick="setMapMode('assign')">Assign patches</button>
           </div>
           <select class="map-sel" id="map-rep" onchange="renderMap()"><option value="all">All reps</option></select>
+          <span class="map-sel" id="live-ind" title="Canvassers sharing location now"><span class="dot"></span>Live <b id="live-count">0</b></span>
           <input type="date" class="map-sel" id="assign-date" style="display:none" onchange="renderMap()">
           <button class="draw-btn" id="draw-btn" style="display:none" onclick="armDraw()">✏️ Draw patch</button>
           <select class="map-sel" id="work-window" onchange="renderMap()">
@@ -912,6 +920,7 @@ async function renderMap(){
     carto.addTo(MAP);
     window.addEventListener('resize',()=>MAP&&MAP.invalidateSize());
     bindDrawEvents();
+    startLivePolling();
   }
   if(MAP_LAYER) MAP_LAYER.remove();
   MAP_LAYER=L.layerGroup().addTo(MAP);
@@ -936,6 +945,41 @@ let ASSIGNMENTS=[], ASSIGN_PTS=[], ASSIGN_LAYER=null;
 let DRAW_ARMED=false, DRAW_START=null, DRAW_RECT=null, PENDING=null, PENDING_RECT=null;
 let MOCK_ASSIGNMENTS=[];
 const REP_PALETTE=['#00b24a','#2f6fed','#9a3fd1','#f0a019','#e5484d','#0aa3a3','#d1437f','#6b7d2c','#8a5a2b','#445'];
+
+/* ════════ LIVE CANVASSER LOCATIONS (managers only — RLS enforces this) ════════ */
+let LIVE_LAYER=null, LIVE_TIMER=null, MOCK_LIVE=null;
+function startLivePolling(){ if(LIVE_TIMER)return; loadLive(); LIVE_TIMER=setInterval(loadLive, 25000); }
+async function loadLive(){
+  if(!MAP) return;
+  let people=[];
+  if(SANDBOX){
+    if(!MOCK_LIVE){
+      const reps=(MEMBERS||[]).filter(m=>m.role!=='manager').slice(0,3);
+      const base=[[50.7884,-1.0712],[50.7866,-1.0668],[50.7901,-1.0640]];
+      MOCK_LIVE=reps.map((m,i)=>({id:m.id,full_name:m.full_name,last_lat:base[i%3][0],last_lng:base[i%3][1],location_at:new Date().toISOString()}));
+    }
+    // gentle drift so the demo looks live
+    MOCK_LIVE.forEach(p=>{p.last_lat+=(Math.random()-0.5)*0.0004;p.last_lng+=(Math.random()-0.5)*0.0004;p.location_at=new Date().toISOString();});
+    people=MOCK_LIVE;
+  } else {
+    const since=new Date(Date.now()-15*60000).toISOString();
+    try{
+      people=await api(`/rest/v1/profiles?organisation_id=eq.${PROFILE.organisation_id}&location_at=gte.${encodeURIComponent(since)}&last_lat=not.is.null&select=id,full_name,last_lat,last_lng,location_at,role`);
+    }catch(e){ people=[]; }
+  }
+  if(LIVE_LAYER) LIVE_LAYER.remove();
+  LIVE_LAYER=L.layerGroup().addTo(MAP);
+  (people||[]).forEach(p=>{
+    if(p.last_lat==null||p.last_lng==null) return;
+    const col=repColor(p.id);
+    const first=(p.full_name||'—').split(' ')[0];
+    const mins=Math.max(0,Math.round((Date.now()-new Date(p.location_at).getTime())/60000));
+    const icon=L.divIcon({className:'',html:`<div class="live-pin" style="--c:${col}"><span class="live-name">${first}</span></div>`,iconSize:[18,18],iconAnchor:[9,9]});
+    L.marker([p.last_lat,p.last_lng],{icon,zIndexOffset:2000}).addTo(LIVE_LAYER)
+      .bindPopup(`<b style="font-size:.84rem">${p.full_name||'—'}</b><br><span style="font-size:.74rem;color:#555">${mins<=1?'📍 live now':'📍 '+mins+' min ago'}</span>`);
+  });
+  const lc=document.getElementById('live-count'); if(lc) lc.textContent=(people||[]).length;
+}
 
 function repColor(id){
   const ids=MEMBERS.filter(m=>m.role!=='manager').map(m=>m.id);
