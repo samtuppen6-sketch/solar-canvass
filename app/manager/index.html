@@ -1209,29 +1209,33 @@ function populateRepFilter(){
   });
 }
 
+const WORKED_STATUSES=['knocked','noanswer','no_answer'];
+function isWorked(d){return WORKED_STATUSES.includes(d.status);}
 function renderDistricts(){
-  const live=ALL_DOORS.filter(d=>!d.archived);
+  const live=ALL_DOORS.filter(d=>!d.archived&&d.postcode_norm);
   const by={};
   live.forEach(d=>{
-    if(!d.postcode_norm)return;
     const k=outwardOf(d.postcode_norm);
-    by[k]=(by[k]||0)+1;
+    if(!by[k])by[k]={worked:0,kept:0};
+    if(isWorked(d))by[k].worked++; else by[k].kept++;
   });
   const w=document.getElementById('district-chips');
-  const entries=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  const entries=Object.entries(by).sort((a,b)=>b[1].worked-a[1].worked);
   if(!entries.length){w.innerHTML='<div class="empty" style="padding:10px">No live worked doors. Everything is fresh.</div>';return}
-  w.innerHTML=entries.map(([k,n])=>`
-    <div class="dist-chip"><b>${k}</b><span>${n} worked doors</span>
-      <button class="dist-reset" onclick="resetDistrict('${k}',${n})">Reset</button>
+  w.innerHTML=entries.map(([k,v])=>`
+    <div class="dist-chip"><b>${k}</b><span>${v.worked} worked${v.kept?` \u00b7 ${v.kept} outcome${v.kept===1?'':'s'} kept`:''}</span>
+      <button class="dist-reset" onclick="resetDistrict('${k}',${v.worked})"${v.worked?'':' disabled style="opacity:.45;cursor:default"'}>Reset worked</button>
     </div>`).join('');
 }
 
 async function resetDistrict(district,count){
-  if(!confirm(`Reset ${district}? ${count} worked doors will be archived and the patch will read as fresh. Records stay in reporting.`))return;
-  if(MOCK_MODE){
-    ALL_DOORS.forEach(d=>{if(d.postcode_norm&&outwardOf(d.postcode_norm)===district)d.archived=true});
+  if(!count)return;
+  if(!confirm(`Reset worked doors in ${district}?\n\n${count} knocked / no-answer door${count===1?'':'s'} will be cleared so you can re-canvass this patch from scratch.\n\nCallbacks, interested, qualified and not-interested all stay exactly where they are.`))return;
+  const match=d=>!d.archived&&d.postcode_norm&&outwardOf(d.postcode_norm)===district&&isWorked(d);
+  if(SANDBOX){
+    ALL_DOORS.forEach(d=>{if(match(d))d.archived=true});
   } else {
-    const ids=ALL_DOORS.filter(d=>!d.archived&&d.postcode_norm&&outwardOf(d.postcode_norm)===district).map(d=>d.id);
+    const ids=ALL_DOORS.filter(match).map(d=>d.id);
     for(let i=0;i<ids.length;i+=100){
       await api(`/rest/v1/door_records?id=in.(${ids.slice(i,i+100).join(',')})`,{
         method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({archived:true})});
