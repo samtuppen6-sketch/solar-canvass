@@ -1290,17 +1290,17 @@ async function sendInvite(){
   const email=document.getElementById('inv-email').value.trim();
   const role=document.getElementById('inv-role').value;
   const ok=document.getElementById('inv-ok');
-  if(!email)return;
+  if(!email && !DEMO)return;
   if(DEMO){
-    // Build a real, shareable join link that opens the canvasser app in demo mode
-    const link=`${location.origin}/app/?demo=1&invited=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}&org=${encodeURIComponent(ORG.name||'Demo Team')}`;
-    const subject=encodeURIComponent(`You're invited to join ${ORG.name||'the team'} on Solpath`);
-    const body=encodeURIComponent(`You've been invited to join ${ORG.name||'the team'} as a ${role} on Solpath.\n\nTap to set up your account:\n${link}\n\n— Sent from Solpath`);
-    ok.innerHTML=`✓ Invite ready for <b>${email}</b>.<br>`
-      +`<a href="mailto:${email}?subject=${subject}&body=${body}" style="color:var(--green);font-weight:700">✉️ Open in email</a> &nbsp;·&nbsp; `
-      +`<a href="#" onclick="navigator.clipboard&&navigator.clipboard.writeText('${link}');this.textContent='Link copied ✓';return false;" style="color:var(--green);font-weight:700">🔗 Copy join link</a>`;
+    // Demo walkthrough: one click straight into the canvasser app (nothing is saved)
+    const who = email || 'demo.canvasser@solpath.energy';
+    const link=`${location.origin}/app/?demo=1&invited=${encodeURIComponent(who)}&role=${encodeURIComponent(role)}&org=${encodeURIComponent(ORG.name||'Demo Team')}`;
+    ok.innerHTML=`✓ Demo invite ready${email?` for <b>${email}</b>`:''} — open the field app and walk them through it:<br>`
+      +`<a href="${link}" style="display:inline-block;margin-top:9px;background:var(--green);color:#04210f;font-weight:700;text-decoration:none;padding:10px 16px;border-radius:9px">▶ Open the canvasser app →</a>`
+      +` &nbsp;<a href="#" onclick="navigator.clipboard&&navigator.clipboard.writeText('${link}');this.textContent='Link copied ✓';return false;" style="color:var(--green);font-weight:700">🔗 Copy link</a>`;
     ok.style.display='block';
     document.getElementById('inv-email').value='';
+    document.querySelectorAll('#inv-chips .rchip.on').forEach(function(c){c.classList.remove('on');});
     return;
   }
   // Real invite: secure server function records the invite + emails a join link.
