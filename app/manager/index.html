@@ -259,6 +259,14 @@ tbody tr:hover td{background:#fafbfd}
   .kpi-row{grid-template-columns:repeat(2,1fr)}
 }
 </style>
+<style>
+.inv-regions{margin:2px 0 4px}
+.inv-regions-lbl{font-size:12px;font-weight:600;color:#4f6379;margin-bottom:6px}
+.inv-regions-lbl span{font-weight:400;color:#7787a0}
+.inv-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rchip{font:inherit;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid #d4deeb;background:#fff;color:#4f6379;cursor:pointer;line-height:1}
+.rchip.on{background:#00b24a;border-color:#00b24a;color:#fff;font-weight:600}
+</style>
 </head>
 <body>
 
@@ -322,7 +330,25 @@ tbody tr:hover td{background:#fafbfd}
           <h3>Invite team member</h3>
           <div class="inv-form">
             <input type="email" id="inv-email" placeholder="Email address">
-            <select id="inv-role"><option value="canvasser">Canvasser — field access</option><option value="manager">Manager — dashboard access</option></select>
+            <select id="inv-role" onchange="toggleInviteRegionVis()"><option value="canvasser">Canvasser — field access</option><option value="manager">Manager — dashboard access</option></select>
+            <div class="inv-regions" id="inv-regions">
+              <div class="inv-regions-lbl">Assign area(s) <span>· leave empty = all regions</span></div>
+              <div class="inv-chips" id="inv-chips">
+                <button type="button" class="rchip" data-rid="hampshire_iow" onclick="toggleInvRegion(this)">Hampshire & IoW</button>
+                <button type="button" class="rchip" data-rid="sussex_kent" onclick="toggleInvRegion(this)">Sussex & Kent</button>
+                <button type="button" class="rchip" data-rid="london" onclick="toggleInvRegion(this)">London</button>
+                <button type="button" class="rchip" data-rid="thames_valley" onclick="toggleInvRegion(this)">Thames Valley</button>
+                <button type="button" class="rchip" data-rid="essex_east" onclick="toggleInvRegion(this)">Essex & E. Anglia</button>
+                <button type="button" class="rchip" data-rid="bristol_west" onclick="toggleInvRegion(this)">Bristol & West</button>
+                <button type="button" class="rchip" data-rid="south_west" onclick="toggleInvRegion(this)">South West</button>
+                <button type="button" class="rchip" data-rid="midlands_south" onclick="toggleInvRegion(this)">South Midlands</button>
+                <button type="button" class="rchip" data-rid="north_west" onclick="toggleInvRegion(this)">North West</button>
+                <button type="button" class="rchip" data-rid="yorkshire_humber" onclick="toggleInvRegion(this)">Yorkshire & Humber</button>
+                <button type="button" class="rchip" data-rid="west_midlands" onclick="toggleInvRegion(this)">West Midlands</button>
+                <button type="button" class="rchip" data-rid="north_east" onclick="toggleInvRegion(this)">North East</button>
+                <button type="button" class="rchip" data-rid="east_midlands" onclick="toggleInvRegion(this)">East Midlands</button>
+              </div>
+            </div>
             <button class="inv-btn" onclick="sendInvite()">Send Invite Link →</button>
           </div>
           <div class="inv-ok" id="inv-ok"></div>
@@ -1220,6 +1246,10 @@ function refreshCurrent(){
 
 function goInvite(){switchTab('overview');document.getElementById('inv-email').focus();document.getElementById('invite-card').scrollIntoView({behavior:'smooth',block:'center'})}
 
+function toggleInvRegion(el){ el.classList.toggle('on'); }
+function getInviteRegions(){ if((document.getElementById('inv-role')||{}).value==='manager') return []; return Array.from(document.querySelectorAll('#inv-chips .rchip.on')).map(function(c){return c.dataset.rid;}); }
+function toggleInviteRegionVis(){ var role=(document.getElementById('inv-role')||{}).value; var box=document.getElementById('inv-regions'); if(box) box.style.display = role==='manager' ? 'none' : ''; }
+
 async function sendInvite(){
   const email=document.getElementById('inv-email').value.trim();
   const role=document.getElementById('inv-role').value;
@@ -1243,7 +1273,7 @@ async function sendInvite(){
   try{
     const res=await fetch(`${SUPA}/functions/v1/invites`,{method:'POST',
       headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`},
-      body:JSON.stringify({action:'send',email,role})});
+      body:JSON.stringify({action:'send',email,role,allowed_regions:getInviteRegions()})});
     const d=await res.json().catch(()=>({}));
     if(!res.ok){ ok.textContent='⚠️ '+(d.error||'Could not send invite — please try again.'); return; }
     if(d.emailed){
@@ -1254,6 +1284,7 @@ async function sendInvite(){
     }
   }catch(e){ ok.textContent='⚠️ Could not reach the invite service — please try again.'; }
   document.getElementById('inv-email').value='';
+  document.querySelectorAll('#inv-chips .rchip.on').forEach(function(c){c.classList.remove('on');});
 }
 function exitDemo(){try{localStorage.removeItem('solpath-demo');}catch(e){}location='/app/manager';}
 
