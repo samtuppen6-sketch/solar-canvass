@@ -471,11 +471,13 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .mgr-tabs span{font-size:.73rem;font-weight:600;color:#6f87a6;padding:10px 13px;border-bottom:2px solid transparent;white-space:nowrap}
 .mgr-tabs span.on{color:#fff;border-bottom-color:#00b24a}
 .mgr-body{display:grid;grid-template-columns:1fr 232px;background:#eef3f9}
-.mgr-map{position:relative;height:366px;overflow:hidden;background:radial-gradient(circle at 45% 38%,#f0f5fb,#e1eaf4)}
-.mgr-map::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(110,132,160,.5) 1.5px,transparent 1.6px);background-size:22px 18px;opacity:.45}
-.mgr-worked{position:absolute;left:0;top:0;width:46%;height:100%;background:linear-gradient(90deg,rgba(10,19,34,.12),rgba(10,19,34,0));pointer-events:none}
+.mgr-map{position:relative;height:366px;overflow:hidden;background:#e8edf2}
+.mgr-tiles{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:1024px;height:768px;display:grid;grid-template-columns:repeat(4,256px);grid-template-rows:repeat(3,256px)}
+.mgr-tiles img{width:256px;height:256px;display:block;border:0}
+.mgr-attr{position:absolute;right:4px;bottom:3px;font-size:8px;color:#5f7088;background:rgba(255,255,255,.72);padding:1px 5px;border-radius:4px;font-family:'Inter',sans-serif;z-index:2}
+.mgr-worked{position:absolute;left:0;top:0;width:44%;height:100%;background:linear-gradient(90deg,rgba(10,19,34,.10),rgba(10,19,34,0));pointer-events:none;z-index:1}
 .mgr-patch{position:absolute;border:2px dashed;border-radius:8px}
-.mgr-plabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.95);font-size:10px;font-weight:800;color:#0a1322;padding:2px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 5px rgba(10,19,34,.22);font-family:'DM Sans',sans-serif}
+.mgr-plabel{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);font-size:10px;font-weight:800;color:#0a1322;padding:2px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 5px rgba(10,19,34,.25);font-family:'DM Sans',sans-serif;z-index:3}
 .mgr-drag{position:absolute;border:2px dashed #0a1322;background:rgba(10,19,34,.07);border-radius:6px}
 .mgr-cur{position:absolute;width:15px;height:15px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .mgr-chip{position:absolute;background:#0a1322;color:#fff;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:5px;white-space:nowrap;font-family:'DM Sans',sans-serif}
@@ -698,15 +700,17 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
         <div class="mgr-tabs"><span>Overview</span><span>Team</span><span class="on">Map</span><span>Callbacks</span><span>Deals</span></div>
         <div class="mgr-body">
           <div class="mgr-map">
+            <div class="mgr-tiles"><img src="https://a.basemaps.cartocdn.com/light_all/15/16284/11004@2x.png" alt="" loading="lazy"><img src="https://b.basemaps.cartocdn.com/light_all/15/16285/11004@2x.png" alt="" loading="lazy"><img src="https://c.basemaps.cartocdn.com/light_all/15/16286/11004@2x.png" alt="" loading="lazy"><img src="https://d.basemaps.cartocdn.com/light_all/15/16287/11004@2x.png" alt="" loading="lazy"><img src="https://a.basemaps.cartocdn.com/light_all/15/16284/11005@2x.png" alt="" loading="lazy"><img src="https://b.basemaps.cartocdn.com/light_all/15/16285/11005@2x.png" alt="" loading="lazy"><img src="https://c.basemaps.cartocdn.com/light_all/15/16286/11005@2x.png" alt="" loading="lazy"><img src="https://d.basemaps.cartocdn.com/light_all/15/16287/11005@2x.png" alt="" loading="lazy"><img src="https://a.basemaps.cartocdn.com/light_all/15/16284/11006@2x.png" alt="" loading="lazy"><img src="https://b.basemaps.cartocdn.com/light_all/15/16285/11006@2x.png" alt="" loading="lazy"><img src="https://c.basemaps.cartocdn.com/light_all/15/16286/11006@2x.png" alt="" loading="lazy"><img src="https://d.basemaps.cartocdn.com/light_all/15/16287/11006@2x.png" alt="" loading="lazy"></div>
             <div class="mgr-worked"></div>
-            <div class="mgr-patch" style="left:7%;top:13%;width:33%;height:31%;border-color:#00b24a;background:rgba(0,178,74,.08)"><span class="mgr-plabel">Sarah &middot; Albert Rd</span></div>
-            <div class="mgr-patch" style="left:46%;top:50%;width:31%;height:33%;border-color:#2f6bff;background:rgba(47,107,255,.08)"><span class="mgr-plabel">Jake &middot; Festing Gr</span></div>
-            <div class="mgr-drag" style="right:8%;top:12%;width:24%;height:27%"></div>
-            <div class="mgr-chip" style="right:6%;top:42%">Assign to Maria &#9654;</div>
-            <svg class="mgr-cur" style="right:7%;top:35%" viewBox="0 0 24 24"><path d="M5 2 L5 19 L9.5 15 L12.5 21.5 L15.5 20 L12.5 13.8 L19 13.5 Z" fill="#fff" stroke="#0a1322" stroke-width="1.5"/></svg>
-            <div class="mgr-pin" style="left:22%;top:28%;color:#00b24a;background:#00b24a"><span class="mgr-pname">Sarah</span></div>
-            <div class="mgr-pin" style="left:60%;top:70%;color:#2f6bff;background:#2f6bff"><span class="mgr-pname">Jake</span></div>
-            <div class="mgr-pin" style="left:82%;top:54%;color:#8b5cf6;background:#8b5cf6"><span class="mgr-pname">Maria</span></div>
+            <div class="mgr-patch" style="left:6%;top:16%;width:32%;height:33%;border-color:#00b24a;background:rgba(0,178,74,.10)"><span class="mgr-plabel">Sarah &middot; Albert Rd</span></div>
+            <div class="mgr-patch" style="left:44%;top:53%;width:30%;height:32%;border-color:#2f6bff;background:rgba(47,107,255,.10)"><span class="mgr-plabel">Jake &middot; Festing Gr</span></div>
+            <div class="mgr-drag" style="right:7%;top:14%;width:22%;height:26%"></div>
+            <svg class="mgr-cur" style="right:8%;top:36%" viewBox="0 0 24 24"><path d="M5 2 L5 19 L9.5 15 L12.5 21.5 L15.5 20 L12.5 13.8 L19 13.5 Z" fill="#fff" stroke="#0a1322" stroke-width="1.6"/></svg>
+            <div class="mgr-chip" style="right:5%;top:45%">Assign to Maria &#9654;</div>
+            <div class="mgr-pin" style="left:20%;top:34%;color:#00b24a;background:#00b24a"><span class="mgr-pname">Sarah</span></div>
+            <div class="mgr-pin" style="left:58%;top:74%;color:#2f6bff;background:#2f6bff"><span class="mgr-pname">Jake</span></div>
+            <div class="mgr-pin" style="left:41%;top:31%;color:#8b5cf6;background:#8b5cf6"><span class="mgr-pname">Maria</span></div>
+            <div class="mgr-attr">&copy; OpenStreetMap, &copy; CARTO</div>
           </div>
           <div class="mgr-rail">
             <div class="mgr-rh">Leaderboard <span>&middot; deals</span></div>
