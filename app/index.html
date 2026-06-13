@@ -999,6 +999,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .auth-toggle span{color:#f59e0b;cursor:pointer;font-weight:700}
 .auth-err{background:#7f1d1d33;border:1px solid #7f1d1d;color:#fca5a5;padding:10px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
 .auth-err.show{display:block}
+.auth-field select{width:100%;background:#111827;border:1px solid #334155;border-radius:10px;padding:13px;color:#f1f5f9;font-size:15px;box-sizing:border-box}
 .auth-name-field{display:none}
 .auth-name-field.show{display:block}
 </style>
@@ -1012,6 +1013,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
     <div class="auth-field auth-name-field" id="auth-name-wrap">
       <label>Your Full Name</label>
       <input type="text" id="auth-name" placeholder="e.g. John Smith" autocomplete="name">
+    </div>
+    <div class="auth-field auth-name-field" id="auth-region-wrap">
+      <label>Your Working Area</label>
+      <select id="auth-region"><option value="">All of England</option><option value="hampshire_iow">Hampshire & Isle of Wight</option><option value="sussex_kent">Sussex & Kent</option><option value="london">Greater London</option><option value="thames_valley">Thames Valley & Surrey</option><option value="essex_east">Essex & East Anglia</option><option value="bristol_west">Bristol & West</option><option value="south_west">South West</option><option value="midlands_south">South Midlands</option><option value="north_west">North West</option><option value="yorkshire_humber">Yorkshire & Humber</option><option value="west_midlands">West Midlands</option><option value="north_east">North East</option><option value="east_midlands">East Midlands</option></select>
     </div>
     <div class="auth-field">
       <label>Email</label>
@@ -1102,6 +1107,7 @@ function toggleAuthMode() {
   clearAuthErr();
   try {
     document.getElementById('auth-name-wrap').classList.toggle('show', authMode==='signup');
+      var _rw=document.getElementById('auth-region-wrap'); if(_rw)_rw.classList.toggle('show', authMode==='signup');
     document.getElementById('auth-submit').textContent = authMode==='signup' ? 'Create Account' : 'Sign In';
     document.getElementById('auth-mode-sub').textContent = authMode==='signup' ? 'Create your canvasser account' : 'Sign in to start canvassing';
     document.getElementById('auth-toggle').innerHTML = authMode==='signup'
@@ -1183,6 +1189,8 @@ async function doAuth() {
       const nameEl = document.getElementById('auth-name');
       const name = nameEl ? nameEl.value.trim() : '';
       if (!name) { authErr('Please enter your name'); if(btn){btn.disabled=false;btn.textContent='Create Account';} return; }
+      const _regEl=document.getElementById('auth-region'); const _solreg=(_regEl&&_regEl.value)?[_regEl.value]:null;
+      try{ if(_solreg) localStorage.setItem('pending_solo_region', JSON.stringify(_solreg)); else localStorage.removeItem('pending_solo_region'); }catch(e){}
       const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name } } });
       if (error) throw error;
       if (data.user && !data.session) {
@@ -1209,6 +1217,17 @@ async function onAuthed() {
     currentUser = user;
     const { data: prof } = await sb.from('profiles').select('*').eq('id', user.id).single();
     currentProfile = prof;
+    // Solo pass-holders: ensure their own one-person org + region scope (fixes null-org door reads)
+    if (prof && !prof.organisation_id && !DEMO_MODE) {
+      try {
+        let _reg=null; try{const _r=localStorage.getItem('pending_solo_region'); if(_r)_reg=JSON.parse(_r);}catch(e){}
+        await sb.rpc('provision_solo_org', { p_regions: _reg });
+        try{localStorage.removeItem('pending_solo_region');}catch(e){}
+        const { data: _p2 } = await sb.from('profiles').select('*').eq('id', user.id).single();
+        if (_p2) currentProfile = _p2;
+      } catch(e){}
+    }
+    try { if (currentProfile && currentProfile.organisation_id && currentProfile.role==='canvasser'){ const {data:_o}=await sb.from('organisations').select('plan').eq('id',currentProfile.organisation_id).single(); window.IS_SOLO=!!(_o&&_o.plan==='solo'); } } catch(e){}
     try { applyRegionSandbox(); } catch(e){}
     if (prof && prof.active===false) {
       authErr('Your account is inactive. Contact your manager.');
@@ -1820,6 +1839,20 @@ window.addEventListener('load', () => {
   curRegionId = null;
 });
 
+window.IS_SOLO=window.IS_SOLO||false;
+async function changeSoloArea(){
+  const opts=[['','All of England'],['hampshire_iow','Hampshire & Isle of Wight'],['sussex_kent','Sussex & Kent'],['london','Greater London'],['thames_valley','Thames Valley & Surrey'],['essex_east','Essex & East Anglia'],['bristol_west','Bristol & West'],['south_west','South West'],['midlands_south','South Midlands'],['north_west','North West'],['yorkshire_humber','Yorkshire & Humber'],['west_midlands','West Midlands'],['north_east','North East'],['east_midlands','East Midlands']];
+  const cur=(currentProfile&&currentProfile.allowed_regions&&currentProfile.allowed_regions[0])||'';
+  const ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(4,8,16,.72);display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.innerHTML='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:16px;padding:22px;max-width:360px;width:100%"><div style="font-weight:800;font-size:1.05rem;margin-bottom:6px;color:#fff">Change working area</div><div style="font-size:.82rem;color:#94a3b8;margin-bottom:16px;line-height:1.5">Pick the region you are canvassing. Your walk lists and map switch to that area.</div><select id="sa-sel" style="width:100%;background:#111827;border:1px solid #334155;border-radius:10px;padding:13px;color:#f1f5f9;font-size:15px;margin-bottom:16px">'+opts.map(o=>'<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+o[1]+'</option>').join('')+'</select><div style="display:flex;gap:8px"><button id="sa-cancel" style="flex:1;padding:11px;border-radius:9px;border:1px solid #334155;background:transparent;color:#cbd5e1;font-weight:600;cursor:pointer">Cancel</button><button id="sa-save" style="flex:1;padding:11px;border-radius:9px;border:none;background:#00b24a;color:#fff;font-weight:700;cursor:pointer">Save</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#sa-cancel').onclick=function(){ov.remove();};
+  ov.querySelector('#sa-save').onclick=async function(){
+    const v=ov.querySelector('#sa-sel').value; const regs=v?[v]:null;
+    try{ await sb.rpc('set_solo_region',{p_regions:regs}); if(currentProfile)currentProfile.allowed_regions=regs; ov.remove(); location.reload(); }
+    catch(e){ alert('Could not change area: '+(e.message||e)); }
+  };
+}
 function applyRegionSandbox(){
   const p = currentProfile;
   const allowed = (p && Array.isArray(p.allowed_regions)) ? p.allowed_regions : null;
@@ -1829,6 +1862,16 @@ function applyRegionSandbox(){
     const rid = mm ? mm[1] : null;
     card.style.display = (!restrict || (rid && allowed.indexOf(rid)>=0)) ? '' : 'none';
   });
+  try{
+    if(window.IS_SOLO){
+      const _fc=document.querySelector('.reg-card'); const host=_fc&&_fc.parentElement;
+      if(host && !document.getElementById('solo-change-area')){
+        const a=document.createElement('div'); a.id='solo-change-area'; a.style.cssText='text-align:center;margin-top:12px';
+        a.innerHTML='<span onclick="changeSoloArea()" style="color:#00b24a;font-size:.82rem;font-weight:600;cursor:pointer">Change working area</span>';
+        host.appendChild(a);
+      }
+    }
+  }catch(e){}
 }
 
 async function selectRegion(rid) {
@@ -3114,7 +3157,7 @@ function formatTime(ts) {
 // Also show notes indicator on cards if notes exist
 
 if('serviceWorker' in navigator){
-  const sw='const V=\'sc-v21\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
+  const sw='const V=\'sc-v22\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
   const blob=new Blob([sw],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
