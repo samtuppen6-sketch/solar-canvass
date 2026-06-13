@@ -3114,7 +3114,7 @@ function formatTime(ts) {
 // Also show notes indicator on cards if notes exist
 
 if('serviceWorker' in navigator){
-  const sw='const V=\'sc-v20\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
+  const sw='const V=\'sc-v21\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
   const blob=new Blob([sw],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
@@ -3356,7 +3356,27 @@ async function saveDealAndOpen() {
 let dealsCache = [];
 let dealCalMonth = new Date();
 
+function demoDeals(){
+  const now=Date.now(), DAY=86400000;
+  const names=['the Hayes household','M. Okafor','the Bryant family','J. Whitman','the Ahmed household','S. Patterson','the Cole family','R. Nguyen','the Doyle household','K. Mensah','the Frost family','A. Romano','the Webb household','L. Carter','the Singh family','P. Novak'];
+  const streets=['Albert Rd','Festing Rd','Tangier Rd','London Rd','Goldsmith Ave','Fawcett Rd'];
+  const pcs=['PO5 2AB','PO4 9JS','PO6 3LT','PO2 7BX','PO5 1HF','PO4 8QR','PO6 2NN','PO1 4DG'];
+  const epc=['D','E','E','F','G','D'];
+  const types=['Terraced','Semi-detached','Flat','End terrace'];
+  const offsets=[0,0,1,2,2,3,4,5,6,8,11,14,17,20,24,27];
+  return offsets.map((off,i)=>({
+    id:'demo-deal-'+i,
+    customer_name:names[i%names.length],
+    address:(10+i*3)+' '+streets[i%streets.length],
+    postcode_norm:pcs[i%pcs.length],
+    epc_rating:epc[i%epc.length],
+    property_type:types[i%types.length],
+    canvasser_name:'You (demo)',
+    signed_at:new Date(now-off*DAY-(i%5)*3600000).toISOString()
+  }));
+}
 async function loadDeals() {
+  if (DEMO_MODE) { dealsCache = demoDeals(); return dealsCache; }
   if (!sb || !currentUser) return [];
   try {
     const { data } = await sb.from('signups')
