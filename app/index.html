@@ -1222,6 +1222,7 @@ async function onAuthed() {
     if (typeof setupManagerAccess==='function') try{setupManagerAccess();}catch(e){}
     if (typeof syncDoorsFromCloud==='function') try{syncDoorsFromCloud();}catch(e){}
     try{ loadMyPatches(); }catch(e){}
+    try{ startLocationSharing(); }catch(e){}
     try{ flushSaveQueue(); }catch(e){}
     // Periodically retry any queued saves (every 30s)
     if (!window._flushInterval) {
@@ -1231,8 +1232,45 @@ async function onAuthed() {
 }
 
 async function doLogout() {
+  try { stopLocationSharing(); } catch(e){}
   try { if (sb) await sb.auth.signOut(); } catch(e){}
   location.reload();
+}
+
+/* ════════ LIVE LOCATION — shares position to the manager dashboard while signed in ════════ */
+let _geoWatch=null, _lastGeoWrite=0;
+function startLocationSharing(){
+  if (DEMO_MODE) return;                       // demo never writes
+  if (!('geolocation' in navigator)) return;
+  if (_geoWatch!==null) return;                // already running
+  if (!document.getElementById('geo-indicator')){
+    const ind=document.createElement('div');
+    ind.id='geo-indicator';
+    ind.textContent='📍 Sharing location';
+    ind.style.cssText='position:fixed;bottom:10px;left:10px;z-index:9000;background:rgba(10,19,34,.85);color:#8fe6b4;font-size:11px;font-weight:700;padding:5px 11px;border-radius:14px;letter-spacing:.02em;pointer-events:none';
+    document.body.appendChild(ind);
+  }
+  _geoWatch=navigator.geolocation.watchPosition(async pos=>{
+    const now=Date.now();
+    if (now-_lastGeoWrite < 60000) return;     // throttle: at most one write per minute
+    _lastGeoWrite=now;
+    try{
+      if (sb && currentUser){
+        await sb.from('profiles').update({
+          last_lat: pos.coords.latitude,
+          last_lng: pos.coords.longitude,
+          location_acc: pos.coords.accuracy,
+          location_at: new Date().toISOString()
+        }).eq('id', currentUser.id);
+      }
+    }catch(e){}
+  }, err=>{
+    const ind=document.getElementById('geo-indicator'); if(ind) ind.style.display='none';
+  }, {enableHighAccuracy:true, maximumAge:30000, timeout:27000});
+}
+function stopLocationSharing(){
+  if (_geoWatch!==null){ try{ navigator.geolocation.clearWatch(_geoWatch); }catch(e){} _geoWatch=null; }
+  const ind=document.getElementById('geo-indicator'); if(ind) ind.remove();
 }
 
 /* ════════ MY PATCH — territory assigned by your manager ════════ */
