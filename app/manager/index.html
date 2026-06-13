@@ -301,9 +301,9 @@ tbody tr:hover td{background:#fafbfd}
 </div>
 
 <div class="datebar" id="datebar">
-  <button class="dchip active" data-r="today" onclick="setRange('today',this)">Today</button>
+  <button class="dchip" data-r="today" onclick="setRange('today',this)">Today</button>
   <button class="dchip" data-r="yesterday" onclick="setRange('yesterday',this)">Yesterday</button>
-  <button class="dchip" data-r="7d" onclick="setRange('7d',this)">Last 7 days</button>
+  <button class="dchip active" data-r="7d" onclick="setRange('7d',this)">Last 7 days</button>
   <button class="dchip" data-r="30d" onclick="setRange('30d',this)">Last 30 days</button>
   <button class="dchip" data-r="all" onclick="setRange('all',this)">All time</button>
   <div class="dcustom">
@@ -1415,7 +1415,7 @@ function signOut(){localStorage.removeItem('sb-session');location='/app/login'}
 /* ════════════════════ INIT ════════════════════ */
 async function init(){
   try{sessionStorage.removeItem('sp_field');}catch(e){}
-  RANGE={key:'today',...computeRange('today')};
+  RANGE={key:'7d',...computeRange('7d')};
   if(SANDBOX){
     mockData();
     PROFILE={role:'manager',id:'m0',full_name:'Alex Morgan',organisation_id:'demo-org',super_admin:false};
