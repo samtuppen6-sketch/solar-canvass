@@ -202,10 +202,16 @@ tbody tr:hover td{background:#fafbfd}
 .map-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 .ml-item{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--slate2);font-weight:500}
 .ml-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
-.district-chips{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px}
-.dist-chip{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:.78rem}
+.district-chips{display:flex;flex-direction:column;gap:8px;padding:14px 20px}
+.dist-chip{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.78rem;width:100%}
+.dc-main{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.dc-oc{font-weight:700;font-size:.86rem;color:var(--ink)}
+.dc-cov{font-size:.74rem;color:var(--slate)}
+.dc-cov b{color:var(--ink);font-weight:700}
+.dc-bar{height:6px;background:#eef3f9;border-radius:5px;overflow:hidden;margin:1px 0}
+.dc-fill{display:block;height:100%;background:linear-gradient(90deg,#00b24a,#00913d);border-radius:5px}
+.dc-sub{font-size:.7rem;color:var(--slate3)}
 .dist-chip b{font-weight:700}
-.dist-chip span{color:var(--slate3);font-size:.71rem}
 .dist-reset{font-size:.69rem;font-weight:700;color:var(--red);background:rgba(229,72,77,.07);border:1px solid rgba(229,72,77,.18);border-radius:6px;padding:4px 9px;cursor:pointer;transition:all .15s}
 .dist-reset:hover{background:rgba(229,72,77,.13)}
 .map-toggle{display:flex;align-items:center;gap:6px;font-size:.74rem;color:var(--slate2);cursor:pointer;user-select:none}
@@ -959,6 +965,7 @@ async function loadDensity(){
   if(DENSITY)return DENSITY;
   try{const r=await fetch('/app/regions/_density.json');DENSITY=await r.json();}
   catch(e){DENSITY={total:0,regions:[],outcodes:[]};}
+  DENSITY._map={}; (DENSITY.outcodes||[]).forEach(o=>{DENSITY._map[o[0]]=o[1];});
   return DENSITY;
 }
 function densColor(t){const a=[0xd2,0xea,0xdd],b=[0x00,0x86,0x38];const c=a.map((x,i)=>Math.round(x+(b[i]-x)*Math.sqrt(t)));return 'rgb('+c[0]+','+c[1]+','+c[2]+')';}
@@ -1265,20 +1272,41 @@ function populateRepFilter(){
 const WORKED_STATUSES=['knocked','noanswer','no_answer'];
 function isWorked(d){return WORKED_STATUSES.includes(d.status);}
 function renderDistricts(){
+  if(!DENSITY){ loadDensity().then(()=>renderDistricts()); }
   const live=ALL_DOORS.filter(d=>!d.archived&&d.postcode_norm);
   const by={};
   live.forEach(d=>{
     const k=outwardOf(d.postcode_norm);
-    if(!by[k])by[k]={worked:0,kept:0};
+    if(!by[k])by[k]={worked:0,kept:0,pcs:new Set()};
     if(isWorked(d))by[k].worked++; else by[k].kept++;
+    by[k].pcs.add((d.postcode_norm||'').replace(/\s/g,'').toUpperCase());
   });
   const w=document.getElementById('district-chips');
   const entries=Object.entries(by).sort((a,b)=>b[1].worked-a[1].worked);
   if(!entries.length){w.innerHTML='<div class="empty" style="padding:10px">No live worked doors. Everything is fresh.</div>';return}
-  w.innerHTML=entries.map(([k,v])=>`
-    <div class="dist-chip"><b>${k}</b><span>${v.worked} worked${v.kept?` \u00b7 ${v.kept} outcome${v.kept===1?'':'s'} kept`:''}</span>
+  const emap=(DENSITY&&DENSITY._map)||null;
+  w.innerHTML=entries.map(([k,v])=>{
+    const touched=v.pcs.size;
+    const elig=emap?(emap[k]||0):null;
+    let cov, bar='';
+    if(elig){
+      const rem=Math.max(0,elig-touched);
+      const pct=Math.min(100,Math.round(touched/elig*100));
+      cov=`<b>${touched.toLocaleString()}</b> / ${elig.toLocaleString()} postcodes worked \u00b7 ${rem.toLocaleString()} fresh`;
+      bar=`<div class="dc-bar"><span class="dc-fill" style="width:${Math.max(2,pct)}%"></span></div>`;
+    } else {
+      cov=`<b>${touched.toLocaleString()}</b> postcode${touched===1?'':'s'} worked`;
+    }
+    return `<div class="dist-chip">
+      <div class="dc-main">
+        <span class="dc-oc">${k}</span>
+        <span class="dc-cov">${cov}</span>
+        ${bar}
+        <span class="dc-sub">${v.worked.toLocaleString()} door${v.worked===1?'':'s'} worked \u00b7 ${v.kept.toLocaleString()} outcome${v.kept===1?'':'s'} kept</span>
+      </div>
       <button class="dist-reset" onclick="resetDistrict('${k}',${v.worked})"${v.worked?'':' disabled style="opacity:.45;cursor:default"'}>Reset worked</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function resetDistrict(district,count){
