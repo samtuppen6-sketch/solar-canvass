@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#091322">
+<title>Solpath · Owner Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#00b24a;--green-bright:#00e87a;--ink:#0a1322;--navy:#091322;--navy-2:#0e1d33;--navy-3:#15263f;
+  --slate:#4f6379;--slate-2:#7787a0;--soft:#f5f8fc;--border:#e3eaf3;--line:#1d3350;--border-2:#d4deeb;
+  --violet:#8b5cf6;--amber:#f0a019;--red:#e5484d;--blue:#2f6bff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--navy);color:#eaf1fb;-webkit-font-smoothing:antialiased;min-height:100vh}
+h1,h2,h3,.dm{font-family:'DM Sans',Inter,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:0 18px}
+/* Header */
+.top{position:sticky;top:0;z-index:20;background:rgba(9,19,34,.86);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:12px;height:60px}
+.logo{font-family:'DM Sans';font-weight:800;font-size:18px;letter-spacing:-.3px;color:#fff;display:flex;align-items:center;gap:9px}
+.logo .dot{width:9px;height:9px;border-radius:3px;background:var(--green);box-shadow:0 0 12px var(--green)}
+.tag{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green-bright);border:1px solid rgba(0,232,122,.3);padding:3px 8px;border-radius:999px}
+.top-sp{flex:1}
+.who{font-size:12px;color:var(--slate-2)}
+.btn{font:inherit;font-weight:600;font-size:13px;border-radius:10px;border:1px solid var(--line);background:var(--navy-3);color:#dce7f5;padding:8px 13px;cursor:pointer;transition:.15s}
+.btn:hover{border-color:#2c4a73}
+.btn-g{background:var(--green);border-color:var(--green);color:#04210f}
+.btn-g:hover{background:#00c853}
+.btn-sm{padding:6px 10px;font-size:12px}
+/* Section */
+.sec{padding:26px 0}
+.sec-h{font-family:'DM Sans';font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate-2);margin:0 0 14px}
+/* Stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.tile{background:linear-gradient(160deg,var(--navy-2),var(--navy-3));border:1px solid var(--line);border-radius:14px;padding:14px}
+.tile .k{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--slate-2)}
+.tile .v{font-family:'DM Sans';font-weight:800;font-size:24px;color:#fff;margin-top:5px;line-height:1}
+.tile .s{font-size:11px;color:var(--slate-2);margin-top:5px}
+.tile.green .v{color:var(--green-bright)}
+/* Visits */
+.panel{background:linear-gradient(160deg,var(--navy-2),var(--navy-3));border:1px solid var(--line);border-radius:16px;padding:18px}
+.spark{display:flex;align-items:flex-end;gap:5px;height:96px;margin-top:14px}
+.bar{flex:1;background:linear-gradient(180deg,var(--green-bright),var(--green));border-radius:4px 4px 2px 2px;min-height:3px;position:relative;opacity:.92}
+.bar:hover{opacity:1}
+.bar span{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:#cfe;white-space:nowrap;opacity:0}
+.bar:hover span{opacity:1}
+.spark-x{display:flex;gap:5px;margin-top:6px}
+.spark-x div{flex:1;text-align:center;font-size:9px;color:var(--slate-2)}
+.split{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pill{font-size:12px;color:#cfe;background:var(--navy);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+.pill b{color:#fff}
+/* Org card */
+.org{background:linear-gradient(160deg,var(--navy-2),var(--navy-3));border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.org-hd{display:flex;align-items:center;gap:12px;padding:15px 18px;cursor:pointer;user-select:none}
+.org-hd:hover{background:rgba(255,255,255,.02)}
+.chev{transition:.2s;color:var(--slate-2);font-size:13px}
+.org.open .chev{transform:rotate(90deg)}
+.org-nm{font-family:'DM Sans';font-weight:700;font-size:16px;color:#fff}
+.org-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:3px}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;letter-spacing:.02em}
+.b-plan{background:rgba(139,92,246,.16);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)}
+.b-active{background:rgba(0,178,74,.16);color:var(--green-bright);border:1px solid rgba(0,178,74,.3)}
+.b-paused{background:rgba(240,160,25,.16);color:#fcd34d;border:1px solid rgba(240,160,25,.3)}
+.b-cancelled{background:rgba(229,72,77,.16);color:#fca5a5;border:1px solid rgba(229,72,77,.3)}
+.org-num{margin-left:auto;text-align:right}
+.org-num .fee{font-family:'DM Sans';font-weight:800;font-size:17px;color:#fff}
+.org-num .sub{font-size:11px;color:var(--slate-2)}
+.org-body{display:none;padding:0 18px 18px;border-top:1px solid var(--line)}
+.org.open .org-body{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld label{font-size:11px;font-weight:600;color:var(--slate-2);text-transform:uppercase;letter-spacing:.04em}
+.in,.sel{font:inherit;font-size:13px;background:var(--navy);border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:#eaf1fb}
+.in:focus,.sel:focus{outline:none;border-color:var(--green)}
+textarea.in{resize:vertical;min-height:54px}
+.sub-h{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--slate-2);margin:18px 0 10px}
+/* people */
+.person{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--line)}
+.av{width:34px;height:34px;border-radius:9px;background:var(--navy-3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#cfe;flex:none}
+.av.off{opacity:.45}
+.p-main{flex:1;min-width:0}
+.p-nm{font-weight:600;font-size:14px;color:#fff;display:flex;align-items:center;gap:7px}
+.p-sub{font-size:12px;color:var(--slate-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.role-b{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 6px;border-radius:5px}
+.role-mgr{background:rgba(47,107,255,.18);color:#93b4ff}
+.role-can{background:rgba(0,178,74,.14);color:#7ee0a6}
+.role-sa{background:rgba(240,160,25,.18);color:#fcd34d}
+.p-act{display:flex;align-items:center;gap:8px;flex:none}
+.toggle{width:42px;height:24px;border-radius:999px;background:#33486a;position:relative;cursor:pointer;transition:.2s;border:none}
+.toggle.on{background:var(--green)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on::after{left:20px}
+.p-stat{font-size:12px;color:#cfe;text-align:center;min-width:42px}
+.p-stat b{display:block;font-family:'DM Sans';font-weight:700;font-size:15px;color:#fff}
+.areas{padding:4px 0 12px 45px;border-top:1px dashed var(--line);margin-top:-1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.rchip{font:inherit;font-size:11px;padding:5px 9px;border-radius:999px;border:1px solid var(--line);background:var(--navy);color:#aebfd6;cursor:pointer}
+.rchip.on{background:var(--green);border-color:var(--green);color:#04210f;font-weight:600}
+.msg{font-size:12px;color:var(--green-bright)}
+.expand-areas{font-size:11px;color:var(--slate-2);cursor:pointer;text-decoration:underline;margin-left:45px}
+/* solo */
+.solo-card{background:linear-gradient(160deg,var(--navy-2),var(--navy-3));border:1px solid var(--line);border-radius:16px;padding:8px 18px}
+/* gate */
+.gate{max-width:380px;margin:14vh auto;text-align:center;padding:0 18px}
+.gate .panel{padding:26px;text-align:left}
+.muted{color:var(--slate-2);font-size:13px}
+.empty{color:var(--slate-2);font-size:13px;padding:14px 0}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#fff;color:#0a1322;font-weight:600;font-size:13px;padding:11px 18px;border-radius:11px;box-shadow:0 12px 40px rgba(0,0,0,.4);opacity:0;transition:.25s;pointer-events:none;z-index:60}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:860px){.tiles{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}.org-num{display:none}}
+@media(max-width:480px){.tiles{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap top-in">
+  <div class="logo"><span class="dot"></span>Solpath</div>
+  <span class="tag">Owner Console</span>
+  <div class="top-sp"></div>
+  <span class="who" id="who"></span>
+  <button class="btn btn-sm" id="signout" onclick="signOut()" style="display:none">Sign out</button>
+</div></div>
+
+<!-- GATE -->
+<div id="gate" class="gate" style="display:none">
+  <div class="panel">
+    <h2 class="dm" style="font-size:20px;margin-bottom:4px">Owner sign-in</h2>
+    <p class="muted" style="margin-bottom:16px">This console is restricted to the account owner.</p>
+    <div class="fld" style="margin-bottom:10px"><label>Email</label><input class="in" id="g-email" type="email" autocomplete="username"></div>
+    <div class="fld" style="margin-bottom:14px"><label>Password</label><input class="in" id="g-pass" type="password" autocomplete="current-password"></div>
+    <button class="btn btn-g" style="width:100%" onclick="doSignIn()">Sign in</button>
+    <p class="msg" id="g-msg" style="margin-top:10px;min-height:16px"></p>
+  </div>
+</div>
+
+<!-- DENIED -->
+<div id="denied" class="gate" style="display:none">
+  <div class="panel" style="text-align:center">
+    <div style="font-size:30px">🔒</div>
+    <h2 class="dm" style="font-size:19px;margin:8px 0 4px">Access restricted</h2>
+    <p class="muted">This area is for the Solpath owner only.</p>
+    <button class="btn" style="margin-top:14px" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div class="wrap">
+    <div class="sec">
+      <div class="tiles" id="tiles"></div>
+    </div>
+    <div class="sec" style="padding-top:0">
+      <div class="sec-h">Site activity · last 14 days</div>
+      <div class="panel">
+        <div id="spark" class="spark"></div>
+        <div id="spark-x" class="spark-x"></div>
+        <div id="split" class="split"></div>
+      </div>
+    </div>
+    <div class="sec" style="padding-top:0">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="sec-h" style="margin:0">Organisations</div>
+        <div style="flex:1"></div>
+        <button class="btn btn-g btn-sm" onclick="toggleNewOrg()">+ New organisation</button>
+      </div>
+      <div id="neworg" class="panel" style="display:none;margin-bottom:12px">
+        <div class="grid2">
+          <div class="fld"><label>Organisation name</label><input class="in" id="no-name" placeholder="e.g. Northern Solar Ltd"></div>
+          <div class="fld"><label>Plan</label><select class="sel" id="no-plan"><option value="trial">Trial</option><option value="team_starter">Team Starter</option><option value="team_growth">Team Growth</option><option value="enterprise">Enterprise</option><option value="custom">Custom</option></select></div>
+          <div class="fld"><label>Monthly fee (£)</label><input class="in" id="no-fee" type="number" min="0" step="1" placeholder="0"></div>
+          <div class="fld"><label>Seats</label><input class="in" id="no-seats" type="number" min="1" step="1" placeholder="5"></div>
+        </div>
+        <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="createOrg()">Create organisation</button>
+        <span class="msg" id="no-msg" style="margin-left:10px"></span>
+      </div>
+      <div id="orgs"></div>
+    </div>
+    <div class="sec" style="padding-top:0">
+      <div class="sec-h">Solo individuals</div>
+      <div id="solo"></div>
+    </div>
+    <div style="height:50px"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA='https://xdoqclrwdduncjaxtixp.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkb3FjbHJ3ZGR1bmNqYXh0aXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjkyNjMsImV4cCI6MjA5NjYwNTI2M30.vLCzN7-eNJh32tvy0zySDGX5bp6X1v9WlST59BSmIkk';
+const REGION_DEFS=[['hampshire_iow','Hampshire & IoW'],['sussex_kent','Sussex & Kent'],['london','London'],['thames_valley','Thames Valley'],['essex_east','Essex & E. Anglia'],['bristol_west','Bristol & West'],['south_west','South West'],['midlands_south','South Midlands'],['north_west','North West'],['yorkshire_humber','Yorkshire & Humber'],['west_midlands','West Midlands'],['north_east','North East'],['east_midlands','East Midlands']];
+const PLANS=[['trial','Trial'],['team_starter','Team Starter'],['team_growth','Team Growth'],['enterprise','Enterprise'],['custom','Custom']];
+let sb, DATA, ORGLIST=[];
+
+function $(id){return document.getElementById(id)}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function money(n){return '£'+Number(n||0).toLocaleString('en-GB')}
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2200)}
+function initials(n){return (n||'?').split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase()}
+function show(id){['gate','denied','app'].forEach(x=>$(x).style.display=x===id?'block':'none')}
+
+async function boot(){
+  sb=supabase.createClient(SUPA,KEY);
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){ show('gate'); return; }
+  await afterAuth(session);
+}
+async function doSignIn(){
+  const email=$('g-email').value.trim(), password=$('g-pass').value;
+  $('g-msg').textContent='Signing in…';
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){ $('g-msg').textContent='⚠️ '+error.message; return; }
+  await afterAuth(data.session);
+}
+async function afterAuth(session){
+  const {data:prof}=await sb.from('profiles').select('super_admin,full_name').eq('id',session.user.id).single();
+  if(!prof || !prof.super_admin){ show('denied'); $('signout').style.display=''; return; }
+  $('who').textContent=session.user.email;
+  $('signout').style.display='';
+  show('app');
+  load();
+}
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+async function load(){
+  const {data,error}=await sb.rpc('admin_overview');
+  if(error){ toast('Load error: '+error.message); return; }
+  DATA=data; ORGLIST=(data.orgs||[]).map(o=>({id:o.id,name:o.name}));
+  renderTiles(data.stats); renderSpark(data.visits_daily, data.stats); renderOrgs(data.orgs); renderSolo(data.solo);
+}
+
+function renderTiles(s){
+  const t=[
+    ['Site visits', (s.visits_total||0).toLocaleString(), (s.visits_7d||0)+' last 7d', 'green'],
+    ['Unique (30d)', (s.uniques_30d||0).toLocaleString(), (s.visits_30d||0)+' visits 30d',''],
+    ['Organisations', (s.orgs||0), (s.active_users||0)+' active users',''],
+    ['Users', (s.users||0), (s.managers||0)+' managers',''],
+    ['Deals', (s.deals||0), (s.doors||0)+' doors',''],
+    ['Recurring', money(s.mrr), 'per month','green']
+  ];
+  $('tiles').innerHTML=t.map(x=>`<div class="tile ${x[3]}"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('');
+}
+function renderSpark(daily, s){
+  daily=daily||[]; const max=Math.max(1,...daily.map(d=>d.n));
+  $('spark').innerHTML=daily.map(d=>`<div class="bar" style="height:${Math.max(3,Math.round(d.n/max*96))}px"><span>${d.n} · ${d.d.slice(5)}</span></div>`).join('');
+  $('spark-x').innerHTML=daily.map((d,i)=> (i%2===0)?`<div>${d.d.slice(8)}</div>`:`<div></div>`).join('');
+  const by=(s&&s.visits_by_surface)||{}; const order=['landing','app','manager','other'];
+  const keys=Object.keys(by).sort((a,b)=>(order.indexOf(a)+99*(order.indexOf(a)<0))-(order.indexOf(b)+99*(order.indexOf(b)<0)));
+  $('split').innerHTML = keys.length ? keys.map(k=>`<span class="pill"><b>${by[k]}</b> ${esc(k)}</span>`).join('') : '<span class="muted">No visits tracked yet.</span>';
+}
+
+function chipsHtml(scope,id,cur){
+  cur=cur||[];
+  return REGION_DEFS.map(d=>`<button type="button" class="rchip${cur.indexOf(d[0])>=0?' on':''}" data-rid="${d[0]}" onclick="this.classList.toggle('on')">${d[1]}</button>`).join('');
+}
+function personHtml(p,orgs){
+  const role=p.super_admin?'sa':(p.role==='manager'?'mgr':'can');
+  const roleLbl=p.super_admin?'OWNER':(p.role||'canvasser').toUpperCase();
+  const areaTxt=Array.isArray(p.allowed_regions)&&p.allowed_regions.length?(p.allowed_regions.length+' area'+(p.allowed_regions.length>1?'s':'')):'all regions';
+  return `<div class="person">
+    <div class="av ${p.active?'':'off'}">${initials(p.full_name)}</div>
+    <div class="p-main">
+      <div class="p-nm">${esc(p.full_name||'—')} <span class="role-b role-${role}">${roleLbl}</span></div>
+      <div class="p-sub">${esc(p.email||'')} · ${areaTxt}</div>
+    </div>
+    <div class="p-stat"><b>${p.doors||0}</b>doors</div>
+    <div class="p-stat"><b>${p.deals||0}</b>deals</div>
+    <div class="p-act">
+      ${p.super_admin?'':`<button class="toggle ${p.active?'on':''}" title="Active" onclick="toggleActive('${p.id}',this)"></button>`}
+    </div>
+  </div>
+  ${p.super_admin?'':`<div class="areas" id="areas-${p.id}" style="display:none">
+    <div style="font-size:11px;color:var(--slate-2);margin-bottom:2px">Assigned areas · empty = all regions</div>
+    <div class="chips" data-person="${p.id}">${chipsHtml('p',p.id,p.allowed_regions)}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-sm btn-g" onclick="saveAreas('${p.id}')">Save areas</button>
+      <select class="sel btn-sm" style="padding:6px 8px" id="role-${p.id}" onchange="setRole('${p.id}',this.value)">
+        <option value="canvasser"${p.role==='canvasser'?' selected':''}>Canvasser</option>
+        <option value="manager"${p.role==='manager'?' selected':''}>Manager</option>
+      </select>
+      <span class="msg" id="amsg-${p.id}"></span>
+    </div>
+  </div>
+  <div class="expand-areas" onclick="(function(el){var a=document.getElementById('areas-${p.id}');a.style.display=a.style.display==='none'?'block':'none';})(this)">Manage areas / role ▾</div>`}`;
+}
+
+function renderOrgs(orgs){
+  orgs=orgs||[];
+  if(!orgs.length){ $('orgs').innerHTML='<div class="empty">No organisations yet.</div>'; return; }
+  $('orgs').innerHTML=orgs.map(o=>{
+    const st=(o.status||'active');
+    const _plans=PLANS.slice(); if(o.plan && !_plans.find(p=>p[0]===o.plan)) _plans.push([o.plan,o.plan]);
+    const planOpts=_plans.map(p=>`<option value="${esc(p[0])}"${o.plan===p[0]?' selected':''}>${esc(p[1])}</option>`).join('');
+    const ppl=(o.users||[]);
+    return `<div class="org" id="org-${o.id}">
+      <div class="org-hd" onclick="document.getElementById('org-${o.id}').classList.toggle('open')">
+        <span class="chev">▶</span>
+        <div>
+          <div class="org-nm">${esc(o.name)}</div>
+          <div class="org-meta">
+            <span class="badge b-plan">${esc(o.plan||'—')}</span>
+            <span class="badge b-${st}">${esc(st)}</span>
+            <span class="muted" style="font-size:12px">${ppl.length} user${ppl.length!==1?'s':''} · ${o.deals||0} deals</span>
+          </div>
+        </div>
+        <div class="org-num"><div class="fee">${o.monthly_fee!=null?money(o.monthly_fee):'—'}</div><div class="sub">${o.monthly_fee!=null?'per month':'no fee set'}</div></div>
+      </div>
+      <div class="org-body">
+        <div class="sub-h">Billing & plan</div>
+        <div class="grid2">
+          <div class="fld"><label>Plan</label><select class="sel" id="o-plan-${o.id}">${planOpts}</select></div>
+          <div class="fld"><label>Monthly fee (£)</label><input class="in" id="o-fee-${o.id}" type="number" min="0" step="1" value="${o.monthly_fee!=null?o.monthly_fee:''}"></div>
+          <div class="fld"><label>Status</label><select class="sel" id="o-status-${o.id}">
+            <option value="active"${st==='active'?' selected':''}>Active</option>
+            <option value="paused"${st==='paused'?' selected':''}>Paused</option>
+            <option value="trial"${st==='trial'?' selected':''}>Trial</option>
+            <option value="cancelled"${st==='cancelled'?' selected':''}>Cancelled</option>
+          </select></div>
+          <div class="fld"><label>Seats</label><input class="in" id="o-seats-${o.id}" type="number" min="1" step="1" value="${o.max_users!=null?o.max_users:''}"></div>
+          <div class="fld"><label>Billing email</label><input class="in" id="o-bemail-${o.id}" type="email" value="${esc(o.billing_email||'')}"></div>
+          <div class="fld"><label>Contact name</label><input class="in" id="o-cname-${o.id}" value="${esc(o.contact_name||'')}"></div>
+        </div>
+        <div class="fld" style="margin-top:10px"><label>Notes</label><textarea class="in" id="o-notes-${o.id}">${esc(o.notes||'')}</textarea></div>
+        <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="saveOrg('${o.id}')">Save organisation</button>
+        <span class="msg" id="omsg-${o.id}" style="margin-left:10px"></span>
+        <div class="sub-h">People (${ppl.length})</div>
+        ${ppl.length?ppl.map(p=>personHtml(p)).join(''):'<div class="empty">No one in this organisation yet.</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSolo(solo){
+  solo=solo||[];
+  if(!solo.length){ $('solo').innerHTML='<div class="solo-card"><div class="empty">No solo individuals. Anyone not attached to an organisation will appear here, where you can assign them an area or fold them into an org.</div></div>'; return; }
+  $('solo').innerHTML='<div class="solo-card">'+solo.map(p=>{
+    const orgOpts='<option value="">— move to org —</option>'+ORGLIST.map(o=>`<option value="${o.id}">${esc(o.name)}</option>`).join('');
+    return personHtml(p)+`<div style="padding:0 0 12px 45px"><select class="sel btn-sm" style="padding:6px 8px" onchange="moveToOrg('${p.id}',this.value)">${orgOpts}</select></div>`;
+  }).join('')+'</div>';
+}
+
+/* ---- writes ---- */
+async function saveOrg(id){
+  const m=$('omsg-'+id); m.textContent='Saving…';
+  const feeV=$('o-fee-'+id).value, seatsV=$('o-seats-'+id).value;
+  const body={
+    plan:$('o-plan-'+id).value,
+    monthly_fee: feeV===''?null:Number(feeV),
+    status:$('o-status-'+id).value,
+    max_users: seatsV===''?null:Number(seatsV),
+    billing_email:$('o-bemail-'+id).value.trim()||null,
+    contact_name:$('o-cname-'+id).value.trim()||null,
+    notes:$('o-notes-'+id).value.trim()||null
+  };
+  const {error}=await sb.from('organisations').update(body).eq('id',id);
+  if(error){ m.textContent='⚠️ '+error.message; return; }
+  m.textContent='✓ Saved'; toast('Organisation updated'); load();
+}
+async function toggleActive(id,el){
+  const makeActive=!el.classList.contains('on');
+  const {error}=await sb.from('profiles').update({active:makeActive}).eq('id',id);
+  if(error){ toast('⚠️ '+error.message); return; }
+  el.classList.toggle('on'); toast(makeActive?'User enabled':'User disabled');
+}
+async function saveAreas(id){
+  const arr=Array.from(document.querySelectorAll('[data-person="'+id+'"] .rchip.on')).map(c=>c.dataset.rid);
+  const m=$('amsg-'+id); m.textContent='Saving…';
+  const {error}=await sb.from('profiles').update({allowed_regions:arr.length?arr:null}).eq('id',id);
+  if(error){ m.textContent='⚠️ '+error.message; return; }
+  m.textContent=arr.length?('✓ '+arr.length+' area'+(arr.length>1?'s':'')):'✓ all regions';
+}
+async function setRole(id,role){
+  const {error}=await sb.from('profiles').update({role}).eq('id',id);
+  toast(error?('⚠️ '+error.message):'Role set to '+role);
+}
+async function moveToOrg(id,orgId){
+  if(!orgId) return;
+  const {error}=await sb.from('profiles').update({organisation_id:orgId}).eq('id',id);
+  if(error){ toast('⚠️ '+error.message); return; }
+  toast('Moved into organisation'); load();
+}
+function toggleNewOrg(){ const e=$('neworg'); e.style.display=e.style.display==='none'?'block':'none'; }
+async function createOrg(){
+  const name=$('no-name').value.trim();
+  if(!name){ $('no-msg').textContent='Enter a name'; return; }
+  $('no-msg').textContent='Creating…';
+  const slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+  const feeV=$('no-fee').value, seatsV=$('no-seats').value;
+  const {error}=await sb.from('organisations').insert({
+    name, slug, plan:$('no-plan').value, status:'active', currency:'GBP',
+    monthly_fee: feeV===''?null:Number(feeV),
+    max_users: seatsV===''?null:Number(seatsV)
+  });
+  if(error){ $('no-msg').textContent='⚠️ '+error.message; return; }
+  $('no-msg').textContent='✓ Created'; $('no-name').value=''; $('no-fee').value=''; $('no-seats').value='';
+  toast('Organisation created'); toggleNewOrg(); load();
+}
+
+boot();
+</script>
+</body>
+</html>
