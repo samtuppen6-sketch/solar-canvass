@@ -3101,7 +3101,7 @@ function formatTime(ts) {
 // Also show notes indicator on cards if notes exist
 
 if('serviceWorker' in navigator){
-  const sw='const V=\'sc-v14\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
+  const sw='const V=\'sc-v15\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
   const blob=new Blob([sw],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
@@ -3601,4 +3601,5 @@ async function mgrViewDeals(btn) {
     <div id="daymodal-body" style="padding:18px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
   </div>
 </div>
+<script>(function(){try{var v=localStorage.getItem('sp_vid');if(!v){v=(Date.now().toString(36)+Math.random().toString(36).slice(2,10));localStorage.setItem('sp_vid',v);}fetch('https://xdoqclrwdduncjaxtixp.supabase.co/functions/v1/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({surface:'app',path:location.pathname,ref:document.referrer||'',visitor:v})}).catch(function(){});}catch(e){}})();</script>
 </body></html>
