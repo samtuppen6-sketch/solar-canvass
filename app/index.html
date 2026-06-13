@@ -1222,7 +1222,9 @@ async function onAuthed() {
     // Team Login routing: managers/owners go to the dashboard, canvassers stay in the app
     try {
       const _qp = new URLSearchParams(location.search);
-      if (_qp.get('ref')==='login' && _qp.get('demo')!=='1' && currentProfile &&
+      if (_qp.get('field')==='1'){ try{sessionStorage.setItem('sp_field','1');}catch(e){} }
+      const _stayInApp = _qp.get('field')==='1' || _qp.get('demo')==='1' || _qp.has('invited') || (function(){try{return sessionStorage.getItem('sp_field')==='1';}catch(e){return false;}})();
+      if (!_stayInApp && currentProfile &&
           (currentProfile.role==='manager' || currentProfile.role==='super_admin' || currentProfile.super_admin)) {
         location.replace('/app/manager'); return;
       }
@@ -3112,7 +3114,7 @@ function formatTime(ts) {
 // Also show notes indicator on cards if notes exist
 
 if('serviceWorker' in navigator){
-  const sw='const V=\'sc-v16\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
+  const sw='const V=\'sc-v17\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
   const blob=new Blob([sw],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
