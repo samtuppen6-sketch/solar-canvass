@@ -2099,13 +2099,47 @@ async function locate(silent=false) {
 function resetL() { document.getElementById('btn-l').textContent='📍'; document.getElementById('fab').textContent='📍'; }
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
+// -- NATIONWIDE referral eligibility (any postcode, independent of region sandbox) --
+let NIDX=null;
+async function loadNIDX(){
+  if(NIDX) return NIDX;
+  try{ const r=await fetch('./regions/_index.json'); NIDX = r.ok ? await r.json() : {}; }catch(e){ NIDX={}; }
+  return NIDX;
+}
+const _ksCache={};
+async function regionKeyset(rid){
+  if(_ksCache[rid]) return _ksCache[rid];
+  const reg=REGIONS[rid]; if(!reg) return null;
+  if(!reg.keys && reg.dataUrl){ try{ const d=await (await fetch(reg.dataUrl)).json(); reg.keys=d.keys; reg.lsoas=d.lsoas; reg.idx=d.idx; reg.cents=d.cents; }catch(e){ return null; } }
+  if(!reg.keys) return null;
+  const set=new Set(reg.keys); _ksCache[rid]=set; return set;
+}
+async function nationwideCheck(pc){
+  const k=norm(pc); if(k.length<5) return null;
+  const ix=await loadNIDX(); const rids=ix[k.slice(0,-3)]; if(!rids||!rids.length) return null;
+  for(const rid of rids){
+    const set=await regionKeyset(rid);
+    if(set && set.has(k)){
+      const reg=REGIONS[rid]; let ls=null;
+      try{ const i=reg.keys.indexOf(k); if(i>=0) ls=reg.lsoas[reg.idx[i]]; }catch(e){}
+      return { rid, name:(reg&&reg.name)||rid, lsoa:ls };
+    }
+  }
+  return null;
+}
+
 async function doSearch() {
   if (!EL) { toast('Select a region first'); return; }
   const raw = document.getElementById('in-pc').value.trim().toUpperCase().replace(/\s+/g,' ');
   if (!raw) return;
   if (raw.replace(/\s+/g,'').length < 5) { toast('Enter a full postcode'); return; }
-  if (!isE(raw)) { showBar(raw,false,null); toast(raw+' is not in the eligible area'); return; }
-  showBar(raw, true, lsoa(raw));
+  let _ls = isE(raw) ? lsoa(raw) : null;
+  if (!isE(raw)) {
+    const ref = await nationwideCheck(raw);
+    if (ref) { _ls = ref.lsoa || ('Referral · ' + ref.name); toast('✓ Eligible — ' + ref.name + ' · referral'); }
+    else { showBar(raw, false, null); toast(raw + ' is not on the Warm Homes eligible list'); return; }
+  }
+  showBar(raw, true, _ls);
   const nc = norm(raw); let c = geoC[nc];
   if (!c) {
     try {
@@ -3067,7 +3101,7 @@ function formatTime(ts) {
 // Also show notes indicator on cards if notes exist
 
 if('serviceWorker' in navigator){
-  const sw='const V=\'sc-v13\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
+  const sw='const V=\'sc-v14\';self.addEventListener(\'install\',e=>{self.skipWaiting();});self.addEventListener(\'activate\',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>clients.claim()));});self.addEventListener(\'fetch\',e=>{if(e.request.method!==\'GET\')return;const u=new URL(e.request.url);if(u.hostname.includes(\'supabase\')||u.hostname.includes(\'postcodes.io\')||u.hostname.includes(\'find-energy\'))return;const page=e.request.mode===\'navigate\'||u.pathname.endsWith(\'/\')||u.pathname.endsWith(\'.html\');if(page){e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp));}return res;}).catch(()=>caches.open(V).then(c=>c.match(e.request)).then(r=>r||caches.match(\'/app/\'))));}else{e.respondWith(caches.open(V).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok)c.put(e.request,res.clone());return res;}).catch(()=>r))));}});';
   const blob=new Blob([sw],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
