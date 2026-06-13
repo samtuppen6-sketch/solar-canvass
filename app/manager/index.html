@@ -386,6 +386,15 @@ tbody tr:hover td{background:#fafbfd}
         <div class="agent-avatar" id="ag-avatar"></div>
         <div><div class="agent-name" id="ag-name"></div><div class="agent-sub" id="ag-sub"></div></div>
       </div>
+      <div id="ag-regions" style="background:#fff;border:1px solid #e3eaf3;border-radius:14px;padding:14px 16px;margin:12px 0">
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px">Assigned areas</div>
+        <div class="cap" style="margin-bottom:8px">Which regions this canvasser can work. Tap to toggle. Empty = all regions (national).</div>
+        <div class="inv-chips" id="ag-chips"></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+          <button class="inv-btn" style="width:auto;padding:8px 16px" onclick="saveAgentRegions()">Save areas</button>
+          <span class="cap" id="ag-regions-msg"></span>
+        </div>
+      </div>
       <div class="kpi-row">
         <div class="kpi"><div class="kpi-label">Doors</div><div class="kpi-val" id="ag-doors">—</div></div>
         <div class="kpi g"><div class="kpi-label">Qualified</div><div class="kpi-val" id="ag-qual">—</div></div>
@@ -728,6 +737,32 @@ function closeAgent(){
   renderTeam();renderLeaderboard();
 }
 
+const REGION_DEFS=[['hampshire_iow','Hampshire & IoW'],['sussex_kent','Sussex & Kent'],['london','London'],['thames_valley','Thames Valley'],['essex_east','Essex & E. Anglia'],['bristol_west','Bristol & West'],['south_west','South West'],['midlands_south','South Midlands'],['north_west','North West'],['yorkshire_humber','Yorkshire & Humber'],['west_midlands','West Midlands'],['north_east','North East'],['east_midlands','East Midlands']];
+function renderAgentRegions(member){
+  const box=document.getElementById('ag-regions'); if(!box) return;
+  if(!member || member.role==='manager'){ box.style.display='none'; return; }
+  box.style.display='';
+  const cur=Array.isArray(member.allowed_regions)?member.allowed_regions:[];
+  document.getElementById('ag-chips').innerHTML=REGION_DEFS.map(function(d){
+    var on=cur.indexOf(d[0])>=0?' on':'';
+    return '<button type="button" class="rchip'+on+'" data-rid="'+d[0]+'" onclick="toggleInvRegion(this)">'+d[1]+'</button>';
+  }).join('');
+  var msg=document.getElementById('ag-regions-msg'); if(msg) msg.textContent = cur.length ? '' : 'Currently: all regions';
+}
+async function saveAgentRegions(){
+  const id=CURRENT_AGENT; if(!id) return;
+  const arr=Array.from(document.querySelectorAll('#ag-chips .rchip.on')).map(function(c){return c.dataset.rid;});
+  const msg=document.getElementById('ag-regions-msg'); msg.textContent='Saving...';
+  try{
+    const r=await fetch(`${SUPA}/rest/v1/profiles?id=eq.${id}`,{method:'PATCH',
+      headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({allowed_regions: arr.length?arr:null})});
+    if(!r.ok){ msg.textContent='Could not save: '+(await r.text()).slice(0,80); return; }
+    const mm=MEMBERS.find(x=>x.id===id); if(mm) mm.allowed_regions=arr.length?arr:null;
+    msg.textContent = arr.length ? ('\u2713 Saved \u00b7 '+arr.length+' area'+(arr.length>1?'s':'')) : '\u2713 Saved \u00b7 all regions';
+  }catch(e){ msg.textContent='Could not save \u2014 check connection'; }
+}
+
 function renderAgent(){
   const id=CURRENT_AGENT;
   const member=MEMBERS.find(m=>m.id===id);
@@ -738,6 +773,7 @@ function renderAgent(){
   document.getElementById('ag-avatar').textContent=init;
   document.getElementById('ag-name').textContent=name;
   document.getElementById('ag-sub').textContent=`${member?.role||'canvasser'} · ${RANGE.label}`;
+  renderAgentRegions(member);
 
   const q=doors.filter(d=>d.status==='qualified'||d.status==='interested').length;
   const c=doors.filter(d=>d.status==='callback').length;
