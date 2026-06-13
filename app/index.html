@@ -1287,7 +1287,38 @@ function goToMyPatch() {
   map.fitBounds([[b.s,b.w],[b.n,b.e]], {padding:[30,30]});
 }
 
+function showDemoProfileSetup(email, org){
+  if(document.getElementById('demo-profile')) return;
+  const guess=(email||'').split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  const ov=document.createElement('div');
+  ov.id='demo-profile';
+  ov.style.cssText='position:fixed;inset:0;z-index:100000;background:#0a0e1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px;text-align:center;color:#fff;font-family:inherit';
+  ov.innerHTML='<img src="/icon-192.png" style="width:54px;height:54px;border-radius:12px;margin-bottom:18px">'
+    +'<div style="font-size:1.3rem;font-weight:800;margin-bottom:6px">Join '+(org||'your team')+'</div>'
+    +'<div style="font-size:.85rem;color:#8fa3bc;margin-bottom:22px;max-width:300px">You\u2019ve been invited as a canvasser. Set up your profile to get started.</div>'
+    +'<div style="width:100%;max-width:300px;text-align:left">'
+    +'<label style="font-size:.7rem;font-weight:700;color:#8fa3bc;display:block;margin-bottom:5px">YOUR NAME</label>'
+    +'<input id="dp-name" value="'+guess+'" style="width:100%;padding:11px 13px;border-radius:9px;border:1.5px solid #233047;background:#0e1626;color:#fff;font-size:.95rem;margin-bottom:14px">'
+    +'<label style="font-size:.7rem;font-weight:700;color:#8fa3bc;display:block;margin-bottom:5px">EMAIL</label>'
+    +'<div style="padding:11px 13px;border-radius:9px;border:1.5px solid #233047;background:#0e1626;color:#8fa3bc;font-size:.9rem;margin-bottom:18px">'+(email||'')+'</div>'
+    +'<button onclick="document.getElementById(\'demo-profile\').remove()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#00b24a;color:#fff;font-weight:800;font-size:.95rem;cursor:pointer">Join team \u2192</button>'
+    +'</div>';
+  document.body.appendChild(ov);
+}
+
 window.addEventListener('load', async () => {
+  // Demo invite links: ?demo=1 drives the existing demo path (nothing is saved)
+  try{
+    const _q=new URLSearchParams(location.search);
+    if(_q.get('demo')==='1'){
+      const ae=document.getElementById('auth-email'), ap=document.getElementById('auth-pass');
+      if(ae&&ap){ ae.value='demo@solpath.energy'; ap.value='demo'; }
+      if(typeof doAuth==='function'){ try{ await doAuth(); }catch(e){} }
+      const invited=_q.get('invited');
+      if(invited){ showDemoProfileSetup(invited, _q.get('org')||'your team'); }
+      return;
+    }
+  }catch(e){}
   let tries=0;
   while(!window.supabase && tries<50){ await new Promise(r=>setTimeout(r,100)); tries++; }
   if (!initSupabase()) return;
