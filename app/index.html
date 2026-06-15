@@ -2313,15 +2313,23 @@ async function loadPC(pc) {
   }
   // ── Infer "gap" houses: street numbers present in NEITHER EPC nor Land Registry ──
   // Likely long-held owner-occupiers (sold pre-1995, never needed an EPC). Listed low-confidence — worth a knock.
+  // IMPORTANT: exclude every number known to EITHER source — including EPC certs of ANY band (A–G) that were
+  // filtered off the eligible list (e.g. an ineligible C) and all Land Registry houses — so a filtered/known
+  // house is never re-listed as a phantom "no data" gap.
   (function inferGaps(){
-    const nums=[]; const streets={};
-    for (const p of deduped){
-      const m=(p.addr||'').match(/^(\d+)[,\s]+(.+)$/);
-      if(!m) continue;
+    const nums=[]; const streets={}; const haveKeys=new Set();
+    function note(a){
+      if(!a) return;
+      const m=a.match(/^(\d+)[,\s]+(.+)$/);
+      if(!m) return;
       nums.push(parseInt(m[1],10));
       const raw=m[2].replace(/,.*$/,'').trim();
       if(raw){ const k=raw.toLowerCase(); (streets[k]||(streets[k]={n:0,raw:raw})).n++; }
+      haveKeys.add(dedupKey(a));
     }
+    for (const p of deduped) note(p.addr);                                                   // eligible list
+    for (const r of rows) note([r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||''); // ALL EPC certs (any band)
+    for (const h of lrHouses) note(lrAddr(h));                                                // ALL Land Registry houses
     if (nums.length<4) return;                       // too little to infer a reliable range
     let street='', best=0;
     for (const k in streets){ if(streets[k].n>best){best=streets[k].n;street=streets[k].raw;} }
@@ -2332,13 +2340,12 @@ async function loadPC(pc) {
     const fillOdd=oddCount>=2, fillEven=evenCount>=2; // only fill a side that's actually represented
     if(!fillOdd && !fillEven) return;
     const known=new Set(nums);
-    const have=new Set(deduped.map(p=>dedupKey(p.addr)));
     let added=0;
     for (let n=min+1; n<max; n++){
       if (known.has(n)) continue;
       if (n%2===1 ? !fillOdd : !fillEven) continue;
       const addr=n+' '+street;
-      if (have.has(dedupKey(addr))) continue;
+      if (haveKeys.has(dedupKey(addr))) continue;
       deduped.push({ rating:'NE', tt:'unknown', tl:'No record — likely long-held owner',
         addr:addr, postcode:pc, propType:'House', builtForm:'', lastSold:null,
         noEpc:true, confidence:'low', inferred:true });
