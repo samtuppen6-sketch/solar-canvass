@@ -844,6 +844,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .sb-interested{background:rgba(16,185,129,.15);border-color:#10b981;color:#10b981}
 .sb-notint{background:rgba(239,68,68,.15);border-color:#ef4444;color:#ef4444}
 .sb-qualified{background:rgba(245,158,11,.15);border-color:#f59e0b;color:#f59e0b}
+.sb-signed{background:rgba(34,197,94,.18);border-color:#22c55e;color:#22c55e}
+.pc2.pc2-signed{background:rgba(34,197,94,.12);border-color:#22c55e;box-shadow:0 0 0 1px rgba(34,197,94,.45)}
 
 /* DOOR BUTTONS */
 .drow{display:flex;gap:4px;padding:0 12px 12px;flex-wrap:wrap}
@@ -1796,6 +1798,7 @@ const SC = {
   notint:     { col:'#ef4444', cls:'dX', badge:'sb-notint',     label:'❌ Not Int.'  },
   qualified:  { col:'#f59e0b', cls:'dQ', badge:'sb-qualified', label:'⭐ Qualified'  },
   notqualified:{ col:'#6366f1', cls:'dNQ', badge:'sb-notqualified', label:'🚫 Not Qualified' },
+  signed:     { col:'#22c55e', cls:'dS', badge:'sb-signed',     label:'✍️ Signed up' },
 };
 
 // Apply saved theme
@@ -2116,7 +2119,7 @@ async function loadVis() {
 function topSt(n) {
   const p = propC[n]||[];
   const sts = p.map(x => doors[dk(n,x)]).filter(Boolean);
-  for (const s of ['qualified','interested','callback','knocked','notint'])
+  for (const s of ['signed','qualified','interested','callback','knocked','notint'])
     if (sts.includes(s)) return s;
   return null;
 }
@@ -2230,7 +2233,7 @@ async function loadPC(pc) {
     const epcPoints = r['current-energy-efficiency']||'';
     const pt = (r['property-type']||'').toLowerCase();
     const tenure = (r.tenure||'').toLowerCase();
-    if (pt.includes('flat')||pt.includes('maisonette')) return null;
+    if (/\b(flat|maisonette|park\s*home|mobile\s*home|bedsit|bed-sit|studio)\b/i.test(pt)) return null;
     if (/\b(flat|apartment|apt|maisonette)\b/i.test(addrTest(r))) return null;
     if (['A','B','C'].includes(rating)) return null;
     if (tenure.includes('social')) return null;
@@ -2308,6 +2311,41 @@ async function loadPC(pc) {
     seen[k] = deduped.length;
     deduped.push(p);
   }
+  // ── Infer "gap" houses: street numbers present in NEITHER EPC nor Land Registry ──
+  // Likely long-held owner-occupiers (sold pre-1995, never needed an EPC). Listed low-confidence — worth a knock.
+  (function inferGaps(){
+    const nums=[]; const streets={};
+    for (const p of deduped){
+      const m=(p.addr||'').match(/^(\d+)[,\s]+(.+)$/);
+      if(!m) continue;
+      nums.push(parseInt(m[1],10));
+      const raw=m[2].replace(/,.*$/,'').trim();
+      if(raw){ const k=raw.toLowerCase(); (streets[k]||(streets[k]={n:0,raw:raw})).n++; }
+    }
+    if (nums.length<4) return;                       // too little to infer a reliable range
+    let street='', best=0;
+    for (const k in streets){ if(streets[k].n>best){best=streets[k].n;street=streets[k].raw;} }
+    if (!street) return;
+    const min=Math.min.apply(null,nums), max=Math.max.apply(null,nums);
+    if (max-min>200) return;                          // sanity cap on street length
+    const oddCount=nums.filter(n=>n%2===1).length, evenCount=nums.length-oddCount;
+    const fillOdd=oddCount>=2, fillEven=evenCount>=2; // only fill a side that's actually represented
+    if(!fillOdd && !fillEven) return;
+    const known=new Set(nums);
+    const have=new Set(deduped.map(p=>dedupKey(p.addr)));
+    let added=0;
+    for (let n=min+1; n<max; n++){
+      if (known.has(n)) continue;
+      if (n%2===1 ? !fillOdd : !fillEven) continue;
+      const addr=n+' '+street;
+      if (have.has(dedupKey(addr))) continue;
+      deduped.push({ rating:'NE', tt:'unknown', tl:'No record — likely long-held owner',
+        addr:addr, postcode:pc, propType:'House', builtForm:'', lastSold:null,
+        noEpc:true, confidence:'low', inferred:true });
+      added++;
+      if (added>=120) break;                          // hard cap to avoid runaway lists
+    }
+  })();
   combined = sortStreetOrder(deduped);
   propC[nc]=combined; allProps=combined;
   renderList();
@@ -2435,7 +2473,7 @@ function renderList() {
     return;
   }
   const nc=norm(curPC);
-  const df=['knocked','noanswer','callback','interested','notint','qualified'];
+  const df=['knocked','noanswer','callback','interested','notint','qualified','signed'];
   // FINAL dedup gate: collapse same-house EPC/No-EPC duplicates, EPC always wins.
   // Runs here so even cached lists are cleaned before display.
   let props=[];
@@ -2502,7 +2540,7 @@ function pCard(i,p,nc) {
   }
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
-  storeProp(uid,p); return '<div class="pc2" data-uid="'+esc(uid)+'" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
+  storeProp(uid,p); return '<div class="pc2'+(st==='signed'?' pc2-signed':'')+'" data-uid="'+esc(uid)+'" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
     +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold&&!p.noEpc?'<span style="color:#64748b;font-size:11px">Sold '+p.lastSold+'</span>':'')+'</div>'
     +(p.noEpc ? '<div style="padding:0 2px">'+confPillHTML(p)+'</div>' : '')
     +badge
@@ -2517,36 +2555,57 @@ function pCard(i,p,nc) {
 }
 
 // ── CALLBACKS TAB ─────────────────────────────────────────────────────────────
-function renderCallbacks() {
+async function renderCallbacks() {
   const list = document.getElementById('cb-list'), cnt = document.getElementById('cb-count');
   if (!list) return;
-  const callbacks = [];
-  Object.entries(doors).forEach(([uid, st]) => {
-    if (st === 'callback') {
-      const parts = uid.split('|');
-      const nc = parts[0], addrNorm = parts[1] || '';
-      const pc = nc.length >= 3 ? nc.slice(0, -3) + ' ' + nc.slice(-3) : nc;
-      const props = propC[nc] || [];
-      let prop = props.find(p => norm(p.addr || '') === addrNorm);
-      if (!prop) {
-        // Not in current cache - use stored callback metadata
-        const meta = getCbMeta(uid);
-        if (meta) prop = { addr: meta.addr, rating: meta.rating, epcPoints: meta.epcPoints, tl: meta.tl, propType: meta.propType, tt:'unknown' };
-        else prop = { addr: addrNorm.toUpperCase(), rating: '?', tt: 'unknown', tl: '' };
-      }
-      const note = getNotes(uid) || '';
-      callbacks.push({ uid, nc, pc, prop, note });
-    }
+  // PERSONAL callbacks only — load this canvasser's own door records from the cloud (not the shared team pool).
+  let rows = [];
+  if (!DEMO_MODE && sb && currentUser) {
+    try {
+      const { data } = await sb.from('door_records')
+        .select('property_key,status,address,postcode_norm,note,reminder_at,created_at')
+        .eq('canvasser_id', currentUser.id)
+        .or('archived.is.null,archived.eq.false')
+        .order('created_at', { ascending: false });
+      const byProp = {};
+      for (const r of (data || [])) { if (r.property_key && !byProp[r.property_key]) byProp[r.property_key] = r; } // first row = latest (desc)
+      rows = Object.values(byProp).filter(r => r.status === 'callback');   // only where MY latest outcome is still 'callback'
+    } catch(e) { rows = []; }
+  }
+  // soonest reminder first; untimed callbacks fall to the bottom
+  rows.sort((a,b) => {
+    const ta = a.reminder_at ? new Date(a.reminder_at).getTime() : Infinity;
+    const tb = b.reminder_at ? new Date(b.reminder_at).getTime() : Infinity;
+    return ta - tb;
   });
-  if (cnt) cnt.textContent = callbacks.length;
-  if (callbacks.length === 0) {
-    list.innerHTML = '<div class="cb-empty"><div class="ei">📞</div><div class="eh">No callbacks</div><div class="ep">Properties marked for callback will appear here.</div></div>';
+  if (cnt) cnt.textContent = rows.length;
+  if (rows.length === 0) {
+    list.innerHTML = '<div class="cb-empty"><div class="ei">📞</div><div class="eh">No callbacks</div><div class="ep">Your callbacks appear here. Mark a door 📞 Callback and set a time to get an email 10 minutes before.</div></div>';
     return;
   }
-  list.innerHTML = callbacks.map(({ uid, pc, prop, note }) => {
-    const ec = prop.rating === '?' ? 'epc eQ' : (prop.rating === 'NE' ? 'epc eNE' : 'epc e' + prop.rating);
-    const ratingTxt = prop.rating === 'NE' ? 'No EPC' : (prop.rating === '?' ? '?' : prop.rating + (prop.epcPoints ? ' ' + prop.epcPoints : ''));
+  const now = Date.now();
+  list.innerHTML = rows.map((r) => {
+    const uid = r.property_key;
+    const nc = (uid.split('|')[0]) || r.postcode_norm || '';
+    const pc = nc.length >= 3 ? nc.slice(0, -3) + ' ' + nc.slice(-3) : nc;
+    let meta = {}; try { meta = getCbMeta(uid) || {}; } catch(e){}
+    const rating = meta.rating || '?';
+    const ec = rating === '?' ? 'epc eQ' : (rating === 'NE' ? 'epc eNE' : 'epc e' + rating);
+    const ratingTxt = rating === 'NE' ? 'No EPC' : (rating === '?' ? '?' : rating + (meta.epcPoints ? ' ' + meta.epcPoints : ''));
+    const addr = r.address || meta.addr || '';
+    const note = r.note || '';
+    const prop = { addr: addr, rating: rating, tl: meta.tl || '', propType: meta.propType || '', epcPoints: meta.epcPoints || '' };
     const pj = esc(JSON.stringify(prop));
+    // ⏰ reminder time badge (due-soon / overdue colouring)
+    let badge = '';
+    if (r.reminder_at) {
+      const t = new Date(r.reminder_at).getTime();
+      const lbl = new Date(r.reminder_at).toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+      const overdue = t < now, soon = (t - now) <= 30*60000 && t >= now;
+      const col = overdue ? '#ef4444' : (soon ? '#f59e0b' : '#a855f7');
+      const pre = overdue ? 'OVERDUE · ' : (soon ? 'DUE SOON · ' : '');
+      badge = '<div style="display:inline-block;background:'+col+'22;border:1px solid '+col+';color:'+col+';border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;margin:8px 0 2px">⏰ ' + pre + lbl + '</div>';
+    }
     let h = '<div class="pc2 cb-card" style="margin:8px 12px">';
     // Header: tap to open the address card
     h += '<div class="cb-head" onclick="openCallbackCard(\'' + esc(uid) + '\',\'' + pj + '\')" style="cursor:pointer">';
@@ -2555,6 +2614,7 @@ function renderCallbacks() {
     h += '<div class="pc2-a">' + (prop.addr || '') + '</div>';
     h += '</div><div class="' + ec + '">' + ratingTxt + '</div></div>';
     h += '</div>';
+    if (badge) h += badge;
     // Note display
     if (note) {
       h += '<div class="cb-note" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:8px 10px;margin:8px 0;color:#c4b5fd;font-size:13px">📝 ' + note + '</div>';
@@ -2646,6 +2706,10 @@ function openQuickNote(uid, st, addr) {
   var ov = document.createElement('div');
   ov.id = 'qn-dynamic';
   ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.65);display:flex;align-items:flex-end;justify-content:center';
+  var existingTime=''; try { existingTime=(JSON.parse(localStorage.getItem('cbTime')||'{}'))[uid]||''; } catch(e){}
+  var timeField = st==='callback'
+    ? '<div style="margin-top:12px"><div style="font-size:12px;color:#94a3b8;margin-bottom:6px">⏰ Call back at <span style="color:#64748b">(optional — emails you 10 min before)</span></div><input id="qn-dynamic-time" type="datetime-local" value="'+existingTime+'" style="width:100%;background:#111827;border:1px solid #334155;border-radius:12px;padding:12px;color:#f1f5f9;font-size:16px;font-family:inherit;box-sizing:border-box"></div>'
+    : '';
   ov.innerHTML =
     '<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:18px 18px 0 0;width:100%;max-width:560px;padding:20px;box-shadow:0 -8px 40px rgba(0,0,0,.6)">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
@@ -2653,9 +2717,10 @@ function openQuickNote(uid, st, addr) {
     + '<div id="qn-x" style="font-size:26px;color:#64748b;cursor:pointer;padding:0 8px;line-height:1">&times;</div></div>'
     + '<div style="font-size:13px;color:#94a3b8;margin-bottom:12px">' + (addr||'') + '</div>'
     + '<textarea id="qn-dynamic-text" style="width:100%;min-height:100px;background:#111827;border:1px solid #334155;border-radius:12px;padding:12px;color:#f1f5f9;font-size:16px;font-family:inherit;resize:vertical;box-sizing:border-box" placeholder="' + ph + '"></textarea>'
+    + timeField
     + '<div style="display:flex;gap:10px;margin-top:14px">'
     + '<div id="qn-skip" style="flex:1;text-align:center;background:#1f2d45;border-radius:12px;padding:15px;color:#cbd5e1;font-size:15px;font-weight:700;cursor:pointer">Skip</div>'
-    + '<div id="qn-save" style="flex:2;text-align:center;background:#a855f7;border-radius:12px;padding:15px;color:#fff;font-size:15px;font-weight:800;cursor:pointer">Save Note</div>'
+    + '<div id="qn-save" style="flex:2;text-align:center;background:#a855f7;border-radius:12px;padding:15px;color:#fff;font-size:15px;font-weight:800;cursor:pointer">' + (st==='callback'?'Save Callback':'Save Note') + '</div>'
     + '</div></div>';
   document.body.appendChild(ov);
   var ta = document.getElementById('qn-dynamic-text');
@@ -2670,11 +2735,17 @@ function openQuickNote(uid, st, addr) {
       if (val) notes[uid] = val; else delete notes[uid];
       localStorage.setItem('notes', JSON.stringify(notes));
     } catch(e){}
-    if (val) { try { var s = doors[uid]||st; saveDoorToCloud(uid, s, val, addr); } catch(e){} }
+    // Read the callback time (if any) and persist it locally + to the cloud reminder field
+    var rIso = null, rLocal = '';
+    var tEl = document.getElementById('qn-dynamic-time');
+    if (tEl && tEl.value) { rLocal = tEl.value; try { rIso = new Date(tEl.value).toISOString(); } catch(e){} }
+    try { var cbt = JSON.parse(localStorage.getItem('cbTime')||'{}'); if (rLocal) cbt[uid]=rLocal; else delete cbt[uid]; localStorage.setItem('cbTime', JSON.stringify(cbt)); } catch(e){}
+    if (st==='callback') { try { updateCallbackRecord(uid, val, rIso); } catch(e){} }   // updates the row (de-dupes) + sets reminder_at
+    else if (val) { try { var s = doors[uid]||st; saveDoorToCloud(uid, s, val, addr); } catch(e){} }
     ov.remove();
     try { renderList(); } catch(e){}
     try { renderCallbacks(); } catch(e){}
-    try { toast(val ? 'Note saved' : 'Note cleared'); } catch(e){}
+    try { toast(st==='callback' ? (rIso ? 'Callback set ⏰' : 'Callback saved') : (val ? 'Note saved' : 'Saved')); } catch(e){}
   };
   setTimeout(function(){ try{ta.focus();}catch(e){} }, 100);
 }
@@ -2798,11 +2869,16 @@ function openPropDetail(uid, propJson) {
   const vbtn = document.getElementById('pd-verify-btn');
   const vstat = document.getElementById('pd-verify-status');
   if (vres) { vres.style.display='none'; vres.innerHTML=''; }
-  if (vbtn) { vbtn.disabled = !p.certUrl; vbtn.textContent = p.certUrl ? '🔍 Verify EPC Now' : 'No certificate on register'; }
+  if (vbtn) { vbtn.disabled = false; vbtn.textContent = p.certUrl ? '🔍 Verify EPC Now' : '🔍 Check EPC register'; }
   if (vstat) {
-    let s = 'Live check against the official GOV.UK register';
-    if (p.validUntil) s += ' · listed cert valid until ' + p.validUntil;
-    if (p.epcExpired) s += ' · ⚠ listed certificate has EXPIRED';
+    let s;
+    if (p.certUrl) {
+      s = 'Live check against the official GOV.UK register';
+      if (p.validUntil) s += ' · listed cert valid until ' + p.validUntil;
+      if (p.epcExpired) s += ' · ⚠ listed certificate has EXPIRED';
+    } else {
+      s = 'No certificate in the data feed — but an expired or older one may still exist. Tap to open the official register and check this address before sign-up.';
+    }
     vstat.textContent = s;
   }
 
@@ -2850,7 +2926,9 @@ function confPillHTML(p) {
   const label = isMed ? 'Medium confidence' : 'Low confidence';
   const note  = isMed
     ? 'Private sale confirmed · no EPC on record · worth knocking'
-    : 'No sold data on record · ownership unverified · worth knocking';
+    : (p.inferred
+        ? 'Not in EPC or Land Registry · likely long-held owner · worth knocking'
+        : 'No sold data on record · ownership unverified · worth knocking');
   return (
     '<div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">'
     + '<span style="background:' + col + '22;color:' + col + ';border:1px solid ' + col + '55;'
@@ -2973,9 +3051,25 @@ function epcScaleHTML(curRating, curScore){
     + '</div>';
 }
 
+function openEpcRegister(pc) {
+  const up = (pc || '').toUpperCase().replace(/\s+/g, '');
+  const spaced = up.length > 3 ? up.slice(0, -3) + ' ' + up.slice(-3) : up;
+  window.open('https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode?postcode=' + encodeURIComponent(spaced), '_blank');
+}
+
 async function verifyEPC() {
   const p = curPropData;
-  if (!p || !p.certUrl) { toast('No certificate on register for this property'); return; }
+  if (!p) return;
+  // No certificate in the API feed → open the official GOV.UK register, which DOES list expired/older certs the API misses
+  if (!p.certUrl) {
+    openEpcRegister(p.postcode || curPC || '');
+    const res0 = document.getElementById('pd-verify-result');
+    if (res0) {
+      res0.style.display = 'block';
+      res0.innerHTML = '<div style="background:#0b2942;border:1px solid #3b82f6;border-radius:10px;padding:12px 14px;color:#bfdbfe;font-size:12px;line-height:1.6">Opened the official GOV.UK register for this postcode in a new tab. Find this address — if any certificate is listed (<strong>including an expired one</strong>), use that rating. A rating of <strong>A–C means it does NOT qualify</strong> for Warm Homes; D–G qualifies.</div>';
+    }
+    return;
+  }
   const btn = document.getElementById('pd-verify-btn');
   const res = document.getElementById('pd-verify-result');
   btn.disabled = true; btn.textContent = 'Checking GOV.UK register…';
@@ -3095,19 +3189,18 @@ async function openSignup() {
   }
   const pc = p.postcode || curPC || '';
   const addr = p.addr || '';
-  const url = jfURL + (jfURL.includes('?') ? '&' : '?') 
-    + 'postcode=' + encodeURIComponent(pc)
-    + '&address=' + encodeURIComponent(addr)
-    + '&epc=' + encodeURIComponent(p.rating || '?')
-    + '&tenure=' + encodeURIComponent(p.tl || '');
-  window.open(url, '_blank');
-  // Auto-mark as qualified when they sign up
-  if (curPropUID && doors[curPropUID] !== 'qualified') {
-    doors[curPropUID] = 'qualified';
-    addHistory(curPropUID, 'qualified');
-    localStorage.setItem('dr', JSON.stringify(doors));
-    toast('Marked as ⭐ Qualified');
-    renderList();
+  // Route through the deal box: capture the name (writes to the waitlist + turns the card green "Signed up"),
+  // then the Save & Open button records it and opens the external form for the rest of the details.
+  try {
+    openJF(curPropUID, pc, addr);
+  } catch(e) {
+    // Fallback: open the external form directly if the deal box isn't available
+    const url = jfURL + (jfURL.includes('?') ? '&' : '?')
+      + 'postcode=' + encodeURIComponent(pc)
+      + '&address=' + encodeURIComponent(addr)
+      + '&epc=' + encodeURIComponent(p.rating || '?')
+      + '&tenure=' + encodeURIComponent(p.tl || '');
+    window.open(url, '_blank');
   }
 }
 
@@ -3220,6 +3313,28 @@ async function saveDoorToCloud(uid, status, note, addr) {
   } catch(e) {
     queueFailedSave({ uid, status, note, addr });
   }
+}
+
+// Update THIS canvasser's latest callback row for a property with note + reminder time.
+// Updating (not inserting) keeps one row per callback and sets the reminder the backend emails on.
+async function updateCallbackRecord(uid, note, reminderIso) {
+  if (DEMO_MODE || !sb) return;
+  let userId = currentUser && currentUser.id;
+  if (!userId) { try { const { data:{ user } } = await sb.auth.getUser(); if (user) { userId = user.id; currentUser = user; } } catch(e){} }
+  if (!userId) return;
+  try {
+    const { data } = await sb.from('door_records')
+      .select('id')
+      .eq('canvasser_id', userId).eq('property_key', uid).eq('status', 'callback')
+      .or('archived.is.null,archived.eq.false')
+      .order('created_at', { ascending: false }).limit(1);
+    if (data && data[0]) {
+      await sb.from('door_records').update({ note: note || null, reminder_at: reminderIso || null, reminder_sent_at: null }).eq('id', data[0].id);
+    } else {
+      const parts = (uid || '').split('|');
+      await sb.from('door_records').insert({ property_key: uid, postcode_norm: parts[0] || '', address: '', status: 'callback', note: note || null, reminder_at: reminderIso || null, canvasser_id: userId, canvasser_name: (currentProfile && currentProfile.full_name) || '' });
+    }
+  } catch(e){}
 }
 
 // Retry queue for saves that failed (offline, session refresh, etc.)
@@ -3367,7 +3482,12 @@ async function recordDeal() {
       canvasser_id: currentUser.id,
       canvasser_name: (currentProfile && currentProfile.full_name) || ''
     });
-    if (pendingDeal.uid) { doors[pendingDeal.uid]='qualified'; localStorage.setItem('dr',JSON.stringify(doors)); }
+    if (pendingDeal.uid) {
+      doors[pendingDeal.uid]='signed';
+      localStorage.setItem('dr',JSON.stringify(doors));
+      try { addHistory(pendingDeal.uid,'signed'); } catch(e){}
+      try { saveDoorToCloud(pendingDeal.uid,'signed',null,pendingDeal.addr||''); } catch(e){}  // persist green + share with team
+    }
   } catch(e) {}
 }
 
