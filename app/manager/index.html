@@ -431,6 +431,10 @@ tbody tr:hover td{background:#fafbfd}
             <div class="tcard-head"><h3>Outcome split</h3></div>
             <div class="split-row" id="ag-split"></div>
           </div>
+          <div class="tcard">
+            <div class="tcard-head"><h3>Deals signed</h3></div>
+            <div id="ag-deals-list" class="tscroll"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -450,6 +454,7 @@ tbody tr:hover td{background:#fafbfd}
           </div>
           <select class="map-sel" id="map-rep" onchange="renderMap()"><option value="all">All reps</option></select>
           <select class="map-sel" id="dens-region" style="display:none" onchange="renderMap()"></select>
+          <select class="map-sel" id="estate-region" style="display:none" onchange="onEstateRegion()"></select>
           <span class="map-sel" id="live-ind" title="Canvassers sharing location now"><span class="dot"></span>Live <b id="live-count">0</b></span>
           <input type="date" class="map-sel" id="assign-date" style="display:none" onchange="renderMap()">
           <button class="draw-btn" id="draw-btn" style="display:none" onclick="armDraw()">✏️ Draw patch</button>
@@ -801,6 +806,21 @@ function renderAgent(){
   document.getElementById('ag-avg').textContent=(doors.length/days).toFixed(1);
   document.getElementById('ag-deals').textContent=deals.length;
 
+  // Deals list for this canvasser — what they actually signed, not just the count
+  (function(){
+    const dl=document.getElementById('ag-deals-list'); if(!dl) return;
+    const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    if(!deals.length){ dl.innerHTML='<div class="cap" style="padding:10px 2px">No deals in this range.</div>'; return; }
+    dl.innerHTML=deals.slice().sort((a,b)=>new Date(b.signed_at||b.created_at)-new Date(a.signed_at||a.created_at)).map(d=>{
+      const dt=new Date(d.signed_at||d.created_at);
+      const when=dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      const addr=escH(d.address||d.postcode_norm||'—');
+      const nm=d.customer_name?' · <span style="color:var(--slate3)">'+escH(d.customer_name)+'</span>':'';
+      const epc=d.epc_rating?' <span class="badge b-blue" style="margin-left:4px">'+escH(d.epc_rating)+'</span>':'';
+      return '<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)"><div style="min-width:0"><div class="deal-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+addr+nm+'</div><div class="cap">'+escH(d.postcode_norm||'')+epc+'</div></div><div class="cap" style="white-space:nowrap">'+when+'</div></div>';
+    }).join('');
+  })();
+
   // Daily chart — last up-to-14 day buckets in range
   const byDay={};
   doors.forEach(d=>{const k=new Date(d.created_at).toDateString();byDay[k]=(byDay[k]||0)+1});
@@ -933,9 +953,11 @@ function setMapMode(m){
   document.getElementById('mode-assign').classList.toggle('active',m==='assign');
   var _md=document.getElementById('mode-density'); if(_md)_md.classList.toggle('active',m==='density');
   var _dr=document.getElementById('dens-region'); if(_dr)_dr.style.display=m==='density'?'':'none';
+  var _er=document.getElementById('estate-region'); if(_er)_er.style.display=(m==='worked'||m==='assign')?'':'none';
   var _dw=document.getElementById('dens-wrap'); if(_dw)_dw.style.display=m==='density'?'':'none';
   var _dc=document.getElementById('district-chips'); if(_dc)_dc.style.display=m==='density'?'none':'';
-  document.getElementById('work-window').style.display=m==='worked'?'':'none';
+  document.getElementById('work-window').style.display='none';
+  if(m!=='worked'&&m!=='assign'){ if(typeof ESTATE_LAYER!=='undefined'&&ESTATE_LAYER){ESTATE_LAYER.remove();ESTATE_LAYER=null;} if(MAP)MAP._estateReady=false; }
   document.getElementById('archived-wrap').style.display=m==='outcomes'?'':'none';
   document.getElementById('assign-date').style.display=m==='assign'?'':'none';
   document.getElementById('draw-btn').style.display=m==='assign'?'':'none';
@@ -959,6 +981,9 @@ function ensureMap(){
   carto.addTo(MAP);
   window.addEventListener('resize',()=>MAP&&MAP.invalidateSize());
   bindDrawEvents();
+  ESTATE_CANVAS=L.canvas({padding:0.4});
+  let _reT=null;
+  MAP.on('moveend zoomend',()=>{ if(MAP._estateReady&&(MAP_MODE==='worked'||MAP_MODE==='assign')){ clearTimeout(_reT); _reT=setTimeout(renderEstate,80); } });
   startLivePolling();
 }
 let DENSITY=null, DENS_LAYER=null;
@@ -999,10 +1024,127 @@ async function renderDensity(){
   }
 }
 
+/* ════════════════════ ELIGIBLE ESTATE LAYER (Worked vs Fresh + Assign) ════════════════════ */
+const SOUTH_REGIONS=['bristol_west','essex_east','hampshire_iow','london','midlands_south','south_west','sussex_kent','thames_valley'];
+let ESTATE={}, ESTATE_DIST={}, REGION_INDEX=null;
+let ESTATE_LAYER=null, ESTATE_CANVAS=null, ESTATE_REGION=null;
+let WORKED_PC=new Set(), ASSIGN_PC={};
+const EST_GREY='#c2cedd', EST_BLACK='#0a1322', EST_ZOOM=12, EST_CAP=6000;
+
+async function loadRegionIndex(){
+  if(REGION_INDEX) return REGION_INDEX;
+  try{ const r=await fetch('/app/regions/_index.json'); REGION_INDEX=await r.json(); }
+  catch(e){ REGION_INDEX={}; }
+  return REGION_INDEX;
+}
+async function loadEstate(region){
+  if(ESTATE[region]) return ESTATE[region];
+  let raw={};
+  try{
+    if(SOUTH_REGIONS.includes(region)){
+      const r=await fetch('/coords/'+region+'.json'); raw=await r.json();
+    } else {
+      const r=await fetch('/app/regions/'+region+'.json'); const j=await r.json();
+      const cents=j.cents||{};
+      (j.keys||[]).forEach(pc=>{ const k=(pc||'').replace(/\s/g,'').toUpperCase(); const c=cents[outwardOf(k)]; if(c) raw[k]=c; });
+    }
+  }catch(e){ raw={}; }
+  const map={};
+  for(const pc in raw){ if(Array.isArray(raw[pc])) map[pc.replace(/\s/g,'').toUpperCase()]=raw[pc]; }
+  ESTATE[region]=map;
+  // district groups (for zoomed-out bubbles)
+  const dist={};
+  for(const pc in map){ const oc=outwardOf(pc); const d=dist[oc]||(dist[oc]={pcs:[],sl:0,sg:0}); d.pcs.push(pc); d.sl+=map[pc][0]; d.sg+=map[pc][1]; }
+  for(const oc in dist){ const d=dist[oc]; d.c=[d.sl/d.pcs.length,d.sg/d.pcs.length]; d.elig=d.pcs.length; }
+  ESTATE_DIST[region]=dist;
+  return map;
+}
+function curRegion(){ const s=document.getElementById('estate-region'); return (s&&s.value)||ESTATE_REGION||'hampshire_iow'; }
+function computeWorked(){ WORKED_PC=new Set(); (ALL_DOORS||[]).forEach(d=>{ if(!d.archived&&d.postcode_norm) WORKED_PC.add(d.postcode_norm.replace(/\s/g,'').toUpperCase()); }); }
+function computeAssignPC(){ ASSIGN_PC={}; (ASSIGNMENTS||[]).forEach(a=>{ (a.postcode_norms||[]).forEach(pc=>{ ASSIGN_PC[(pc||'').replace(/\s/g,'').toUpperCase()]={id:a.assigned_to,name:a.assigned_to_name}; }); }); }
+function mixGreyBlack(t){ const a=[0xc2,0xce,0xdd],b=[0x0a,0x13,0x22]; t=Math.min(1,Math.max(0,t)); const c=a.map((x,i)=>Math.round(x+(b[i]-x)*t)); return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }
+async function defaultRegion(){
+  await loadRegionIndex();
+  const cnt={};
+  (ALL_DOORS||[]).forEach(d=>{ if(d.archived||!d.postcode_norm) return; const rs=REGION_INDEX[outwardOf(d.postcode_norm)]; if(rs&&rs[0]) cnt[rs[0]]=(cnt[rs[0]]||0)+1; });
+  let best=null,bn=-1; for(const r in cnt){ if(cnt[r]>bn){bn=cnt[r];best=r;} }
+  return best||'hampshire_iow';
+}
+function onEstateRegion(){ ESTATE_REGION=null; renderEstateMap(); }
+
+async function renderEstateMap(){
+  ensureMap();
+  if(MAP_LAYER){MAP_LAYER.remove();MAP_LAYER=null;}
+  computeWorked();
+  const sel=document.getElementById('estate-region');
+  if(!sel.options.length) sel.innerHTML=REGION_DEFS.map(d=>`<option value="${d[0]}">${d[1]}</option>`).join('');
+  if(!sel.value) sel.value=await defaultRegion();
+  const region=sel.value;
+  const est=await loadEstate(region);
+  let worked=0; for(const pc in est){ if(WORKED_PC.has(pc)) worked++; }
+  const total=Object.keys(est).length, fresh=total-worked;
+  let legend;
+  if(!total){ legend=`<span class="ml-item" style="color:var(--slate3)">No eligible-postcode data found for this region — check /coords or /app/regions is deployed.</span>`; }
+  else { legend=`<span class="ml-item"><span class="ml-dot" style="background:${EST_BLACK}"></span>Worked (${worked.toLocaleString()})</span>
+    <span class="ml-item"><span class="ml-dot" style="background:${EST_GREY}"></span>Not yet worked (${fresh.toLocaleString()})</span>`; }
+  if(MAP_MODE==='assign'){
+    await loadAssignments(); computeAssignPC();
+    legend+=`<span class="ml-item" style="color:var(--slate3)">Hit <b>✏️ Draw patch</b>, then drag a box over the streets to allocate to a rep</span>`;
+  }
+  document.getElementById('map-legend').innerHTML=legend;
+  if(ESTATE_REGION!==region){
+    ESTATE_REGION=region;
+    const cs=Object.values(est);
+    if(cs.length) MAP.fitBounds(L.latLngBounds(cs).pad(0.05));
+    else MAP.setView([52.6,-1.5],7);
+  }
+  MAP._estateReady=true;
+  renderEstate();
+  if(MAP_MODE==='assign'){ drawAssignmentRects(); renderPatchList(); }
+  else if(ASSIGN_LAYER){ ASSIGN_LAYER.remove(); ASSIGN_LAYER=null; }
+  [60,350,900].forEach(t=>setTimeout(()=>MAP&&MAP.invalidateSize(),t));
+}
+
+function renderEstate(){
+  if(!MAP||typeof L==='undefined') return;
+  const region=curRegion(), est=ESTATE[region]; if(!est) return;
+  if(ESTATE_LAYER) ESTATE_LAYER.remove();
+  ESTATE_LAYER=L.layerGroup().addTo(MAP);
+  if(DENS_LAYER){DENS_LAYER.remove();DENS_LAYER=null;}
+  const assign=MAP_MODE==='assign';
+  const zoom=MAP.getZoom(), bounds=MAP.getBounds().pad(0.25);
+  const inB=[]; for(const pc in est){ if(bounds.contains(est[pc])) inB.push(pc); }
+  if(zoom<EST_ZOOM || inB.length>EST_CAP){
+    // zoomed out → one bubble per district
+    const dist=ESTATE_DIST[region]||{};
+    Object.keys(dist).forEach(oc=>{
+      const d=dist[oc]; if(zoom>=EST_ZOOM && !bounds.contains(d.c)) return;
+      let w=0; for(const pc of d.pcs){ if(WORKED_PC.has(pc)) w++; }
+      const fill=assign?'#8094ad':mixGreyBlack(d.elig?w/d.elig:0);
+      L.circleMarker(d.c,{radius:Math.min(34,6+Math.sqrt(d.elig)*1.6),color:'#fff',weight:1,fillColor:fill,fillOpacity:.8,renderer:ESTATE_CANVAS})
+        .bindPopup(`<b>${oc}</b><br><span style="font-size:.8rem">${w.toLocaleString()} of ${d.elig.toLocaleString()} eligible postcodes worked</span><br><span style="font-size:.72rem;color:#888">Zoom in to see / assign individual postcodes</span>`)
+        .addTo(ESTATE_LAYER);
+    });
+    return;
+  }
+  // zoomed in → individual postcodes
+  inB.forEach(pc=>{
+    let fill;
+    if(assign){ const a=ASSIGN_PC[pc]; fill=a?repColor(a.id):(WORKED_PC.has(pc)?'#9aa7b8':EST_GREY); }
+    else fill=WORKED_PC.has(pc)?EST_BLACK:EST_GREY;
+    const m=L.circleMarker(est[pc],{radius:5,color:'#fff',weight:1,fillColor:fill,fillOpacity:.92,renderer:ESTATE_CANVAS});
+    if(assign&&ASSIGN_PC[pc]) m.bindPopup(`<b>${pc}</b><br><span style="font-size:.78rem">Assigned to <b>${ASSIGN_PC[pc].name||'—'}</b></span>`);
+    else m.bindPopup(`<b>${pc}</b><br><span style="font-size:.78rem">${WORKED_PC.has(pc)?'Worked':'Not yet worked'}</span>`);
+    m.addTo(ESTATE_LAYER);
+  });
+}
+
 async function renderMap(){
   renderDistricts();
   populateRepFilter();
   if(MAP_MODE==='density'){ await renderDensity(); return; }
+  if(MAP_MODE==='worked'||MAP_MODE==='assign'){ await renderEstateMap(); return; }
+  if(ESTATE_LAYER){ESTATE_LAYER.remove();ESTATE_LAYER=null;} if(MAP)MAP._estateReady=false;
   const rep=document.getElementById('map-rep').value;
   let doors, legend;
 
@@ -1201,11 +1343,12 @@ function bindDrawEvents(){
 function openAssignPanel(bounds){
   disarmDraw();
   PENDING={bounds:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()}};
-  const inside=ASSIGN_PTS.filter(d=>bounds.contains([d.lat,d.lng]));
-  PENDING.door_count=inside.length;
-  PENDING.postcode_norms=[...new Set(inside.map(d=>(d.postcode_norm||'').replace(/\s/g,'').toUpperCase()).filter(Boolean))];
+  const est=ESTATE[curRegion()]||{};
+  const pcs=[]; for(const pc in est){ if(bounds.contains(est[pc])) pcs.push(pc); }
+  PENDING.postcode_norms=[...new Set(pcs)];
+  PENDING.door_count=PENDING.postcode_norms.length;
   PENDING_RECT=DRAW_RECT; DRAW_RECT=null;
-  document.getElementById('assign-count').textContent=`${inside.length} known door${inside.length===1?'':'s'} in this patch`;
+  document.getElementById('assign-count').textContent=`${PENDING.postcode_norms.length} eligible postcode${PENDING.postcode_norms.length===1?'':'s'} in this patch`;
   const sel=document.getElementById('assign-rep');
   sel.innerHTML=MEMBERS.filter(m=>m.active!==false).map(m=>`<option value="${m.id}">${m.full_name}${m.role==='manager'?' (manager)':''}</option>`).join('');
   document.getElementById('assign-label').value='';
@@ -1243,6 +1386,7 @@ async function confirmAssign(){
   }
   cancelAssign();
   await loadAssignments();
+  computeAssignPC(); renderEstate();
   drawAssignmentRects();
   renderPatchList();
 }
@@ -1255,6 +1399,7 @@ async function deleteAssignment(id){
       headers:{'apikey':KEY,'Authorization':`Bearer ${SESSION.access_token}`}});
   }
   await loadAssignments();
+  computeAssignPC(); renderEstate();
   drawAssignmentRects();
   renderPatchList();
 }
