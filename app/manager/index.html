@@ -100,6 +100,7 @@ tbody tr:hover td{background:#fafbfd}
 .rc-out b{font-family:'DM Sans',sans-serif;font-size:1.05rem;font-weight:700;display:block;line-height:1}
 .rc-out span{font-size:.59rem;color:var(--slate3);display:block;margin-top:2px}
 .rc-out.q b{color:var(--green-deep)}.rc-out.c b{color:var(--amber)}.rc-out.n b{color:var(--slate2)}.rc-out.x b{color:var(--red)}
+.rc-out.d{background:#eafaf0;border-color:#bfe8cf}.rc-out.d b{color:var(--green-deep)}.rc-out.d span{color:var(--green-deep);font-weight:700}
 /* ── SIDE ── */
 .side-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(10,20,40,.04)}
 .side-card h3{font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;margin-bottom:14px;letter-spacing:-.02em}
@@ -677,13 +678,14 @@ function renderRepTable(reps,tableId,cardsId){
       <td><span class="rate">${r.total?((r.q/r.total)*100).toFixed(0):0}%</span></td>
       <td><span class="chev">›</span></td>
     </tr>`).join('')}</tbody></table>`;
+  const _deals=dealsInRange();const dealsBy={};_deals.forEach(d=>{dealsBy[d.canvasser_id]=(dealsBy[d.canvasser_id]||0)+1});
   cw.innerHTML=reps.map(r=>`<div class="rep-card" onclick="openAgent('${r.id}')">
     <div class="rc-top"><span class="rc-name">${r.name}</span><span class="rc-time">${fmtTime(r.last)}</span></div>
     <div class="rc-bar"><span class="rc-bar-label">Doors</span><div class="bar-bg"><div class="bar-fill" style="width:${r.total/max*100}%"></div></div><span class="bar-num">${r.total}</span></div>
     <div class="rc-outs">
+      <div class="rc-out d"><b>${dealsBy[r.id]||0}</b><span>Deals</span></div>
       <div class="rc-out q"><b>${r.q}</b><span>Qualified</span></div>
       <div class="rc-out c"><b>${r.c}</b><span>Callback</span></div>
-      <div class="rc-out n"><b>${r.n}</b><span>No answer</span></div>
       <div class="rc-out x"><b>${r.x}</b><span>Not suitable</span></div>
     </div>
   </div>`).join('');
