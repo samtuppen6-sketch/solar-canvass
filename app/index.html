@@ -2291,57 +2291,81 @@ async function loadPC(pc) {
   // filtered off the eligible list (e.g. an ineligible C) and all Land Registry houses — so a filtered/known
   // house is never re-listed as a phantom "no data" gap.
   (function inferGaps(){
-    const nums=[]; const streets={}; const haveKeys=new Set();
-    const badStreets=new Set();   // "street" tokens that are really named flat-blocks — never gap-fill these
+    // ── Gap-fill: infer likely long-held-owner HOUSES whose numbers fall inside a
+    //    street's known range but appear in neither EPC nor Land Registry (sold pre-1995,
+    //    never needed an EPC). Listed low-confidence — worth a knock.
+    //
+    //    A block of flats must NEVER be gap-filled — every unit is the same flatted,
+    //    ineligible stock. We classify each address-group ("street" / building token) by
+    //    the property types of the units we DO have data for:
+    //       • any known unit is a flat  → whole block = flats   → suppress
+    //       • a known unit is a house   → whole block = houses  → gap-fill runs
+    //       • no type to read at all    → fall back to a building-name list
+    //    So a cul-de-sac called "… Court" that is really houses still gap-fills (its
+    //    EPCs are house-typed), while "Cumberland House" / "Beech Court" flats are
+    //    suppressed off a single flat-typed sibling. Each group is filled off its OWN
+    //    number range — no mixing ranges across different streets in one postcode.
+    const groups = {};          // key -> { raw, nums:Set, hasFlat, hasHouse, nameBuilding }
+    const haveKeys = new Set();
 
-    // A token like "Cumberland House" is a building name, not a thoroughfare.
-    function looksLikeBuilding(raw){
+    function isFlatType(t){ return /flat|maisonette|apartment|bedsit|studio/i.test(String(t||'')); }
+    // Building/flat-block name — only consulted when we have NO property type to go on.
+    function nameLooksLikeBlock(raw){
       if(!raw) return false;
       if(/\b(?:flats?|apartments?|apts?|maisonettes?|bedsits?|studios?)\b/i.test(raw)) return true;
-      // building-block suffix (low collision with real residential street names)
       if(/\b(?:house|lodge|mansions?|heights|apartments?|wharf|quay|towers?|court|point)\s*$/i.test(raw)) return true;
       return false;
     }
-    function isFlatType(t){ return /flat|maisonette|apartment|bedsit|studio/i.test(String(t||'')); }
 
     function note(a, propType){
       if(!a) return;
       const m=a.match(/^(\d+)[,\s]+(.+)$/);
       if(!m) return;
+      const n=parseInt(m[1],10);
       const raw=m[2].replace(/,.*$/,'').trim();
       const k=raw.toLowerCase();
-      haveKeys.add(dedupKey(a));                 // remember we know this door either way
-      // Do NOT let a flat / named-building address seed a street-number range:
-      // its "number" is a flat index and its "street" is a building name. (Fixes
-      // e.g. "5 Cumberland House" being read as no.5 on a street called Cumberland House.)
-      if(isFlatType(propType) || looksLikeBuilding(raw)){ if(k) badStreets.add(k); return; }
-      nums.push(parseInt(m[1],10));
-      if(raw){ (streets[k]||(streets[k]={n:0,raw:raw})).n++; }
+      haveKeys.add(dedupKey(a));                       // remember every door we already know
+      if(!k) return;
+      const g = groups[k] || (groups[k] = { raw:raw, nums:new Set(), hasFlat:false, hasHouse:false, nameBuilding:nameLooksLikeBlock(raw) });
+      g.nums.add(n);
+      const flat = isFlatType(propType) || /\bflat\b|\bapartment\b|\bapt\b|\bmaisonette\b/i.test(a);
+      if(flat) g.hasFlat = true;
+      else if(propType) g.hasHouse = true;             // a real, non-flat type we can trust
     }
-    for (const p of deduped) note(p.addr, p.propType);                                        // eligible list
+
+    for (const p of deduped) note(p.addr, p.propType);                                        // eligible D–G houses
     for (const r of rows) note([r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||'', r['property-type']||''); // ALL EPC certs (any band)
-    for (const h of lrHouses) note(lrAddr(h), h.property_type||'');                           // ALL Land Registry houses
-    if (nums.length<4) return;                       // too little to infer a reliable range
-    let street='', best=0;
-    for (const k in streets){ if(badStreets.has(k)) continue; if(streets[k].n>best){best=streets[k].n;street=streets[k].raw;} }
-    if (!street) return;
-    const min=Math.min.apply(null,nums), max=Math.max.apply(null,nums);
-    if (max-min>200) return;                          // sanity cap on street length
-    const oddCount=nums.filter(n=>n%2===1).length, evenCount=nums.length-oddCount;
-    const fillOdd=oddCount>=2, fillEven=evenCount>=2; // only fill a side that's actually represented
-    if(!fillOdd && !fillEven) return;
-    const known=new Set(nums);
+    for (const h of lrHouses) note(lrAddr(h), h.property_type||'');                           // ALL Land Registry houses (no flats in the import)
+
+    // Decide each group, then gap-fill the allowed ones individually.
     let added=0;
-    for (let n=min+1; n<max; n++){
-      if (known.has(n)) continue;
-      if (n%2===1 ? !fillOdd : !fillEven) continue;
-      const addr=n+' '+street;
-      if (haveKeys.has(dedupKey(addr))) continue;
-      deduped.push({ rating:'NE', tt:'unknown', tl:'No record — likely long-held owner',
-        addr:addr, postcode:pc, propType:'House', builtForm:'', lastSold:null,
-        noEpc:true, confidence:'low', inferred:true });
-      added++;
-      if (added>=120) break;                          // hard cap to avoid runaway lists
+    for (const k in groups){
+      const g = groups[k];
+      let suppress;
+      if (g.hasFlat) suppress = true;                  // flats in the block → never gap-fill
+      else if (g.hasHouse) suppress = false;           // known houses → gap-fill runs (covers houses-"Court")
+      else suppress = g.nameBuilding;                  // no type to read → fall back to the name list
+      if (suppress) continue;
+
+      const nums = Array.from(g.nums);
+      if (nums.length < 4) continue;                   // too little to infer a reliable range
+      const min=Math.min.apply(null,nums), max=Math.max.apply(null,nums);
+      if (max-min > 200) continue;                     // sanity cap on street length
+      const oddCount=nums.filter(n=>n%2===1).length, evenCount=nums.length-oddCount;
+      const fillOdd=oddCount>=2, fillEven=evenCount>=2;// only fill a side that's actually represented
+      if(!fillOdd && !fillEven) continue;
+      const known=new Set(nums);
+      for (let n=min+1; n<max; n++){
+        if (known.has(n)) continue;
+        if (n%2===1 ? !fillOdd : !fillEven) continue;
+        const addr=n+' '+g.raw;
+        if (haveKeys.has(dedupKey(addr))) continue;
+        deduped.push({ rating:'NE', tt:'unknown', tl:'No record — likely long-held owner',
+          addr:addr, postcode:pc, propType:'House', builtForm:'', lastSold:null,
+          noEpc:true, confidence:'low', inferred:true });
+        if (++added>=120) break;                       // hard cap to avoid runaway lists
+      }
+      if (added>=120) break;
     }
   })();
   combined = sortStreetOrder(deduped);
