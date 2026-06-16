@@ -668,10 +668,12 @@ function renderRepTable(reps,tableId,cardsId){
   const tw=document.getElementById(tableId), cw=document.getElementById(cardsId);
   if(!reps.length){tw.innerHTML='<div class="empty">No activity in this period.</div>';cw.innerHTML='';return}
   const max=Math.max(...reps.map(r=>r.total),1);
-  tw.innerHTML=`<table><thead><tr><th>Rep</th><th>Doors</th><th>Qualified</th><th>Callback</th><th>No answer</th><th>Not suitable</th><th>Conv.</th><th></th></tr></thead><tbody>${
+  const _deals=dealsInRange();const dealsBy={};_deals.forEach(d=>{dealsBy[d.canvasser_id]=(dealsBy[d.canvasser_id]||0)+1});
+  tw.innerHTML=`<table><thead><tr><th>Rep</th><th>Doors</th><th>Deals</th><th>Qualified</th><th>Callback</th><th>No answer</th><th>Not suitable</th><th>Conv.</th><th></th></tr></thead><tbody>${
     reps.map(r=>`<tr onclick="openAgent('${r.id}')">
       <td><div class="rep-name">${r.name}</div><div class="rep-meta">Last active ${fmtTime(r.last)}</div></td>
       <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${r.total/max*100}%"></div></div><span class="bar-num">${r.total}</span></div></td>
+      <td><span class="badge b-green" style="font-weight:800">${dealsBy[r.id]||0}</span></td>
       <td><span class="badge b-green">${r.q}</span></td>
       <td><span class="badge b-amber">${r.c}</span></td>
       <td><span class="badge b-grey">${r.n}</span></td>
@@ -679,7 +681,6 @@ function renderRepTable(reps,tableId,cardsId){
       <td><span class="rate">${r.total?((r.q/r.total)*100).toFixed(0):0}%</span></td>
       <td><span class="chev">›</span></td>
     </tr>`).join('')}</tbody></table>`;
-  const _deals=dealsInRange();const dealsBy={};_deals.forEach(d=>{dealsBy[d.canvasser_id]=(dealsBy[d.canvasser_id]||0)+1});
   cw.innerHTML=reps.map(r=>`<div class="rep-card" onclick="openAgent('${r.id}')">
     <div class="rc-top"><span class="rc-name">${r.name}</span><span class="rc-time">${fmtTime(r.last)}</span></div>
     <div class="rc-bar"><span class="rc-bar-label">Doors</span><div class="bar-bg"><div class="bar-fill" style="width:${r.total/max*100}%"></div></div><span class="bar-num">${r.total}</span></div>
