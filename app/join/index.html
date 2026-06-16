@@ -54,7 +54,10 @@ input[readonly]{color:var(--slate);background:#0a1018}
     <label>YOUR NAME</label>
     <input id="name" type="text" placeholder="First and last name" autocomplete="name">
     <label>CREATE A PASSWORD</label>
-    <input id="pass" type="password" placeholder="At least 8 characters" autocomplete="new-password">
+    <div style="position:relative;margin-bottom:14px">
+      <input id="pass" type="password" placeholder="At least 8 characters" autocomplete="new-password" style="margin-bottom:0;padding-right:44px">
+      <button type="button" id="pass-eye" onclick="togglePass()" aria-label="Show password" style="position:absolute;top:0;right:0;height:100%;width:44px;background:none;border:none;cursor:pointer;font-size:16px;color:#5a6a82;display:flex;align-items:center;justify-content:center">👁</button>
+    </div>
     <button class="btn" id="submit" onclick="accept()">Create account &amp; join &rarr;</button>
     <div class="msg" id="form-msg"></div>
   </div>
@@ -73,6 +76,13 @@ const SUPA='https://xdoqclrwdduncjaxtixp.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkb3FjbHJ3ZGR1bmNqYXh0aXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjkyNjMsImV4cCI6MjA5NjYwNTI2M30.vLCzN7-eNJh32tvy0zySDGX5bp6X1v9WlST59BSmIkk';
 const TOKEN=new URLSearchParams(location.search).get('token')||'';
 function show(id){document.querySelectorAll('.state').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');}
+function togglePass(){
+  const i=document.getElementById('pass'); const b=document.getElementById('pass-eye');
+  const showing = i.type==='password';
+  i.type = showing ? 'text' : 'password';
+  b.textContent = showing ? '🙈' : '👁';
+  b.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
+}
 function fn(action,extra){return fetch(`${SUPA}/functions/v1/invites`,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify({action,token:TOKEN,...extra})});}
 
 async function load(){
