@@ -1051,33 +1051,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
       Have an access token? <span onclick="document.getElementById('token-section').style.display=document.getElementById('token-section').style.display==='none'?'block':'none'" style="color:#6366f1;cursor:pointer;font-weight:700">Enter it here</span>
     </div>
 
-    <!-- PRICING -->
-    <div style="width:100%;max-width:400px;margin-top:20px">
-      <div style="text-align:center;font-size:12px;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.1em">Access Passes</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-
-        <a href="https://buy.stripe.com/7sY3cx4Iydn0czD3UIfAc00" target="_blank"
-          style="background:#0f172a;border:1px solid #1f2d45;border-radius:14px;padding:16px 12px;text-decoration:none;text-align:center;display:block">
-          <div style="font-size:11px;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em">Day Pass</div>
-          <div style="font-size:32px;font-weight:800;color:#f59e0b;line-height:1">£10</div>
-          <div style="font-size:11px;color:#64748b;margin-top:4px">1 day access</div>
-          <div style="margin-top:10px;background:#f59e0b;border-radius:8px;padding:7px;color:#000;font-size:12px;font-weight:800">Pay now →</div>
-        </a>
-
-        <a href="https://buy.stripe.com/bJeaEZdf46YC2Z38aYfAc01" target="_blank"
-          style="background:#0f172a;border:1px solid #10b981;border-radius:14px;padding:16px 12px;text-decoration:none;text-align:center;display:block;position:relative">
-          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#10b981;color:#000;font-size:10px;font-weight:800;padding:3px 10px;border-radius:10px;white-space:nowrap">BEST VALUE</div>
-          <div style="font-size:11px;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em">Week Pass</div>
-          <div style="font-size:32px;font-weight:800;color:#f59e0b;line-height:1">£50</div>
-          <div style="font-size:11px;color:#64748b;margin-top:4px">7 days access</div>
-          <div style="margin-top:10px;background:#10b981;border-radius:8px;padding:7px;color:#000;font-size:12px;font-weight:800">Pay now →</div>
-        </a>
-
-      </div>
-      <div style="text-align:center;font-size:11px;color:#475569;margin-top:12px">
-        After paying, create your account below and your manager will activate it.
-      </div>
-    </div>
+    <!-- PRICING block removed — passes now live on the unified payment page -->
 
   </div>
 </div>
@@ -2318,21 +2292,38 @@ async function loadPC(pc) {
   // house is never re-listed as a phantom "no data" gap.
   (function inferGaps(){
     const nums=[]; const streets={}; const haveKeys=new Set();
-    function note(a){
+    const badStreets=new Set();   // "street" tokens that are really named flat-blocks — never gap-fill these
+
+    // A token like "Cumberland House" is a building name, not a thoroughfare.
+    function looksLikeBuilding(raw){
+      if(!raw) return false;
+      if(/\b(?:flats?|apartments?|apts?|maisonettes?|bedsits?|studios?)\b/i.test(raw)) return true;
+      // building-block suffix (low collision with real residential street names)
+      if(/\b(?:house|lodge|mansions?|heights|apartments?|wharf|quay|towers?|court|point)\s*$/i.test(raw)) return true;
+      return false;
+    }
+    function isFlatType(t){ return /flat|maisonette|apartment|bedsit|studio/i.test(String(t||'')); }
+
+    function note(a, propType){
       if(!a) return;
       const m=a.match(/^(\d+)[,\s]+(.+)$/);
       if(!m) return;
-      nums.push(parseInt(m[1],10));
       const raw=m[2].replace(/,.*$/,'').trim();
-      if(raw){ const k=raw.toLowerCase(); (streets[k]||(streets[k]={n:0,raw:raw})).n++; }
-      haveKeys.add(dedupKey(a));
+      const k=raw.toLowerCase();
+      haveKeys.add(dedupKey(a));                 // remember we know this door either way
+      // Do NOT let a flat / named-building address seed a street-number range:
+      // its "number" is a flat index and its "street" is a building name. (Fixes
+      // e.g. "5 Cumberland House" being read as no.5 on a street called Cumberland House.)
+      if(isFlatType(propType) || looksLikeBuilding(raw)){ if(k) badStreets.add(k); return; }
+      nums.push(parseInt(m[1],10));
+      if(raw){ (streets[k]||(streets[k]={n:0,raw:raw})).n++; }
     }
-    for (const p of deduped) note(p.addr);                                                   // eligible list
-    for (const r of rows) note([r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||''); // ALL EPC certs (any band)
-    for (const h of lrHouses) note(lrAddr(h));                                                // ALL Land Registry houses
+    for (const p of deduped) note(p.addr, p.propType);                                        // eligible list
+    for (const r of rows) note([r.address1||'',r.address2||'',r.address3||''].filter(Boolean).join(', ')||r.address||'', r['property-type']||''); // ALL EPC certs (any band)
+    for (const h of lrHouses) note(lrAddr(h), h.property_type||'');                           // ALL Land Registry houses
     if (nums.length<4) return;                       // too little to infer a reliable range
     let street='', best=0;
-    for (const k in streets){ if(streets[k].n>best){best=streets[k].n;street=streets[k].raw;} }
+    for (const k in streets){ if(badStreets.has(k)) continue; if(streets[k].n>best){best=streets[k].n;street=streets[k].raw;} }
     if (!street) return;
     const min=Math.min.apply(null,nums), max=Math.max.apply(null,nums);
     if (max-min>200) return;                          // sanity cap on street length
