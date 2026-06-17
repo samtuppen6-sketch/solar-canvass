@@ -1629,7 +1629,7 @@ async function sendInvite(){
 }
 function exitDemo(){try{localStorage.removeItem('solpath-demo');}catch(e){}location='/app/manager';}
 
-function signOut(){localStorage.removeItem('sb-session');location='/app/login'}
+function signOut(){localStorage.removeItem('sb-session');location='/app/'}
 
 /* ════════════════════ INIT ════════════════════ */
 async function init(){
@@ -1652,7 +1652,7 @@ async function init(){
     return;
   }
   const raw=localStorage.getItem('sb-session');
-  if(!raw){location='/app/login?next=/app/manager';return}
+  if(!raw){location='/app/';return}
   SESSION=JSON.parse(raw);
   const profiles=await api(`/rest/v1/profiles?id=eq.${SESSION.user.id}&select=*`);
   PROFILE=profiles[0];
