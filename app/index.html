@@ -2092,22 +2092,13 @@ async function locate(silent=false) {
   const b1=document.getElementById('btn-l'), b2=document.getElementById('fab');
   if (!silent) { b1.textContent='⏳'; b2.textContent='⏳'; }
   if (!navigator.geolocation) { if(!silent) toast('Location not supported'); resetL(); return; }
-  navigator.geolocation.getCurrentPosition(async pos => {
+  navigator.geolocation.getCurrentPosition(pos => {
     resetL();
     const {latitude:lat, longitude:lng} = pos.coords;
     if (gpsMk) gpsMk.remove();
     gpsMk = L.circleMarker([lat,lng], {radius:12, fillColor:'#f59e0b', color:'#fff', weight:2.5, fillOpacity:1, zIndexOffset:1000}).addTo(map);
     map.setView([lat,lng], 16); hideHint();
-    try {
-      const r = await fetch('https://api.postcodes.io/postcodes?lon='+lng+'&lat='+lat+'&limit=1');
-      const d = await r.json();
-      if (d.result?.[0]) {
-        const pc = d.result[0].postcode;
-        document.getElementById('in-pc').value = pc;
-        if (isE(pc)) { showBar(pc,true,lsoa(pc)); loadPC(pc); }
-        else if (!silent) toast(pc+' — not in eligible area for '+curRegion.name);
-      }
-    } catch(e) { if (!silent) toast('Could not get postcode'); }
+    // Option A: drop the GPS dot + centre the map only. No reverse-geocode, no postcode fill, no auto-load of the local walk list.
   }, err => {
     resetL();
     if (!silent) {
@@ -2550,9 +2541,16 @@ function pCard(i,p,nc) {
     lastActionLine+='</div>';
   }
   const noteLine=notesTxt?'<div style="margin-top:6px;padding:8px 10px;background:#1e1b4b;border:1px solid #4c1d95;border-radius:9px;font-size:12px;color:#c4b5fd">📝 '+notesTxt+'</div>':'';
+  const expChip = (!p.noEpc && p.validUntil) ? (function(){
+    let label = p.validUntil;
+    const dt = new Date(p.validUntil);
+    if (!isNaN(dt.getTime())) label = dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    const exp = !!p.epcExpired;
+    return '<span style="color:'+(exp?'#ef4444':'#64748b')+';font-size:11px">'+(exp?'⚠ EPC expired ':'EPC valid to ')+label+'</span>';
+  })() : '';
   const jb='<div class="db2 dJ" onclick="event.stopPropagation();openJF(\''+esc(uid)+'\',\''+esc(curPC||'')+'\',\''+esc(p.addr||'')+'\')">✍️ Sign Up</div>';
   storeProp(uid,p); return '<div class="pc2'+(st==='signed'?' pc2-signed':'')+'" data-uid="'+esc(uid)+'" style="cursor:pointer"><div class="pc2-t"><div class="pc2-aw"><div class="pc2-n">#'+(i+1)+'</div><div class="pc2-a">'+p.addr+'</div></div><div class="'+ec+'">'+(p.rating==='NE'?'No EPC':(p.rating==='?'?'?':p.rating+(p.epcPoints?' '+p.epcPoints:'')))+'</div></div>'
-    +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold&&!p.noEpc?'<span style="color:#64748b;font-size:11px">Sold '+p.lastSold+'</span>':'')+'</div>'
+    +'<div class="pc2-m"><span class="'+tc+'">'+p.tl+'</span>'+(p.propType?'<span>'+p.propType+'</span>':'')+(p.lastSold&&!p.noEpc?'<span style="color:#64748b;font-size:11px">Sold '+p.lastSold+'</span>':'')+expChip+'</div>'
     +(p.noEpc ? '<div style="padding:0 2px">'+confPillHTML(p)+'</div>' : '')
     +badge
     +lastActionLine+noteLine
@@ -2606,7 +2604,7 @@ async function renderCallbacks() {
     const addr = r.address || meta.addr || '';
     const note = r.note || '';
     const prop = { addr: addr, rating: rating, tl: meta.tl || '', propType: meta.propType || '', epcPoints: meta.epcPoints || '' };
-    const pj = esc(JSON.stringify(prop));
+    try { window.__pmap[uid] = prop; } catch(e){}   // store snapshot so tapping the card opens the full property detail
     // ⏰ reminder time badge (due-soon / overdue colouring)
     let badge = '';
     if (r.reminder_at) {
@@ -2619,7 +2617,7 @@ async function renderCallbacks() {
     }
     let h = '<div class="pc2 cb-card" style="margin:8px 12px">';
     // Header: tap to open the address card
-    h += '<div class="cb-head" onclick="openCallbackCard(\'' + esc(uid) + '\',\'' + pj + '\')" style="cursor:pointer">';
+    h += '<div class="cb-head" onclick="openCallbackCard(\'' + esc(uid) + '\')" style="cursor:pointer">';
     h += '<div class="pc2-t"><div class="pc2-aw">';
     h += '<div class="pc2-n">' + pc + ' <span style="color:#a855f7;font-size:11px">📞 CALLBACK ›</span></div>';
     h += '<div class="pc2-a">' + (prop.addr || '') + '</div>';
@@ -2637,7 +2635,7 @@ async function renderCallbacks() {
     h += '<div class="db2 dX" onclick="event.stopPropagation();resolveCallback(\'' + esc(uid) + '\',\'notint\',\'' + esc(prop.addr || '') + '\')">❌ Not Interested</div>';
     h += '</div>';
     // Sign Up button (full deal)
-    h += '<div class="db2 dSignup" style="margin-top:6px;border-color:#3b82f6;color:#3b82f6" onclick="event.stopPropagation();openJF(\'' + esc(uid) + '\',\'' + pj + '\')">✍️ Sign Up</div>';
+    h += '<div class="db2 dSignup" style="margin-top:6px;border-color:#3b82f6;color:#3b82f6" onclick="event.stopPropagation();openJF(\'' + esc(uid) + '\',\'' + esc(pc) + '\',\'' + esc(prop.addr || '') + '\')">✍️ Sign Up</div>';
     h += '</div>';
     return h;
   }).join('');
@@ -3529,6 +3527,7 @@ async function saveDealAndOpen() {
 // ── DEALS DASHBOARD ───────────────────────────────────────────────────────────
 let dealsCache = [];
 let dealCalMonth = new Date();
+let dealWeekStart = (function(){ const n=new Date(); const s=new Date(n.getFullYear(),n.getMonth(),n.getDate()); s.setDate(s.getDate()-((n.getDay()+6)%7)); return s; })(); // Monday of current week
 
 function demoDeals(){
   const now=Date.now(), DAY=86400000;
@@ -3585,6 +3584,8 @@ async function renderDeals() {
   // Calendar
   html += renderDealCalendar();
 
+  // Week picker — look back at any single Mon–Sun week
+  html += renderDealWeek();
 
   html += '</div>';
   document.getElementById('deals-body').innerHTML = html;
@@ -3626,6 +3627,50 @@ function renderDealCalendar() {
 function changeDealMonth(delta) {
   dealCalMonth = new Date(dealCalMonth.getFullYear(), dealCalMonth.getMonth()+delta, 1);
   renderDeals();
+}
+
+function _curWeekMonday() {
+  const n=new Date(); const m=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+  m.setDate(m.getDate()-((n.getDay()+6)%7)); return m;
+}
+function changeDealWeek(delta) {
+  const s = new Date(dealWeekStart);
+  s.setDate(s.getDate() + delta*7);
+  if (s.getTime() > _curWeekMonday().getTime()) return; // never step into a future week
+  dealWeekStart = s;
+  renderDeals();
+}
+function renderDealWeek() {
+  const start = new Date(dealWeekStart.getFullYear(),dealWeekStart.getMonth(),dealWeekStart.getDate()).getTime();
+  const end = start + 7*86400000;
+  const wk = dealsCache.filter(d=>{ const t=new Date(d.signed_at).getTime(); return t>=start && t<end; })
+                       .sort((a,b)=>new Date(a.signed_at)-new Date(b.signed_at));
+  const fmtD = dt=>dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  const range = fmtD(new Date(start))+' – '+fmtD(new Date(end-86400000));
+  const atCurrent = start >= _curWeekMonday().getTime();
+
+  let h='<div style="background:#0f172a;border:1px solid #1f2d45;border-radius:14px;padding:14px;margin-top:14px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  h+='<div onclick="changeDealWeek(-1)" style="cursor:pointer;color:#f59e0b;font-size:22px;padding:0 12px">‹</div>';
+  h+='<div style="text-align:center"><div style="font-size:14px;font-weight:700;color:#f1f5f9">Week of '+range+'</div>'
+    +'<div style="font-size:11px;color:#64748b;margin-top:2px">Mon–Sun'+(atCurrent?' · this week':'')+'</div></div>';
+  h+='<div onclick="changeDealWeek(1)" style="cursor:'+(atCurrent?'default':'pointer')+';color:'+(atCurrent?'#334155':'#f59e0b')+';font-size:22px;padding:0 12px">›</div></div>';
+  h+='<div style="text-align:center;margin-bottom:'+(wk.length?'12px':'0')+'"><span style="font-size:40px;font-weight:800;color:#10b981">'+wk.length+'</span>'
+    +'<span style="font-size:14px;color:#94a3b8;margin-left:8px">deal'+(wk.length===1?'':'s')+' this week</span></div>';
+  if (wk.length) {
+    h+='<div style="border-top:1px solid #1f2d45;padding-top:10px">';
+    wk.forEach(d=>{
+      const dt=new Date(d.signed_at);
+      const day=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+      const tm=dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px solid #131c2e">';
+      h+='<span style="color:#e2e8f0">'+(d.address||d.postcode_norm||'Property')+'</span>';
+      h+='<span style="color:#64748b;white-space:nowrap;margin-left:10px">'+day+' · '+tm+'</span></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
 }
 
 function showDealsForDay(date) {
