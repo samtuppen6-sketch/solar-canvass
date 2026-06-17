@@ -524,6 +524,20 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 @media(max-width:880px){.mgr-feats{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){.mgr-body{grid-template-columns:1fr}.mgr-rail{border-left:none;border-top:1px solid #e3eaf3}.mgr-map{height:300px}.mgr-feats{grid-template-columns:1fr}.mgr-toggles{text-align:left}.mgr-legend{flex-direction:column;align-items:flex-start;gap:13px;max-width:none;margin:0}.mgr-leg{font-size:.9rem}}
 
+/* ── TESTIMONIALS ─────────────────────────── */
+.tst{padding:62px 0;background:var(--soft);border-bottom:1px solid var(--border)}
+.tst-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:38px}
+.tcard{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:30px 32px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column}
+.tcard .stars{display:flex;gap:3px;margin-bottom:15px}
+.tcard .stars svg{width:16px;height:16px;color:var(--amber)}
+.tcard blockquote{font-size:1.04rem;line-height:1.62;color:var(--ink);font-weight:450}
+.tcard blockquote::before{content:'\201C';font-family:'DM Sans',sans-serif;font-size:2.3rem;line-height:0;color:var(--green);opacity:.34;margin-right:3px;vertical-align:-.34em}
+.tcard figcaption{display:flex;align-items:center;gap:13px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.tcard .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--green),#00d96a);color:#fff;font-family:'DM Sans',sans-serif;font-weight:700;font-size:1.02rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tcard .who{display:flex;flex-direction:column;line-height:1.32}
+.tcard .who .nm{font-family:'DM Sans',sans-serif;font-weight:600;font-size:.95rem;color:var(--ink)}
+.tcard .who .rl{font-size:.8rem;color:var(--slate-2)}
+@media(max-width:767px){.tst{padding:48px 0}.tst-grid{grid-template-columns:1fr;gap:16px}.tcard{padding:26px 24px}}
 </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -623,6 +637,49 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="tst" id="testimonials">
+  <div class="wrap">
+    <div class="sh center">
+      <span class="eyebrow">From the field</span>
+      <h2 class="display d2">Trusted by the people knocking — and the people managing.</h2>
+    </div>
+    <div class="tst-grid">
+
+      <figure class="tcard">
+        <div class="stars" aria-label="Rated 5 out of 5">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+        </div>
+        <blockquote>Before Solpath I was knocking blind, wasting half my day on doors that were never going to qualify. Now I walk up the street knowing exactly which houses are worth my time. It's completely changed how I work — I'm saving 20-plus hours a week and writing more business than ever, because every knock actually counts now. I honestly don't know how I managed without it.</blockquote>
+        <figcaption>
+          <span class="avatar">J</span>
+          <span class="who"><span class="nm">James</span><span class="rl">Door Knocker · Portsmouth</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="tcard">
+        <div class="stars" aria-label="Rated 5 out of 5">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.6l2.58 5.23 5.77.84-4.17 4.07.98 5.75L10 14.78l-5.16 2.71.98-5.75L1.65 7.67l5.77-.84z"/></svg>
+        </div>
+        <blockquote>From a manager's side, Solpath gives me eyes on everything. I can allocate patches, track who's covered what, and monitor the whole team's progress whether I'm at my desk or out on my phone. Nothing slips through the cracks. It's made running the operation genuinely simple.</blockquote>
+        <figcaption>
+          <span class="avatar">J</span>
+          <span class="who"><span class="nm">John</span><span class="rl">Manager · Southampton</span></span>
+        </figcaption>
+      </figure>
+
     </div>
   </div>
 </section>
