@@ -151,6 +151,10 @@ tbody tr:hover td{background:#fafbfd}
 .kpi-label{font-size:.62rem;font-weight:600;color:var(--slate3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .kpi-val{font-family:'DM Sans',sans-serif;font-size:1.4rem;font-weight:700;line-height:1}
 .kpi.g .kpi-val{color:var(--green-deep)}.kpi.a .kpi-val{color:var(--amber)}
+.kpi.click{cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .12s}
+.kpi.click:hover{border-color:#00b24a;transform:translateY(-1px)}
+.kpi.sel{border-color:#00b24a;box-shadow:0 0 0 2px rgba(0,178,74,.18)}
+.ag-periods .dchip{font-size:.74rem}
 /* daily chart */
 .chart-wrap{display:flex;align-items:flex-end;gap:4px;height:120px;padding:16px 20px 8px}
 .chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
@@ -410,41 +414,18 @@ tbody tr:hover td{background:#fafbfd}
         </div>
       </div>
       <div class="kpi-row">
-        <div class="kpi"><div class="kpi-label">Doors</div><div class="kpi-val" id="ag-doors">—</div></div>
-        <div class="kpi g"><div class="kpi-label">Qualified</div><div class="kpi-val" id="ag-qual">—</div></div>
-        <div class="kpi g"><div class="kpi-label">Conv. rate</div><div class="kpi-val" id="ag-rate">—</div></div>
-        <div class="kpi a"><div class="kpi-label">Callbacks</div><div class="kpi-val" id="ag-cb">—</div></div>
-        <div class="kpi"><div class="kpi-label">Doors / day</div><div class="kpi-val" id="ag-avg">—</div></div>
-        <div class="kpi g"><div class="kpi-label">Deals</div><div class="kpi-val" id="ag-deals">—</div></div>
+        <div class="kpi click" data-panel="doors" onclick="selectAgentPanel('doors')"><div class="kpi-label">Doors</div><div class="kpi-val" id="ag-doors">—</div></div>
+        <div class="kpi g click" data-panel="qualified" onclick="selectAgentPanel('qualified')"><div class="kpi-label">Qualified</div><div class="kpi-val" id="ag-qual">—</div></div>
+        <div class="kpi g click" data-panel="rate" onclick="selectAgentPanel('rate')"><div class="kpi-label">Conv. rate</div><div class="kpi-val" id="ag-rate">—</div></div>
+        <div class="kpi a click" data-panel="callbacks" onclick="selectAgentPanel('callbacks')"><div class="kpi-label">Callbacks</div><div class="kpi-val" id="ag-cb">—</div></div>
+        <div class="kpi click" data-panel="avg" onclick="selectAgentPanel('avg')"><div class="kpi-label">Doors / day</div><div class="kpi-val" id="ag-avg">—</div></div>
+        <div class="kpi g click" data-panel="deals" onclick="selectAgentPanel('deals')"><div class="kpi-label">Deals</div><div class="kpi-val" id="ag-deals">—</div></div>
       </div>
 
-      <!-- Per-canvasser deal totals (day / week / month / all-time) + Mon–Sun week picker -->
-      <div class="tcard" id="ag-dealbox" style="margin-bottom:14px">
-        <div class="tcard-head"><h3>Deal totals</h3></div>
-        <div id="ag-dealtotals"></div>
-      </div>
-
-      <div class="main-grid">
-        <div>
-          <div class="tcard">
-            <div class="tcard-head"><h3>Daily activity</h3></div>
-            <div class="chart-wrap" id="ag-chart"></div>
-          </div>
-          <div class="tcard">
-            <div class="tcard-head"><h3>Recent door log</h3></div>
-            <div id="ag-log"></div>
-          </div>
-        </div>
-        <div>
-          <div class="tcard">
-            <div class="tcard-head"><h3>Outcome split</h3></div>
-            <div class="split-row" id="ag-split"></div>
-          </div>
-          <div class="tcard">
-            <div class="tcard-head"><h3>Deals signed</h3></div>
-            <div id="ag-deals-list" class="tscroll"></div>
-          </div>
-        </div>
+      <!-- Drill-down panel: tap a tile above to reveal that stat -->
+      <div class="tcard" id="ag-panel-card" style="margin-bottom:14px">
+        <div class="tcard-head"><h3 id="ag-panel-title">Deals</h3><span class="cap" id="ag-panel-hint" style="margin:0"></span></div>
+        <div id="ag-panel"></div>
       </div>
     </div>
   </div>
@@ -506,7 +487,9 @@ tbody tr:hover td{background:#fafbfd}
   <!-- ════ DEALS ════ -->
   <div class="view" id="view-deals">
     <div class="tcard">
-      <div class="tcard-head"><h3>Deals / signups</h3></div>
+      <div class="tcard-head"><h3>Deals / signups</h3>
+        <select class="map-sel" id="deals-rep" onchange="renderDeals()"><option value="all">All reps</option></select>
+      </div>
       <div id="deals-table" class="tscroll"></div>
     </div>
   </div>
@@ -844,110 +827,100 @@ function renderAgent(){
   document.getElementById('ag-cb').textContent=c;
   document.getElementById('ag-avg').textContent=(doors.length/days).toFixed(1);
   document.getElementById('ag-deals').textContent=deals.length;
-  renderAgentDealTotals(id);
-
-  // Deals list for this canvasser — what they actually signed, not just the count
-  (function(){
-    const dl=document.getElementById('ag-deals-list'); if(!dl) return;
-    const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-    if(!deals.length){ dl.innerHTML='<div class="cap" style="padding:10px 2px">No deals in this range.</div>'; return; }
-    dl.innerHTML=deals.slice().sort((a,b)=>new Date(b.signed_at||b.created_at)-new Date(a.signed_at||a.created_at)).map(d=>{
-      const dt=new Date(d.signed_at||d.created_at);
-      const when=dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      const addr=escH(d.address||d.postcode_norm||'—');
-      const nm=d.customer_name?' · <span style="color:var(--slate3)">'+escH(d.customer_name)+'</span>':'';
-      const epc=d.epc_rating?' <span class="badge b-blue" style="margin-left:4px">'+escH(d.epc_rating)+'</span>':'';
-      return '<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)"><div style="min-width:0"><div class="deal-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+addr+nm+'</div><div class="cap">'+escH(d.postcode_norm||'')+epc+'</div></div><div class="cap" style="white-space:nowrap">'+when+'</div></div>';
-    }).join('');
-  })();
-
-  // Daily chart — last up-to-14 day buckets in range
-  const byDay={};
-  doors.forEach(d=>{const k=new Date(d.created_at).toDateString();byDay[k]=(byDay[k]||0)+1});
-  const daysArr=[];
-  const span=Math.min(14,Math.ceil((RANGE.until-RANGE.since)/(864e5))||1);
-  for(let i=span-1;i>=0;i--){
-    const d=new Date(RANGE.until);d.setDate(d.getDate()-i);
-    daysArr.push({label:d.toLocaleDateString('en-GB',{weekday:'short'}).slice(0,2)+' '+d.getDate(),n:byDay[d.toDateString()]||0});
-  }
-  const maxN=Math.max(...daysArr.map(x=>x.n),1);
-  document.getElementById('ag-chart').innerHTML=daysArr.map(x=>`
-    <div class="chart-col">
-      <span class="chart-num">${x.n||''}</span>
-      <div class="chart-bar ${x.n?'':'empty'}" style="height:${Math.max(2,x.n/maxN*78)}px"></div>
-      <span class="chart-day">${x.label}</span>
-    </div>`).join('');
-
-  // Outcome split
-  const n=doors.filter(d=>d.status==='no_answer'||d.status==='no answer').length;
-  const x=doors.length-q-c-n;
-  const splits=[['Qualified',q,'#00b24a'],['Callback',c,'#f0a019'],['No answer',n,'#a0b0c4'],['Not suitable / interested',x,'#e5484d']];
-  document.getElementById('ag-split').innerHTML=splits.map(([lab,v,col])=>`
-    <div class="split-item">
-      <div class="split-lab"><span>${lab}</span><span>${v} · ${doors.length?(v/doors.length*100).toFixed(0):0}%</span></div>
-      <div class="cov-bg"><div class="cov-fill" style="width:${doors.length?v/doors.length*100:0}%;background:${col}"></div></div>
-    </div>`).join('');
-
-  // Door log
-  document.getElementById('ag-log').innerHTML=doors.slice(0,15).map(d=>`
-    <div class="log-item">
-      <div><div class="log-addr">${d.address||'—'}</div>${d.note?`<div class="cb-note" style="margin:2px 0 0">${d.note}</div>`:''}</div>
-      <div style="text-align:right;flex-shrink:0;margin-left:10px"><span class="badge ${badgeFor(d.status)}">${(d.status||'').replace(/_/g,' ')}</span><div class="log-time" style="margin-top:3px">${fmtDateTime(d.created_at)}</div></div>
-    </div>`).join('')||'<div class="empty">No door records.</div>';
+  // stash data for the drill-down panels, then render whichever tile is selected
+  AG_STATS={id, doors, deals, q, c, days};
+  renderAgentPanel();
 }
 
 /* ════════════════════ RENDER: CALLBACKS / DEALS / SETTINGS ════════════════════ */
-let AG_WEEK = null; // Monday of the week shown in the per-canvasser deal picker
+let AG_STATS=null, AG_PANEL='deals', AG_DEAL_PERIOD='week';
 function _mondayOf(d){ const m=new Date(d.getFullYear(),d.getMonth(),d.getDate()); m.setDate(m.getDate()-((d.getDay()+6)%7)); return m; }
-function changeAgentWeek(delta){
-  if(!AG_WEEK) AG_WEEK=_mondayOf(new Date());
-  const s=new Date(AG_WEEK); s.setDate(s.getDate()+delta*7);
-  if(s.getTime()>_mondayOf(new Date()).getTime()) return; // never step into a future week
-  AG_WEEK=s; renderAgentDealTotals(CURRENT_AGENT);
+const _escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function selectAgentPanel(k){ AG_PANEL=k; renderAgentPanel(); }
+function selectAgentDealPeriod(p){ AG_DEAL_PERIOD=p; renderAgentPanel(); }
+
+function renderAgentPanel(){
+  if(!AG_STATS) return;
+  document.querySelectorAll('#agent-view .kpi.click').forEach(el=>el.classList.toggle('sel', el.getAttribute('data-panel')===AG_PANEL));
+  const {doors,q,c}=AG_STATS;
+  const titleEl=document.getElementById('ag-panel-title'), hintEl=document.getElementById('ag-panel-hint'), box=document.getElementById('ag-panel');
+  if(!box) return;
+  const titles={doors:'Daily activity',avg:'Doors per day',qualified:'Outcome breakdown',rate:'Conversion',callbacks:'Callbacks',deals:'Deals'};
+  if(titleEl) titleEl.textContent=titles[AG_PANEL]||'';
+  if(hintEl) hintEl.textContent=(AG_PANEL==='deals')?'':RANGE.label;
+  if(AG_PANEL==='doors'||AG_PANEL==='avg'){ box.innerHTML=agentChartHTML(doors); return; }
+  if(AG_PANEL==='qualified'||AG_PANEL==='rate'){ box.innerHTML=agentSplitHTML(doors,q,c); return; }
+  if(AG_PANEL==='callbacks'){ box.innerHTML=agentCallbacksHTML(AG_STATS.id); return; }
+  box.innerHTML=agentDealsHTML(AG_STATS.id);
 }
-function renderAgentDealTotals(id){
-  const box=document.getElementById('ag-dealtotals'); if(!box) return;
+
+function agentChartHTML(doors){
+  const byDay={}; doors.forEach(d=>{const k=new Date(d.created_at).toDateString();byDay[k]=(byDay[k]||0)+1});
+  const span=Math.min(14,Math.ceil((RANGE.until-RANGE.since)/(864e5))||1); const arr=[];
+  for(let i=span-1;i>=0;i--){ const d=new Date(RANGE.until); d.setDate(d.getDate()-i); arr.push({label:d.toLocaleDateString('en-GB',{weekday:'short'}).slice(0,2)+' '+d.getDate(), n:byDay[d.toDateString()]||0}); }
+  const maxN=Math.max(...arr.map(x=>x.n),1);
+  const activeDays=new Set(doors.map(d=>new Date(d.created_at).toDateString())).size||1;
+  const avg=(doors.length/activeDays).toFixed(1);
+  return '<div class="chart-wrap">'+arr.map(x=>`<div class="chart-col"><span class="chart-num">${x.n||''}</span><div class="chart-bar ${x.n?'':'empty'}" style="height:${Math.max(2,x.n/maxN*78)}px"></div><span class="chart-day">${x.label}</span></div>`).join('')+'</div>'
+    +`<div class="cap" style="padding:0 20px 14px;text-align:left">${doors.length} doors over ${RANGE.label.toLowerCase()} · averaging <b>${avg}</b> per active day</div>`;
+}
+
+function agentSplitHTML(doors,q,c){
+  const n=doors.filter(d=>d.status==='no_answer'||d.status==='no answer').length;
+  const x=doors.length-q-c-n;
+  const rate=doors.length?((q/doors.length)*100).toFixed(0):0;
+  const splits=[['Qualified',q,'#00b24a'],['Callback',c,'#f0a019'],['No answer',n,'#a0b0c4'],['Not suitable / interested',x,'#e5484d']];
+  return `<div class="cap" style="padding:14px 20px 4px;text-align:left">${q} of ${doors.length} doors converted · <b style="color:var(--green-deep)">${rate}% conversion</b></div>`
+    +'<div class="split-row">'+splits.map(([lab,v,col])=>`<div class="split-item"><div class="split-lab"><span>${lab}</span><span>${v} · ${doors.length?(v/doors.length*100).toFixed(0):0}%</span></div><div class="cov-bg"><div class="cov-fill" style="width:${doors.length?v/doors.length*100:0}%;background:${col}"></div></div></div>`).join('')+'</div>';
+}
+
+function agentCallbacksHTML(id){
+  const cbs=(ALL_DOORS||[]).filter(d=>d.canvasser_id===id&&d.status==='callback').sort((a,b)=>new Date(a.reminder_at||a.created_at)-new Date(b.reminder_at||b.created_at));
+  if(!cbs.length) return '<div class="empty">No callbacks for this canvasser.</div>';
+  return '<div style="padding:6px 16px 14px">'+cbs.map(d=>{
+    const when=d.reminder_at?('Due '+fmtDateTime(d.reminder_at)):fmtDateTime(d.created_at);
+    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)"><div style="min-width:0"><div class="log-addr">${_escH(d.address||d.postcode_norm||'—')}</div>${d.note?`<div class="cb-note" style="margin:2px 0 0">${_escH(d.note)}</div>`:''}</div><div class="log-time" style="white-space:nowrap">${when}</div></div>`;
+  }).join('')+'</div>';
+}
+
+function agentDealsHTML(id){
   const mine=(ALL_DEALS||[]).filter(d=>d.canvasser_id===id);
   const ts=d=>new Date(d.signed_at||d.created_at).getTime();
   const now=new Date();
   const sDay=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
   const sWeek=_mondayOf(now).getTime();
   const sMonth=new Date(now.getFullYear(),now.getMonth(),1).getTime();
-  const today=mine.filter(d=>ts(d)>=sDay).length;
-  const week=mine.filter(d=>ts(d)>=sWeek).length;
-  const month=mine.filter(d=>ts(d)>=sMonth).length;
-  const total=mine.length;
-
-  if(!AG_WEEK) AG_WEEK=_mondayOf(now);
-  const wStart=AG_WEEK.getTime(), wEnd=wStart+7*864e5;
-  const wk=mine.filter(d=>{const t=ts(d);return t>=wStart&&t<wEnd}).sort((a,b)=>ts(a)-ts(b));
-  const fmtD=dt=>dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-  const range=fmtD(new Date(wStart))+' – '+fmtD(new Date(wEnd-864e5));
-  const atCur=wStart>=_mondayOf(now).getTime();
-  const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-  const tile=(lab,v,cls)=>'<div class="kpi '+(cls||'')+'" style="text-align:center"><div class="kpi-val">'+v+'</div><div class="kpi-label" style="margin:6px 0 0">'+lab+'</div></div>';
-  let h='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
-    + tile('Today',today,'') + tile('This week',week,'g') + tile('This month',month,'') + tile('All time',total,'g')
-    + '</div>';
-
-  h+='<div style="border:1px solid var(--line);border-radius:11px;padding:12px">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center">';
-  h+='<div onclick="changeAgentWeek(-1)" style="cursor:pointer;color:var(--amber);font-size:22px;padding:0 12px">‹</div>';
-  h+='<div style="text-align:center"><div style="font-weight:700;font-size:.92rem">Week of '+range+'</div><div class="cap">Mon–Sun'+(atCur?' · this week':'')+'</div></div>';
-  h+='<div onclick="changeAgentWeek(1)" style="cursor:'+(atCur?'default':'pointer')+';color:'+(atCur?'var(--slate3)':'var(--amber)')+';font-size:22px;padding:0 12px">›</div></div>';
-  h+='<div style="text-align:center;margin:8px 0"><span style="font-family:\'DM Sans\',sans-serif;font-size:2rem;font-weight:700;color:var(--green-deep)">'+wk.length+'</span><span class="cap" style="margin-left:8px">deal'+(wk.length===1?'':'s')+' this week</span></div>';
-  if(wk.length){
-    h+='<div style="border-top:1px solid var(--line);padding-top:8px">';
-    wk.forEach(d=>{
-      const dt=new Date(d.signed_at||d.created_at);
-      const when=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      h+='<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:.8rem"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escH(d.address||d.postcode_norm||'Property')+'</span><span class="cap" style="white-space:nowrap">'+when+'</span></div>';
+  const counts={today:mine.filter(d=>ts(d)>=sDay).length, week:mine.filter(d=>ts(d)>=sWeek).length, month:mine.filter(d=>ts(d)>=sMonth).length, all:mine.length};
+  const defs=[['today','Today'],['week','This week'],['month','This month'],['all','All time']];
+  let h='<div class="ag-periods" style="display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px 4px">'
+    +defs.map(([k,lab])=>`<button class="dchip ${AG_DEAL_PERIOD===k?'active':''}" onclick="selectAgentDealPeriod('${k}')">${lab} · ${counts[k]}</button>`).join('')
+    +'</div>';
+  let from=0; if(AG_DEAL_PERIOD==='today')from=sDay; else if(AG_DEAL_PERIOD==='week')from=sWeek; else if(AG_DEAL_PERIOD==='month')from=sMonth; else from=0;
+  const sel=mine.filter(d=>ts(d)>=from).sort((a,b)=>ts(b)-ts(a));
+  if(!sel.length){ h+='<div class="empty" style="padding:18px 20px">No deals in this period.</div>'; return h; }
+  if(AG_DEAL_PERIOD==='all'){
+    const groups={};
+    sel.forEach(d=>{ const m=_mondayOf(new Date(ts(d))); const key=m.getTime(); (groups[key]=groups[key]||[]).push(d); });
+    const keys=Object.keys(groups).map(Number).sort((a,b)=>b-a);
+    h+='<div style="padding:6px 16px 14px">';
+    keys.forEach(k=>{ const m=new Date(k), en=new Date(k+6*864e5);
+      const lab=m.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' – '+en.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+      h+=`<div style="font-weight:700;font-size:.8rem;color:var(--slate);margin:12px 2px 4px">Week of ${lab} · ${groups[k].length}</div>`;
+      groups[k].forEach(d=>{ h+=_dealRow(d,ts); });
     });
     h+='</div>';
+  } else {
+    h+='<div style="padding:6px 16px 14px">'+sel.map(d=>_dealRow(d,ts)).join('')+'</div>';
   }
-  h+='</div>';
-  box.innerHTML=h;
+  return h;
+}
+function _dealRow(d,ts){
+  const dt=new Date(ts(d));
+  const when=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const nm=d.customer_name?' · <span style="color:var(--slate3)">'+_escH(d.customer_name)+'</span>':'';
+  const epc=d.epc_rating?' <span class="badge b-blue" style="margin-left:4px">'+_escH(d.epc_rating)+'</span>':'';
+  return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line)"><div style="min-width:0"><div class="deal-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escH(d.address||d.postcode_norm||'Property')}${nm}</div><div class="cap" style="text-align:left;margin-top:2px">${_escH(d.postcode_norm||'')}${epc}</div></div><div class="cap" style="white-space:nowrap;margin-top:0">${when}</div></div>`;
 }
 
 function renderCallbacks(){
@@ -955,7 +928,15 @@ function renderCallbacks(){
   document.getElementById('cb-full').innerHTML=cbs.length?cbs.map(c=>cbItem(c)).join(''):'<div class="empty">No callbacks pending. Nice work.</div>';
 }
 function renderDeals(){
-  const deals=dealsInRange();
+  let deals=dealsInRange();
+  const sel=document.getElementById('deals-rep');
+  if(sel && sel.options.length<=1 && (MEMBERS||[]).length){
+    const cur=sel.value;
+    sel.innerHTML='<option value="all">All reps</option>'+MEMBERS.slice().sort((a,b)=>(a.full_name||'').localeCompare(b.full_name||'')).map(m=>`<option value="${m.id}">${m.full_name||'Unknown'}</option>`).join('');
+    if(cur) sel.value=cur;
+  }
+  const repId=sel?sel.value:'all';
+  if(repId && repId!=='all') deals=deals.filter(d=>d.canvasser_id===repId);
   const w=document.getElementById('deals-table');
   if(!deals.length){w.innerHTML='<div class="empty">No deals in this period.</div>';return}
   w.innerHTML=`<table><thead><tr><th>Customer</th><th>Address</th><th>Rep</th><th>EPC</th><th>Date</th></tr></thead><tbody>${
