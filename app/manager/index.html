@@ -417,6 +417,13 @@ tbody tr:hover td{background:#fafbfd}
         <div class="kpi"><div class="kpi-label">Doors / day</div><div class="kpi-val" id="ag-avg">—</div></div>
         <div class="kpi g"><div class="kpi-label">Deals</div><div class="kpi-val" id="ag-deals">—</div></div>
       </div>
+
+      <!-- Per-canvasser deal totals (day / week / month / all-time) + Mon–Sun week picker -->
+      <div class="tcard" id="ag-dealbox" style="margin-bottom:14px">
+        <div class="tcard-head"><h3>Deal totals</h3></div>
+        <div id="ag-dealtotals"></div>
+      </div>
+
       <div class="main-grid">
         <div>
           <div class="tcard">
@@ -837,6 +844,7 @@ function renderAgent(){
   document.getElementById('ag-cb').textContent=c;
   document.getElementById('ag-avg').textContent=(doors.length/days).toFixed(1);
   document.getElementById('ag-deals').textContent=deals.length;
+  renderAgentDealTotals(id);
 
   // Deals list for this canvasser — what they actually signed, not just the count
   (function(){
@@ -889,6 +897,59 @@ function renderAgent(){
 }
 
 /* ════════════════════ RENDER: CALLBACKS / DEALS / SETTINGS ════════════════════ */
+let AG_WEEK = null; // Monday of the week shown in the per-canvasser deal picker
+function _mondayOf(d){ const m=new Date(d.getFullYear(),d.getMonth(),d.getDate()); m.setDate(m.getDate()-((d.getDay()+6)%7)); return m; }
+function changeAgentWeek(delta){
+  if(!AG_WEEK) AG_WEEK=_mondayOf(new Date());
+  const s=new Date(AG_WEEK); s.setDate(s.getDate()+delta*7);
+  if(s.getTime()>_mondayOf(new Date()).getTime()) return; // never step into a future week
+  AG_WEEK=s; renderAgentDealTotals(CURRENT_AGENT);
+}
+function renderAgentDealTotals(id){
+  const box=document.getElementById('ag-dealtotals'); if(!box) return;
+  const mine=(ALL_DEALS||[]).filter(d=>d.canvasser_id===id);
+  const ts=d=>new Date(d.signed_at||d.created_at).getTime();
+  const now=new Date();
+  const sDay=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const sWeek=_mondayOf(now).getTime();
+  const sMonth=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+  const today=mine.filter(d=>ts(d)>=sDay).length;
+  const week=mine.filter(d=>ts(d)>=sWeek).length;
+  const month=mine.filter(d=>ts(d)>=sMonth).length;
+  const total=mine.length;
+
+  if(!AG_WEEK) AG_WEEK=_mondayOf(now);
+  const wStart=AG_WEEK.getTime(), wEnd=wStart+7*864e5;
+  const wk=mine.filter(d=>{const t=ts(d);return t>=wStart&&t<wEnd}).sort((a,b)=>ts(a)-ts(b));
+  const fmtD=dt=>dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  const range=fmtD(new Date(wStart))+' – '+fmtD(new Date(wEnd-864e5));
+  const atCur=wStart>=_mondayOf(now).getTime();
+  const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const tile=(lab,v,cls)=>'<div class="kpi '+(cls||'')+'" style="text-align:center"><div class="kpi-val">'+v+'</div><div class="kpi-label" style="margin:6px 0 0">'+lab+'</div></div>';
+  let h='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
+    + tile('Today',today,'') + tile('This week',week,'g') + tile('This month',month,'') + tile('All time',total,'g')
+    + '</div>';
+
+  h+='<div style="border:1px solid var(--line);border-radius:11px;padding:12px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+  h+='<div onclick="changeAgentWeek(-1)" style="cursor:pointer;color:var(--amber);font-size:22px;padding:0 12px">‹</div>';
+  h+='<div style="text-align:center"><div style="font-weight:700;font-size:.92rem">Week of '+range+'</div><div class="cap">Mon–Sun'+(atCur?' · this week':'')+'</div></div>';
+  h+='<div onclick="changeAgentWeek(1)" style="cursor:'+(atCur?'default':'pointer')+';color:'+(atCur?'var(--slate3)':'var(--amber)')+';font-size:22px;padding:0 12px">›</div></div>';
+  h+='<div style="text-align:center;margin:8px 0"><span style="font-family:\'DM Sans\',sans-serif;font-size:2rem;font-weight:700;color:var(--green-deep)">'+wk.length+'</span><span class="cap" style="margin-left:8px">deal'+(wk.length===1?'':'s')+' this week</span></div>';
+  if(wk.length){
+    h+='<div style="border-top:1px solid var(--line);padding-top:8px">';
+    wk.forEach(d=>{
+      const dt=new Date(d.signed_at||d.created_at);
+      const when=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      h+='<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:.8rem"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escH(d.address||d.postcode_norm||'Property')+'</span><span class="cap" style="white-space:nowrap">'+when+'</span></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  box.innerHTML=h;
+}
+
 function renderCallbacks(){
   const cbs=ALL_DOORS.filter(d=>d.status==='callback').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
   document.getElementById('cb-full').innerHTML=cbs.length?cbs.map(c=>cbItem(c)).join(''):'<div class="empty">No callbacks pending. Nice work.</div>';
