@@ -774,6 +774,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .basemap-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:var(--c1);color:var(--t);border:1px solid var(--br)!important;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.4);font:600 13px/1 system-ui,-apple-system,sans-serif;padding:10px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .basemap-toggle-btn:hover{background:var(--c2)}
 .basemap-toggle-btn:active{transform:scale(.97)}
+/* Stack the satellite toggle directly UNDER the locate pin (#fab: top:14px, 48px tall → ends ~62px),
+   right-aligned to match the pin's right:14px. Higher specificity than Leaflet's default control margins. */
+.leaflet-top .basemap-toggle-btn{margin-top:70px;margin-right:14px}
 .leaflet-bar{border:1px solid var(--br)!important;border-radius:10px!important;overflow:hidden;
   box-shadow:0 4px 16px rgba(0,0,0,.4)!important}
 .leaflet-bar a{background:var(--c1)!important;color:var(--t)!important;
