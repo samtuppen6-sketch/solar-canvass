@@ -550,7 +550,8 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .sv-sat{background:linear-gradient(135deg,#2b3a22 0%,#42512f 38%,#5d5238 72%,#384729 100%)}
 .sv-dot{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--green);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);transform:translate(-50%,-50%)}
 .sv-dot-dark{background:#0a1322}
-.sv-cap{position:absolute;bottom:8px;left:8px;font-size:.68rem;font-weight:700;color:#fff;background:rgba(10,19,34,.6);padding:3px 9px;border-radius:6px;letter-spacing:.02em}
+.sv-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.sv-cap{position:absolute;bottom:8px;left:8px;z-index:2;font-size:.68rem;font-weight:700;color:#fff;background:rgba(10,19,34,.6);padding:3px 9px;border-radius:6px;letter-spacing:.02em}
 .sv-foot{font-size:.82rem;color:var(--slate-2,#64748b);text-align:center;margin-top:15px;line-height:1.5}
 @media(max-width:600px){.sv-tile{height:128px}}
 </style>
@@ -930,15 +931,11 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
         <div class="satview-toggle"><span class="sv-opt">Street</span><span class="sv-opt sv-on">Satellite</span></div>
         <div class="satview-pair">
           <div class="sv-tile sv-street">
-            <span class="sv-dot" style="top:28%;left:26%"></span>
-            <span class="sv-dot" style="top:52%;left:62%"></span>
-            <span class="sv-dot sv-dot-dark" style="top:72%;left:40%"></span>
+            <img src="/showcase-street.jpg" alt="Street-map view of a Southsea estate — Dunsmore Close, Brougham Road, King Street, Green Road — with eligible-property dots" loading="lazy">
             <span class="sv-cap">Street view</span>
           </div>
           <div class="sv-tile sv-sat">
-            <span class="sv-dot" style="top:28%;left:26%"></span>
-            <span class="sv-dot" style="top:52%;left:62%"></span>
-            <span class="sv-dot sv-dot-dark" style="top:72%;left:40%"></span>
+            <img src="/showcase-satellite.jpg" alt="Satellite view of the same Southsea estate with the same eligible-property dots" loading="lazy">
             <span class="sv-cap">Satellite view</span>
           </div>
         </div>
