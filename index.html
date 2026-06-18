@@ -65,11 +65,12 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── LAYOUT ───────────────────────────────── */
 .wrap{max-width:1180px;margin:0 auto;padding:0 24px;width:100%}
-.section{padding:88px 0}
-@media(max-width:767px){.section{padding:60px 0}}
+.section{padding:64px 0}
+@media(max-width:767px){.section{padding:44px 0}}
 .sec-soft{background:var(--soft)}
+.sec-soft + .sec-soft,.sec-dark + .sec-dark{padding-top:0}
 /* ── EPC SHOWCASE ────────────────────────────── */
-.epc-showcase{display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:42px;align-items:start;margin-top:46px}
+.epc-showcase{display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:42px;align-items:start;margin-top:32px}
 @media(max-width:880px){.epc-showcase{grid-template-columns:1fr;gap:32px}}
 .epc-card-demo{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-lg)}
 .epc-demo-head{margin-bottom:14px}
@@ -91,7 +92,7 @@ button{font-family:inherit;cursor:pointer}
 .epc-band-active .b{font-size:1.08rem}
 .epc-band .here{margin-left:auto;font-weight:800;color:#0b0c0c;font-size:.78rem}
 .epc-scale-foot{display:flex;justify-content:space-between;font-size:.66rem;color:var(--slate-2);margin-top:8px}
-.epc-criteria{max-width:880px;margin:38px auto 0;background:var(--soft);border:1px solid var(--border);border-radius:var(--r-lg);padding:26px 30px}
+.epc-criteria{max-width:880px;margin:26px auto 0;background:var(--soft);border:1px solid var(--border);border-radius:var(--r-lg);padding:26px 30px}
 .epc-crit-title{font-family:'DM Sans',sans-serif;font-weight:700;font-size:1.02rem;color:var(--ink);margin-bottom:18px;text-align:center}
 .epc-crit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 @media(max-width:760px){.epc-crit-grid{grid-template-columns:1fr}}
@@ -113,7 +114,7 @@ button{font-family:inherit;cursor:pointer}
 .sec-dark .display{color:#fff}
 .sec-dark .lead{color:#9fb3cc}
 
-.sh{margin-bottom:44px;max-width:600px}
+.sh{margin-bottom:32px;max-width:600px}
 .sh.center{margin-left:auto;margin-right:auto;text-align:center}
 .sh .eyebrow{display:block;margin-bottom:11px}
 .sh h2{margin-bottom:13px}
@@ -162,7 +163,7 @@ button{font-family:inherit;cursor:pointer}
    radial-gradient(800px 500px at 95% 0%,rgba(47,107,255,.07),transparent 55%),
    var(--soft);
   border-bottom:1px solid var(--border);overflow:hidden}
-.hero-in{padding:72px 0 76px;display:grid;grid-template-columns:0.92fr 1.08fr;gap:54px;align-items:center}
+.hero-in{padding:54px 0 58px;display:grid;grid-template-columns:0.92fr 1.08fr;gap:54px;align-items:center}
 .pill{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border-2);
   padding:5px 14px 5px 9px;border-radius:100px;margin-bottom:26px;box-shadow:var(--shadow-sm)}
 .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
@@ -280,7 +281,7 @@ button{font-family:inherit;cursor:pointer}
 }
 
 /* ── PAIN ─────────────────────────────────── */
-.pain-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-bottom:34px}
+.pain-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-bottom:24px}
 .pcard2{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-sm)}
 .pi{width:34px;height:34px;border-radius:8px;background:#fdeeee;border:1px solid #f8dada;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
 .pi svg{width:17px;height:17px;color:var(--red)}
@@ -327,7 +328,7 @@ button{font-family:inherit;cursor:pointer}
 /* ── PRICING ──────────────────────────────── */
 .pg-label{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--slate-2);
   margin-bottom:16px;padding-bottom:11px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.pg-ind{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:40px}
+.pg-ind{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
 .pg-team{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
 .pg-team2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .pc3{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;display:flex;flex-direction:column;position:relative;box-shadow:var(--shadow-sm);transition:all .2s}
@@ -405,7 +406,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
   .nav-tabs{display:none}
   .burger{display:flex;align-items:center;justify-content:center}
   .nav-act .btn-ghost{display:none}
-  .hero-in{grid-template-columns:1fr;gap:42px;padding:52px 0 60px}
+  .hero-in{grid-template-columns:1fr;gap:42px;padding:40px 0 46px}
   .hero-sub{max-width:100%}
   .map-body{height:380px}
   .pain-grid{grid-template-columns:repeat(3,1fr)}
@@ -517,7 +518,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .mgr-csub{display:inline-flex;align-items:center;gap:7px}
 .mgr-leg{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;color:var(--slate);font-weight:500}
 .mgr-leg b{width:14px;height:14px;border-radius:4px;flex:none}
-.mgr-feats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:48px auto 0;max-width:980px}
+.mgr-feats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:32px auto 0;max-width:980px}
 .mgr-feat{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px}
 .mgr-feat .fi{width:38px;height:38px;border-radius:10px;background:rgba(0,178,74,.09);display:flex;align-items:center;justify-content:center;margin-bottom:13px}
 .mgr-feat .fi svg{width:20px;height:20px;stroke:var(--green);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
@@ -527,7 +528,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 @media(max-width:720px){.mgr-body{grid-template-columns:1fr}.mgr-rail{border-left:none;border-top:1px solid #e3eaf3}.mgr-map{height:300px}.mgr-feats{grid-template-columns:1fr}.mgr-toggles{text-align:left}.mgr-legend{flex-direction:column;align-items:flex-start;gap:13px;max-width:none;margin:0}.mgr-leg{font-size:.9rem}}
 
 /* ── TESTIMONIALS ─────────────────────────── */
-.tst{padding:62px 0;background:var(--soft);border-bottom:1px solid var(--border)}
+.tst{padding:48px 0;background:var(--soft);border-bottom:1px solid var(--border)}
 .tst-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:38px}
 .tcard{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:30px 32px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column}
 .tcard .stars{display:flex;gap:3px;margin-bottom:15px}
@@ -539,7 +540,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .tcard .who{display:flex;flex-direction:column;line-height:1.32}
 .tcard .who .nm{font-family:'DM Sans',sans-serif;font-weight:600;font-size:.95rem;color:var(--ink)}
 .tcard .who .rl{font-size:.8rem;color:var(--slate-2)}
-@media(max-width:767px){.tst{padding:48px 0}.tst-grid{grid-template-columns:1fr;gap:16px}.tcard{padding:26px 24px}}
+@media(max-width:767px){.tst{padding:36px 0}.tst-grid{grid-template-columns:1fr;gap:16px}.tcard{padding:26px 24px}}
 
 /* ── SATELLITE / MAP VIEW SHOWCASE ── */
 .satview{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column}
@@ -614,7 +615,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
     <!-- APP SCREENSHOT -->
     <div class="hero-shot-col">
       <div class="map-shell hero-shot">
-        <img src="/app-screenshot.jpg" alt="The Solpath field app showing the live Portsmouth territory map — ECO4 and Warm Homes opportunity zones across PO1 to PO6 with eligible-property dots, plus the Map, Walk List, Callbacks and Deals tabs">
+        <img src="/app-screenshot.jpg" alt="The Solpath field app showing the live Portsmouth territory map — ECO4 and Warm Homes opportunity zones across PO1 to PO6 with eligible-property dots, plus the tidied Map, Walk List, Callbacks, Deals and Settings tab row">
       </div>
     </div>
   </div>
