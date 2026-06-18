@@ -538,6 +538,21 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 .tcard .who .nm{font-family:'DM Sans',sans-serif;font-weight:600;font-size:.95rem;color:var(--ink)}
 .tcard .who .rl{font-size:.8rem;color:var(--slate-2)}
 @media(max-width:767px){.tst{padding:48px 0}.tst-grid{grid-template-columns:1fr;gap:16px}.tcard{padding:26px 24px}}
+
+/* ── SATELLITE / MAP VIEW SHOWCASE ── */
+.satview{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:20px;display:flex;flex-direction:column}
+.satview-toggle{align-self:center;display:inline-flex;background:#0a1322;border-radius:999px;padding:4px;margin-bottom:16px}
+.sv-opt{font-size:.78rem;font-weight:600;color:#9fb0c4;padding:7px 16px;border-radius:999px;line-height:1}
+.sv-opt.sv-on{background:var(--green);color:#fff}
+.satview-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sv-tile{position:relative;height:158px;border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.sv-street{background:#eef2f7;background-image:linear-gradient(90deg,transparent 47%,#d6deea 47%,#d6deea 51%,transparent 51%),linear-gradient(0deg,transparent 58%,#d6deea 58%,#d6deea 61%,transparent 61%)}
+.sv-sat{background:linear-gradient(135deg,#2b3a22 0%,#42512f 38%,#5d5238 72%,#384729 100%)}
+.sv-dot{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--green);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);transform:translate(-50%,-50%)}
+.sv-dot-dark{background:#0a1322}
+.sv-cap{position:absolute;bottom:8px;left:8px;font-size:.68rem;font-weight:700;color:#fff;background:rgba(10,19,34,.6);padding:3px 9px;border-radius:6px;letter-spacing:.02em}
+.sv-foot{font-size:.82rem;color:var(--slate-2,#64748b);text-align:center;margin-top:15px;line-height:1.5}
+@media(max-width:600px){.sv-tile{height:128px}}
 </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -834,7 +849,7 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
 <!-- EPC INSTANT VERIFY — flagship visual selling point -->
 <section class="section" id="epc-verify">
   <div class="wrap">
-    <div class="sh center"><span class="eyebrow">Live EPC verification</span><h2 class="display d2">Turn an energy rating into a sale — on the doorstep.</h2><p class="lead">Every property is checked live against the official GOV.UK register. One tap shows the verified band, the SAP score, and a colour-coded scale your reps can turn around and show the customer.</p></div>
+    <div class="sh center"><span class="eyebrow">Live EPC verification</span><h2 class="display d2">Turn an energy rating into a sale — on the doorstep.</h2><p class="lead">Every property is checked live against the official GOV.UK register — and the rating, SAP score and certificate validity show right on the walk-list card, so reps see what they’re knocking without tapping through. One tap then opens the full colour-coded scale to show the customer.</p></div>
 
     <!-- Qualification criteria strip -->
     <div class="epc-criteria">
@@ -893,8 +908,51 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
           <li><strong>A visual the customer instantly gets.</strong> They see their own home glowing orange near the bottom of the scale, with green A right at the top. It lands harder than any letter on a form.</li>
           <li><strong>The "what it could be" hook.</strong> The register's own potential rating shows the customer exactly how far their home could climb after upgrades — straight from an official source.</li>
           <li><strong>Built-in accuracy guardrail.</strong> If a property comes back as A–C, the app blocks the sign-up before a deal is logged. No more non-qualifying deals slipping through.</li>
+          <li><strong>Expiry caught on the card.</strong> Where the certificate has a validity date it shows on the walk list — with expired certificates flagged in red — so reps never pitch off an out-of-date rating.</li>
         </ul>
         <div class="epc-quote">"You're sat in the orange here — but your own energy certificate says this house could be a C. That's the difference these upgrades make."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MAP / SATELLITE INTELLIGENCE -->
+<section class="section sec-soft" id="map-view">
+  <div class="wrap">
+    <div class="sh center">
+      <span class="eyebrow">See before you knock</span>
+      <h2 class="display d2">Street or satellite — one tap, on every map.</h2>
+      <p class="lead">Flip any map between a clean street view and live satellite imagery, in both the rep field app and the manager dashboard. Spot a block of flats or an industrial estate before a rep wastes a walk — or before a manager hands it out as a patch.</p>
+    </div>
+
+    <div class="epc-showcase">
+      <div class="satview">
+        <div class="satview-toggle"><span class="sv-opt">Street</span><span class="sv-opt sv-on">Satellite</span></div>
+        <div class="satview-pair">
+          <div class="sv-tile sv-street">
+            <span class="sv-dot" style="top:28%;left:26%"></span>
+            <span class="sv-dot" style="top:52%;left:62%"></span>
+            <span class="sv-dot sv-dot-dark" style="top:72%;left:40%"></span>
+            <span class="sv-cap">Street view</span>
+          </div>
+          <div class="sv-tile sv-sat">
+            <span class="sv-dot" style="top:28%;left:26%"></span>
+            <span class="sv-dot" style="top:52%;left:62%"></span>
+            <span class="sv-dot sv-dot-dark" style="top:72%;left:40%"></span>
+            <span class="sv-cap">Satellite view</span>
+          </div>
+        </div>
+        <div class="sv-foot">The same eligible-property dots stay on top of both views — switch as often as you like, your targets never disappear.</div>
+      </div>
+
+      <div class="epc-pitch">
+        <div class="epc-pitch-eyebrow">Why it matters</div>
+        <ul class="epc-points">
+          <li><strong>Read the street, not just the map.</strong> Satellite shows roofs, gardens and building footprints — the difference between a row of houses and a block of flats is obvious before anyone knocks.</li>
+          <li><strong>Smarter patch allocation.</strong> Managers can flip to satellite while drawing a patch, so a rep never gets handed an industrial estate or a tower block.</li>
+          <li><strong>Targets stay put.</strong> Every eligible-property dot stays visible on both views — the imagery changes underneath, your walk list doesn't.</li>
+          <li><strong>In both apps, everywhere.</strong> The same one-tap toggle sits in the rep field app and across every manager map — worked-vs-fresh, outcomes, assign and density.</li>
+        </ul>
       </div>
     </div>
   </div>
