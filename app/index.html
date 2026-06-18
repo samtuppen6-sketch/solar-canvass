@@ -779,7 +779,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .basemap-toggle-btn:active{transform:scale(.97)}
 /* Stack the satellite toggle directly UNDER the locate pin (#fab: top:14px, 48px tall → ends ~62px),
    right-aligned to match the pin's right:14px. Higher specificity than Leaflet's default control margins. */
-.leaflet-top .basemap-toggle-btn{margin-top:70px;margin-right:14px}
+.leaflet-top .basemap-toggle-btn{margin-top:14px;margin-right:14px}
 .leaflet-bar{border:1px solid var(--br)!important;border-radius:10px!important;overflow:hidden;
   box-shadow:0 4px 16px rgba(0,0,0,.4)!important}
 .leaflet-bar a{background:var(--c1)!important;color:var(--t)!important;
@@ -1532,7 +1532,6 @@ window.addEventListener('load', async () => {
 
   <div id="pmap">
     <div id="map"></div>
-    <button class="mfab" id="fab" onclick="locate()">📍</button>
     <div id="mhint">Tap a circle to load walk list</div>
     <div id="map-legend">
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin-bottom:6px">CIRCLES — Opportunity</div>
@@ -2142,8 +2141,8 @@ function topSt(n) {
 
 // ── LOCATE ───────────────────────────────────────────────────────────────────
 async function locate(silent=false) {
-  const b1=document.getElementById('btn-l'), b2=document.getElementById('fab');
-  if (!silent) { b1.textContent='⏳'; b2.textContent='⏳'; }
+  const b1=document.getElementById('btn-l');
+  if (!silent && b1) { b1.textContent='⏳'; }
   if (!navigator.geolocation) { if(!silent) toast('Location not supported'); resetL(); return; }
   navigator.geolocation.getCurrentPosition(pos => {
     resetL();
@@ -2162,7 +2161,7 @@ async function locate(silent=false) {
     }
   }, {enableHighAccuracy:true, timeout:12000, maximumAge:60000});
 }
-function resetL() { document.getElementById('btn-l').textContent='📍'; document.getElementById('fab').textContent='📍'; }
+function resetL() { const b=document.getElementById('btn-l'); if(b) b.textContent='📍'; }
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
 // -- NATIONWIDE referral eligibility (any postcode, independent of region sandbox) --
