@@ -771,6 +771,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);
 .leaflet-container{background:#0d1520}
 .leaflet-control-attribution{background:rgba(10,14,26,.8)!important;color:var(--m)!important;font-size:9px!important}
 .leaflet-control-attribution a{color:var(--m)!important}
+.basemap-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:var(--c1);color:var(--t);border:1px solid var(--br)!important;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.4);font:600 13px/1 system-ui,-apple-system,sans-serif;padding:10px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.basemap-toggle-btn:hover{background:var(--c2)}
+.basemap-toggle-btn:active{transform:scale(.97)}
 .leaflet-bar{border:1px solid var(--br)!important;border-radius:10px!important;overflow:hidden;
   box-shadow:0 4px 16px rgba(0,0,0,.4)!important}
 .leaflet-bar a{background:var(--c1)!important;color:var(--t)!important;
@@ -1907,9 +1910,53 @@ const lsoa  = p => EL && EL.get(norm(p))||null;
 // ── MAP ──────────────────────────────────────────────────────────────────────
 function initMap(center, zoom, cents) {
   map = L.map('map', { center, zoom, zoomControl:false, attributionControl:true });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+
+  // Base layers — street (default) + satellite (Esri aerial, with street labels kept for context)
+  const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
     maxZoom:19, attribution:'© OpenStreetMap © CARTO', subdomains:'abcd'
-  }).addTo(map);
+  });
+  const satImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+    maxZoom:19, attribution:'Imagery © Esri, Maxar, Earthstar Geographics'
+  });
+  const satLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{
+    maxZoom:19, subdomains:'abcd'
+  });
+
+  let BASEMAP = 'street';
+  try { BASEMAP = localStorage.getItem('sp-basemap') || 'street'; } catch(e){}
+
+  function applyBasemap(mode){
+    BASEMAP = (mode === 'satellite') ? 'satellite' : 'street';
+    if (BASEMAP === 'satellite'){
+      if (map.hasLayer(streetLayer)) map.removeLayer(streetLayer);
+      if (!map.hasLayer(satImagery)) satImagery.addTo(map);
+      if (!map.hasLayer(satLabels)) satLabels.addTo(map);
+    } else {
+      if (map.hasLayer(satImagery)) map.removeLayer(satImagery);
+      if (map.hasLayer(satLabels)) map.removeLayer(satLabels);
+      if (!map.hasLayer(streetLayer)) streetLayer.addTo(map);
+    }
+    try { localStorage.setItem('sp-basemap', BASEMAP); } catch(e){}
+    const b = document.getElementById('basemap-toggle');
+    if (b) b.textContent = (BASEMAP === 'satellite') ? 'Street' : 'Satellite';
+  }
+  applyBasemap(BASEMAP);
+
+  const BasemapToggle = L.Control.extend({
+    options:{ position:'topright' },
+    onAdd:function(){
+      const el = L.DomUtil.create('button','basemap-toggle-btn');
+      el.id = 'basemap-toggle';
+      el.type = 'button';
+      el.title = 'Switch between street and satellite view';
+      el.textContent = (BASEMAP === 'satellite') ? 'Street' : 'Satellite';
+      L.DomEvent.disableClickPropagation(el);
+      L.DomEvent.on(el, 'click', function(e){ L.DomEvent.stop(e); applyBasemap(BASEMAP === 'satellite' ? 'street' : 'satellite'); });
+      return el;
+    }
+  });
+  map.addControl(new BasemapToggle());
+
   L.control.zoom({position:'bottomright'}).addTo(map);
   drawCircles(cents);
   map.on('zoomend moveend', onMU);
@@ -2270,7 +2317,26 @@ async function loadPC(pc) {
   // IMPORTANT: exclude every number known to EITHER source — including EPC certs of ANY band (A–G) that were
   // filtered off the eligible list (e.g. an ineligible C) and all Land Registry houses — so a filtered/known
   // house is never re-listed as a phantom "no data" gap.
+  // ── Postcode-level estate / social-stock guard ──
+  // Gap-fill must NOT invent "houses" on roads that are really social/estate stock.
+  // Two dependable signals from data already fetched (no backend change):
+  //   (a) most certs that report a tenure are social-rented, and/or
+  //   (b) lots of EPC certs but almost no Land Registry sales (owner streets transact; estates don't).
+  let estateLikely = false;
+  (function detectEstate(){
+    let tenured = 0, social = 0;
+    for (const r of rows){
+      const t = String(r.tenure || '').toLowerCase();
+      if (!t) continue;                       // band-C / partial certs have no tenure — skip
+      tenured++;
+      if (t.includes('social')) social++;     // "Rented (social)" — private rented does NOT count
+    }
+    const mostlySocial = tenured >= 3 && (social / tenured) >= 0.6;
+    const highEpcLowLR = rows.length >= 10 && lrHouses.length <= 2;
+    estateLikely = mostlySocial || highEpcLowLR;
+  })();
   (function inferGaps(){
+    if (estateLikely) return;   // estate / social stock → emit no low-confidence gap-fill rows
     // ── Gap-fill: infer likely long-held-owner HOUSES whose numbers fall inside a
     //    street's known range but appear in neither EPC nor Land Registry (sold pre-1995,
     //    never needed an EPC). Listed low-confidence — worth a knock.
@@ -2440,8 +2506,11 @@ function sortStreetOrder(arr) {
     // Remove the matched number+letter, then any leading space/comma separators
     let rest = nm ? raw.slice(nm[0].length) : raw;
     rest = rest.replace(/^[\s,]+/, '');
-    // Street name up to first comma, normalised so both address formats match
-    let street = rest.split(',')[0].trim().toLowerCase().replace(/\s+/g, ' ');
+    // Street name up to first comma, normalised so both address formats match.
+    // Strip punctuation too: Land Registry writes "St Anns Crescent" while EPC writes
+    // "St. Anns Crescent" — without this they sort as two different streets and the
+    // house numbers look shuffled across the EPC/LR seam.
+    let street = rest.split(',')[0].toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     return { num, suffix, street };
   };
   return arr.slice().sort((a,b) => {
