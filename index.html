@@ -185,6 +185,8 @@ button{font-family:inherit;cursor:pointer}
 .map-shell{position:relative;border-radius:var(--r-xl);overflow:hidden;
   background:var(--navy-2);border:1px solid var(--navy-3);
   box-shadow:var(--shadow-lg),0 0 0 1px rgba(0,178,74,.04)}
+.hero-shot{max-width:340px;margin:0 auto;border-radius:30px}
+.hero-shot img{display:block;width:100%;height:auto}
 .map-top{height:42px;background:var(--navy-3);border-bottom:1px solid var(--border-d);
   display:flex;align-items:center;gap:11px;padding:0 15px}
 .mt-dots{display:flex;gap:6px}
@@ -609,49 +611,10 @@ footer{background:var(--navy);border-top:1px solid var(--border-d);padding:52px 
         <span class="hm-item"><svg viewBox="0 0 16 16" fill="none"><path d="M2 8l2.5 2.5L11 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Built-in eligibility guardrails</span>
       </div>
     </div>
-    <!-- MAP STILL -->
-    <div>
-      <div class="map-shell">
-        <div class="map-top">
-          <div class="mt-dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
-          <div class="mt-url">solpath.energy/app</div>
-          <div class="mt-live"><i></i>Live territory · PO1–PO6</div>
-        </div>
-        <div class="map-body">
-          <div class="map-side">
-            <div><div class="ms-label">Scheme</div><span class="chip on">ECO4</span><span class="chip">GBIS</span><span class="chip">Warm Homes</span></div>
-            <div><div class="ms-label">EPC band</div><span class="chip on">D / E / F / G</span><span class="chip">Unrated</span></div>
-            <div><div class="ms-label">Legend</div>
-              <div class="legend">
-                <div class="lg"><i style="background:#00e87a"></i>High priority</div>
-                <div class="lg"><i style="background:#f0a019"></i>Medium</div>
-                <div class="lg"><i style="background:#3b82f6"></i>Visited</div>
-                <div class="lg"><i style="background:#8b5cf6"></i>Callback</div>
-                <div class="lg"><i style="background:#5a6b86"></i>Suppressed</div>
-              </div>
-            </div>
-          </div>
-          <div class="map-canvas">
-            <img class="map-real" src="/map-portsmouth.jpg" alt="Live Solpath territory map — Portsmouth, showing plotted ECO4 and Warm Homes target properties across PO1, PO2, PO5 and PO6">
-            <div class="map-scrim"></div>
-            <div class="pcard">
-              <div class="pc-h"><div class="pc-addr">14 Clarence Road</div><div class="pc-type">Mid-terrace · PO5 2AA</div></div>
-              <div class="pc-b">
-                <div class="pc-row"><span class="k">EPC rating</span><span class="epc epc-e">E</span></div>
-                <div class="pc-row"><span class="k">Likely measure</span><span class="v">Solar panels</span></div>
-                <div class="pc-row"><span class="k">Scheme</span><span class="v">ECO4</span></div>
-                <div class="pc-row"><span class="k">Status</span><span class="spill">Unvisited</span></div>
-              </div>
-              <div class="pc-f"><button class="pc-log">Log Outcome</button></div>
-            </div>
-            <div class="obar">
-              <button class="ob ob-q">Qualified</button>
-              <button class="ob ob-c">Callback</button>
-              <button class="ob ob-n">No Answer</button>
-              <button class="ob ob-x">Not Suitable</button>
-            </div>
-          </div>
-        </div>
+    <!-- APP SCREENSHOT -->
+    <div class="hero-shot-col">
+      <div class="map-shell hero-shot">
+        <img src="/app-screenshot.jpg" alt="The Solpath field app showing the live Portsmouth territory map — ECO4 and Warm Homes opportunity zones across PO1 to PO6 with eligible-property dots, plus the Map, Walk List, Callbacks and Deals tabs">
       </div>
     </div>
   </div>
