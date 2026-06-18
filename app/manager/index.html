@@ -155,6 +155,9 @@ tbody tr:hover td{background:#fafbfd}
 .kpi.click:hover{border-color:#00b24a;transform:translateY(-1px)}
 .kpi.sel{border-color:#00b24a;box-shadow:0 0 0 2px rgba(0,178,74,.18)}
 .ag-periods .dchip{font-size:.74rem}
+.basemap-toggle-btn{display:inline-flex;align-items:center;gap:6px;background:var(--white,#fff);color:var(--ink,#0a1322);border:1px solid var(--border,#e3e8ef);border-radius:10px;box-shadow:0 2px 10px rgba(10,19,34,.18);font:600 13px/1 system-ui,-apple-system,sans-serif;padding:9px 13px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.basemap-toggle-btn:hover{background:var(--soft,#f4f7fb)}
+.basemap-toggle-btn:active{transform:scale(.97)}
 /* daily chart */
 .chart-wrap{display:flex;align-items:flex-end;gap:4px;height:120px;padding:16px 20px 8px}
 .chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
@@ -1049,10 +1052,37 @@ function ensureMap(){
   if(MAP)return;
   const el=document.getElementById('map-canvas'); el.innerHTML='';
   MAP=L.map(el,{scrollWheelZoom:true,tap:true});
-  const carto=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19});
-  carto.on('tileerror',()=>{ if(!MAP._osmFallback){MAP._osmFallback=true;carto.remove();
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(MAP);} });
-  carto.addTo(MAP);
+
+  // Base layers — street (Carto light, OSM fallback) + satellite (Esri aerial + street labels). Estate dots sit above either.
+  const streetLayer=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19});
+  streetLayer.on('tileerror',()=>{ if(!MAP._osmFallback){ MAP._osmFallback=true;
+    MAP._osmLayer=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+    if(BASEMAP==='street'){ streetLayer.remove(); MAP._osmLayer.addTo(MAP); } } });
+  const satImagery=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Imagery © Esri, Maxar, Earthstar Geographics',maxZoom:19});
+  const satLabels=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'});
+
+  let BASEMAP='street';
+  try{ BASEMAP=localStorage.getItem('sp-basemap')||'street'; }catch(e){}
+
+  function applyBasemap(mode){
+    BASEMAP=(mode==='satellite')?'satellite':'street';
+    [streetLayer,MAP._osmLayer,satImagery,satLabels].forEach(l=>{ if(l&&MAP.hasLayer(l)) MAP.removeLayer(l); });
+    if(BASEMAP==='satellite'){ satImagery.addTo(MAP); satLabels.addTo(MAP); }
+    else { ((MAP._osmFallback&&MAP._osmLayer)?MAP._osmLayer:streetLayer).addTo(MAP); }
+    try{ localStorage.setItem('sp-basemap',BASEMAP); }catch(e){}
+    const b=document.getElementById('mgr-basemap-toggle'); if(b) b.textContent=(BASEMAP==='satellite')?'Street':'Satellite';
+  }
+  applyBasemap(BASEMAP);
+
+  const BasemapToggle=L.Control.extend({ options:{position:'topright'},
+    onAdd:function(){
+      const el=L.DomUtil.create('button','basemap-toggle-btn'); el.id='mgr-basemap-toggle'; el.type='button';
+      el.title='Switch between street and satellite view'; el.textContent=(BASEMAP==='satellite')?'Street':'Satellite';
+      L.DomEvent.disableClickPropagation(el);
+      L.DomEvent.on(el,'click',function(e){ L.DomEvent.stop(e); applyBasemap(BASEMAP==='satellite'?'street':'satellite'); });
+      return el;
+    } });
+  MAP.addControl(new BasemapToggle());
   window.addEventListener('resize',()=>MAP&&MAP.invalidateSize());
   bindDrawEvents();
   ESTATE_CANVAS=L.canvas({padding:0.4});
