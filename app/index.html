@@ -2024,7 +2024,7 @@ async function loadRegionCoords(rid) {
   loadAccurateCentroids(rid);
   if (coordsLoaded[rid]) { applyCoords(coordsLoaded[rid]); return; }
   try {
-    const r = await fetch('./coords/'+rid+'.json');
+    const r = await fetch('/coords/'+rid+'.json');
     if (r.ok) {
       const c = await r.json();
       coordsLoaded[rid] = c;
@@ -2043,7 +2043,7 @@ function applyCoords(c) {
 async function loadAccurateCentroids(rid) {
   if (accurateCentroids[rid]) { drawCirclesAccurate(accurateCentroids[rid]); return; }
   try {
-    const r = await fetch('./centroids/'+rid+'.json');
+    const r = await fetch('/centroids/'+rid+'.json');
     if (r.ok) {
       accurateCentroids[rid] = await r.json();
       drawCirclesAccurate(accurateCentroids[rid]);
@@ -2230,9 +2230,24 @@ async function loadPC(pc) {
   const nc = norm(pc);
   // Pull shared cloud door history for this postcode (permanent records) - fail-safe
   try { await Promise.race([loadDoorHistoryForPostcode(nc), new Promise(r=>setTimeout(r,4000))]); } catch(e){}
-  if (propC[nc]) { allProps=propC[nc]; renderList(); return; }
-  document.getElementById('pl').innerHTML = '<div class="lr"><div class="spin"></div>Loading '+pc+'…</div>';
-  document.getElementById('lcnt').textContent = 'Loading…';
+  if (!propC[nc]) {
+    document.getElementById('pl').innerHTML = '<div class="lr"><div class="spin"></div>Loading '+pc+'…</div>';
+    document.getElementById('lcnt').textContent = 'Loading…';
+  }
+  const combined = await buildPropsForPC(pc);
+  allProps = combined;
+  renderList();
+  if (map.getZoom()>=12) loadVis();
+  showPropDots(nc, combined);
+}
+
+// Pure data build for a postcode — NO UI side effects. Returns the rich property
+// array (and caches it in propC). Used by loadPC for the walk list, and by the
+// Callbacks tab to re-hydrate a callback with the same full EPC/type/tenure/cert
+// data a walk-list door has.
+async function buildPropsForPC(pc) {
+  const nc = norm(pc);
+  if (propC[nc]) return propC[nc];
   const rows = await fetchEPC(pc);
   const parsed = rows.map(r => {
     const rating = (r['current-energy-rating']||'?').toUpperCase();
@@ -2420,10 +2435,8 @@ async function loadPC(pc) {
     }
   })();
   combined = sortStreetOrder(deduped);
-  propC[nc]=combined; allProps=combined;
-  renderList();
-  if (map.getZoom()>=12) loadVis();
-  showPropDots(nc, combined);
+  propC[nc] = combined;
+  return combined;
 }
 
 let propDotLayer = null;
@@ -2478,6 +2491,24 @@ function normAddr(a) {
   return (a||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,40);
 }
 
+// Canonicalise UK street-type words so abbreviated and spelled-out forms collapse together:
+// "High Rd" == "High Road", "St Johns Ct" == "Saint Johns Court", "High St" == "High Street".
+// Whole-token only (never substrings) so "Avebury"/"Stroud"/"Saintsbury" are left alone.
+var ST_ABBR = { rd:'road', ave:'avenue', av:'avenue', ct:'court', cres:'crescent',
+  dr:'drive', ln:'lane', cl:'close', pl:'place', sq:'square', ter:'terrace',
+  terr:'terrace', gdns:'gardens', grv:'grove', mt:'mount', pk:'park' };
+function canonStreetName(s) {
+  var toks = (s||'').toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  var n = toks.length;
+  for (var i=0;i<n;i++){
+    var t = toks[i];
+    if (t==='saint') continue;                                   // already the canonical "Saint"
+    if (t==='st') { toks[i] = (i===n-1) ? 'street' : 'saint'; continue; } // "High St"->street, "St Johns"->saint
+    if (ST_ABBR[t]) toks[i] = ST_ABBR[t];
+  }
+  return toks.join('');
+}
+
 // Dedup key = house number + first street segment only (ignores city/town),
 // so "1, HILSEA CRESCENT, PORTSMOUTH" (EPC) and "1 Hilsea Crescent" (LR) match.
 function dedupKey(a) {
@@ -2492,9 +2523,9 @@ function dedupKey(a) {
   // Street name: take the text right after the matched number, up to first comma
   let after = nm ? raw.slice(raw.indexOf(nm[0]) + nm[0].length) : raw;
   after = after.replace(/^[\s,]+/, '');
-  let street = after.split(',')[0].trim().toLowerCase().replace(/[^a-z]/g,'');
+  let street = canonStreetName(after.split(',')[0]);
   // Fallback: if street came out empty, use whole remainder
-  if (!street) street = raw.toLowerCase().replace(/[^a-z]/g,'').slice(0,20);
+  if (!street) street = canonStreetName(raw).slice(0,20);
   return num + suffix + '|' + street;
 }
 
@@ -2515,7 +2546,7 @@ function sortStreetOrder(arr) {
     // Strip punctuation too: Land Registry writes "St Anns Crescent" while EPC writes
     // "St. Anns Crescent" — without this they sort as two different streets and the
     // house numbers look shuffled across the EPC/LR seam.
-    let street = rest.split(',')[0].toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    let street = canonStreetName(rest.split(',')[0]);
     return { num, suffix, street };
   };
   return arr.slice().sort((a,b) => {
@@ -2677,8 +2708,11 @@ async function renderCallbacks() {
     const ratingTxt = rating === 'NE' ? 'No EPC' : (rating === '?' ? '?' : rating + (meta.epcPoints ? ' ' + meta.epcPoints : ''));
     const addr = r.address || meta.addr || '';
     const note = r.note || '';
-    const prop = { addr: addr, rating: rating, tl: meta.tl || '', propType: meta.propType || '', epcPoints: meta.epcPoints || '' };
-    try { window.__pmap[uid] = prop; } catch(e){}   // store snapshot so tapping the card opens the full property detail
+    const prop = { addr: addr, rating: rating, tl: meta.tl || '', propType: meta.propType || '', epcPoints: meta.epcPoints || '', postcode: pc, postcode_norm: nc, _thin: true };
+    // store a placeholder snapshot so tapping the card opens the detail instantly —
+    // but NEVER overwrite a richer object already in __pmap (recent walk-list search or
+    // a prior hydrate). The detail panel/hydrate fills in the full data on open.
+    try { if (!window.__pmap[uid] || window.__pmap[uid]._thin) window.__pmap[uid] = prop; } catch(e){}
     // ⏰ reminder time badge (due-soon / overdue colouring)
     let badge = '';
     if (r.reminder_at) {
@@ -2715,10 +2749,35 @@ async function renderCallbacks() {
   }).join('');
 }
 
-// Open the address card from a callback
+// Open the address card from a callback.
+// Opens instantly with whatever we have, then re-hydrates the FULL property
+// (EPC rating + points, type, tenure, sold year, live cert URL) from the same
+// data path the walk list uses — so a callback shows everything a walk-list door
+// does, and the Verify / Check-EPC-register buttons get a real postcode to use.
 function openCallbackCard(uid, propJson) {
   if (propJson && !window.__pmap[uid]) { try { window.__pmap[uid]=JSON.parse(propJson); } catch(e){} }
+  const nc = (uid.split('|')[0]) || '';
+  const pc = nc.length >= 3 ? nc.slice(0, -3) + ' ' + nc.slice(-3) : nc;
+  if (pc) curPC = pc;                       // give register/verify a postcode immediately
   try { openPropDetail(uid); } catch(e) {}
+  hydrateCallbackProp(uid, pc);             // fill in the full data in the background
+}
+
+// Re-fetch the live property list for this postcode (cached after the first call)
+// and swap the full object into __pmap, then refresh the open panel in place.
+async function hydrateCallbackProp(uid, pc) {
+  if (!pc) return;
+  try {
+    const props = await buildPropsForPC(pc);
+    const nc = norm(pc);
+    const full = (props || []).find(x => dk(nc, x) === uid);   // same key the door was saved under
+    if (full) {
+      window.__pmap[uid] = full;                               // rich object replaces the thin placeholder
+      try { saveCbMeta(uid, full); } catch(e){}                // refresh the local cache too
+      // Only refresh the view if the user is still on this door and not mid-note-edit.
+      if (curPropUID === uid && !notesDirty) { try { openPropDetail(uid); } catch(e){} }
+    }
+  } catch(e) {}
 }
 
 // Resolve a callback: set the new outcome, which removes it from the callback list
