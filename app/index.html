@@ -1941,6 +1941,8 @@ function initMap(center, zoom, cents) {
       if (map.hasLayer(satLabels)) map.removeLayer(satLabels);
       if (!map.hasLayer(streetLayer)) streetLayer.addTo(map);
     }
+    curBasemap = BASEMAP;
+    setCircleVisibility();   // circles only show on street view
     try { localStorage.setItem('sp-basemap', BASEMAP); } catch(e){}
     const b = document.getElementById('basemap-toggle');
     if (b) b.textContent = (BASEMAP === 'satellite') ? 'Street' : 'Satellite';
@@ -1969,15 +1971,40 @@ function initMap(center, zoom, cents) {
 }
 
 let circleLayer = null;
+let _cents = {};            // precomputed outcode centroids — fallback only
+let curBasemap = 'street';  // tracks active basemap so circles hide on satellite
+
+// Real centre of an outcode = mean position of its eligible postcodes we have coords for.
+// Falls back to the precomputed centroid only if no postcode coords are loaded yet.
+function outcodeCentre(code) {
+  const pcs = BO[code] || [];
+  let sx = 0, sy = 0, n = 0;
+  for (const pc of pcs) { const g = geoC[pc]; if (g) { sx += g.lat; sy += g.lng; n++; } }
+  if (n) return [sx / n, sy / n];
+  return _cents[code] || null;
+}
+
+// Circles are a street-view overlay; hide them on satellite so they don't stain the imagery.
+function setCircleVisibility() {
+  if (!circleLayer || !map) return;
+  const sat = curBasemap === 'satellite';
+  if (sat && map.hasLayer(circleLayer)) map.removeLayer(circleLayer);
+  else if (!sat && !map.hasLayer(circleLayer)) map.addLayer(circleLayer);
+}
 
 function drawCircles(cents) {
+  if (cents) _cents = (typeof cents === 'string') ? JSON.parse(cents) : cents;
+  if (!map) return;
   if (circleLayer) { circleLayer.clearLayers(); }
   else { circleLayer = L.layerGroup().addTo(map); }
 
-  Object.entries(cents).forEach(([code, [lat, lng]]) => {
-    const cnt = (BO[code]||[]).length;
-    // Colour circles by density: high = warmer
+  // One circle per outcode, placed on the actual centre of its doors (from real coords).
+  Object.keys(BO).forEach(code => {
+    const cnt = (BO[code] || []).length;
     if (cnt === 0) return;
+    const centre = outcodeCentre(code);
+    if (!centre) return;                 // no coords and no fallback — skip
+    const [lat, lng] = centre;
     const col = heatColor(cnt);
     const r = Math.min(1800, Math.max(400, cnt * 60));
 
@@ -2001,6 +2028,8 @@ function drawCircles(cents) {
       iconAnchor:[24,13]
     }), interactive:false}).addTo(circleLayer);
   });
+
+  setCircleVisibility();
 }
 
 function redrawCircles(cents) {
@@ -2022,13 +2051,14 @@ function onMU() {
 // Load baked-in coordinates for the region, populate geoC instantly
 async function loadRegionCoords(rid) {
   loadAccurateCentroids(rid);
-  if (coordsLoaded[rid]) { applyCoords(coordsLoaded[rid]); return; }
+  if (coordsLoaded[rid]) { applyCoords(coordsLoaded[rid]); drawCircles(); return; }
   try {
     const r = await fetch('/coords/'+rid+'.json');
     if (r.ok) {
       const c = await r.json();
       coordsLoaded[rid] = c;
       applyCoords(c);
+      drawCircles();                      // re-place circles on the real door clusters
       // Refresh dots if we're zoomed in
       if (map && map.getZoom()>=12) loadVis();
     }
@@ -2051,32 +2081,9 @@ async function loadAccurateCentroids(rid) {
   } catch(e) { /* keep existing circles */ }
 }
 
-function drawCirclesAccurate(ac) {
-  if (circleLayer) { circleLayer.clearLayers(); }
-  else { circleLayer = L.layerGroup().addTo(map); }
-  Object.entries(ac).forEach(([code, info]) => {
-    const cnt = info.count || 0;
-    if (cnt === 0) return;
-    const [lat, lng] = info.center;
-    const col = heatColor(cnt);
-    const r = info.radius_m || 800;
-    L.circle([lat, lng], {
-      radius: r, color: col, fillColor: col,
-      fillOpacity: 0.12, weight: 2, opacity: 0.6, dashArray:'5 4'
-    }).addTo(circleLayer).on('click', e => {
-      L.DomEvent.stopPropagation(e);
-      map.flyTo([lat, lng], 15, {duration:.8});
-      hideHint();
-      const pcs = BO[code]||[];
-      if (pcs.length) loadPC(fmt(pcs[Math.floor(pcs.length/4)]));
-    });
-    L.marker([lat, lng], {icon: L.divIcon({
-      className: 'heat-label',
-      html: '<div style="background:rgba(10,14,26,.88);border:1.5px solid '+col+'55;border-radius:8px;padding:3px 8px;text-align:center;line-height:1.3"><div style="font-size:11px;font-weight:700;color:'+col+'">'+code+'</div><div style="font-size:9px;color:#64748b">'+cnt+'</div></div>',
-      iconAnchor:[24,13]
-    }), interactive:false}).addTo(circleLayer);
-  });
-}
+// Both north and south now place circles on real door coordinates via drawCircles().
+// (Older centroid files drifted off the clusters, so we ignore their centres.)
+function drawCirclesAccurate(ac) { drawCircles(); }
 
 async function loadVis() {
   if (!BO || !curRegion) return;
