@@ -2767,10 +2767,19 @@ function openCallbackCard(uid, propJson) {
 // and swap the full object into __pmap, then refresh the open panel in place.
 async function hydrateCallbackProp(uid, pc) {
   if (!pc) return;
+  const savedAddr = (window.__pmap[uid] && window.__pmap[uid].addr) || '';
   try {
     const props = await buildPropsForPC(pc);
     const nc = norm(pc);
-    const full = (props || []).find(x => dk(nc, x) === uid);   // same key the door was saved under
+    // 1) exact key match (fast path). 2) fall back to a normalised house-number+street
+    //    match, so a door saved under one representation (e.g. Land Registry "43 Whitworth Road",
+    //    no comma) still matches the same door rebuilt under another (EPC "43, Whitworth Road",
+    //    with a comma). dedupKey strips punctuation and canonicalises the street.
+    let full = (props || []).find(x => dk(nc, x) === uid);
+    if (!full && savedAddr) {
+      const tgt = dedupKey(savedAddr);
+      if (/^\d+\|/.test(tgt)) full = (props || []).find(x => dedupKey(x.addr) === tgt);  // require a real house number
+    }
     if (full) {
       window.__pmap[uid] = full;                               // rich object replaces the thin placeholder
       try { saveCbMeta(uid, full); } catch(e){}                // refresh the local cache too
