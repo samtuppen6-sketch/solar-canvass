@@ -2708,11 +2708,29 @@ async function renderCallbacks() {
     const ratingTxt = rating === 'NE' ? 'No EPC' : (rating === '?' ? '?' : rating + (meta.epcPoints ? ' ' + meta.epcPoints : ''));
     const addr = r.address || meta.addr || '';
     const note = r.note || '';
-    const prop = { addr: addr, rating: rating, tl: meta.tl || '', propType: meta.propType || '', epcPoints: meta.epcPoints || '', postcode: pc, postcode_norm: nc, _thin: true };
+    const prop = { addr: addr, rating: rating, tl: meta.tl || '', tt: meta.tt || '', propType: meta.propType || '', epcPoints: meta.epcPoints || '', lastSold: meta.lastSold || '', validUntil: meta.validUntil || '', epcExpired: !!meta.epcExpired, noEpc: !!meta.noEpc, confidence: meta.confidence || '', inferred: !!meta.inferred, postcode: pc, postcode_norm: nc, _thin: true };
     // store a placeholder snapshot so tapping the card opens the detail instantly —
     // but NEVER overwrite a richer object already in __pmap (recent walk-list search or
     // a prior hydrate). The detail panel/hydrate fills in the full data on open.
     try { if (!window.__pmap[uid] || window.__pmap[uid]._thin) window.__pmap[uid] = prop; } catch(e){}
+    // Secondary info line — tenure / type / sold year / EPC expiry — mirroring the walk-list card.
+    const tc = prop.tt==='owner'?'to':prop.tt==='private'?'tp':'tu';
+    let expChip = '';
+    if (!prop.noEpc && prop.validUntil) {
+      let lab = prop.validUntil; const dt = new Date(prop.validUntil);
+      if (!isNaN(dt.getTime())) lab = dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+      expChip = '<span style="color:'+(prop.epcExpired?'#ef4444':'#64748b')+';font-size:11px">'+(prop.epcExpired?'⚠ EPC expired ':'EPC valid to ')+lab+'</span>';
+    }
+    let metaLine = '';
+    if (prop.tl || prop.propType || prop.lastSold || expChip || prop.noEpc) {
+      metaLine = '<div class="pc2-m">'
+        + (prop.tl?'<span class="'+tc+'">'+prop.tl+'</span>':'')
+        + (prop.propType?'<span>'+prop.propType+'</span>':'')
+        + (prop.lastSold && !prop.noEpc?'<span style="color:#64748b;font-size:11px">Sold '+prop.lastSold+'</span>':'')
+        + expChip
+        + '</div>'
+        + (prop.noEpc ? '<div style="padding:0 2px">'+confPillHTML(prop)+'</div>' : '');
+    }
     // ⏰ reminder time badge (due-soon / overdue colouring)
     let badge = '';
     if (r.reminder_at) {
@@ -2731,6 +2749,7 @@ async function renderCallbacks() {
     h += '<div class="pc2-a">' + (prop.addr || '') + '</div>';
     h += '</div><div class="' + ec + '">' + ratingTxt + '</div></div>';
     h += '</div>';
+    h += metaLine;
     if (badge) h += badge;
     // Note display
     if (note) {
@@ -3208,6 +3227,15 @@ function openEpcRegister(pc) {
   window.open('https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode?postcode=' + encodeURIComponent(spaced), '_blank');
 }
 
+// Official GOV.UK certificate page for a specific property, built from its RRN
+// (certificate number, e.g. 2000-3404-6751-6501-1721). Falls back to whatever the
+// proxy returned only if no RRN is present.
+function certPageUrl(d){
+  const rrn = (d && d.certificateNumber) ? String(d.certificateNumber).trim() : '';
+  if (rrn) return 'https://find-energy-certificate.service.gov.uk/energy-certificate/' + encodeURIComponent(rrn);
+  return (d && d.source) ? d.source : '';
+}
+
 async function verifyEPC() {
   const p = curPropData;
   if (!p) return;
@@ -3249,7 +3277,7 @@ async function verifyEPC() {
       + (d.propertyType ? 'Property type: <strong>' + d.propertyType + '</strong>. ' : '')
       + 'This property cannot be submitted for Warm Homes funding. Sign-up is permanently blocked for this address.</div>'
       + (d.certificateNumber ? '<div style="font-size:11px;color:#ef4444;margin-top:6px">Cert: ' + d.certificateNumber + '</div>' : '')
-      + '<a href="' + d.source + '" target="_blank" style="color:#f87171;font-size:11px;display:inline-block;margin-top:6px">View official certificate ↗</a>'
+      + (certPageUrl(d) ? '<a href="' + certPageUrl(d) + '" target="_blank" style="color:#f87171;font-size:11px;display:inline-block;margin-top:6px">View official certificate ↗</a>' : '')
       + '</div>';
     renderList();
     return;
@@ -3295,7 +3323,7 @@ async function verifyEPC() {
     (d.certificateNumber ? '<div style="font-size:11px;color:var(--m)">Cert: ' + d.certificateNumber + '</div>' : '') +
     (d.supersedes ? '<div style="color:#fbbf24;font-size:12px">⚠ Older certificate exists — newest used.</div>' : '') +
     (mismatch ? '<div style="color:#fbbf24;font-size:12px">⚠ Listed rating was out of date — corrected to ' + d.rating + '.</div>' : '') +
-    '<a href="' + d.source + '" target="_blank" style="color:#60a5fa;font-size:12px;display:inline-block;margin-top:6px">View official certificate ↗</a>';
+    (certPageUrl(d) ? '<a href="' + certPageUrl(d) + '" target="_blank" style="color:#60a5fa;font-size:12px;display:inline-block;margin-top:6px">View official certificate ↗</a>' : '');
 }
 
 async function openSignup() {
@@ -3369,7 +3397,10 @@ function addHistory(uid, status) {
 function saveCbMeta(uid, prop) {
   try {
     const m = JSON.parse(localStorage.getItem('cbMeta') || '{}');
-    m[uid] = { addr: prop.addr||'', rating: prop.rating||'?', epcPoints: prop.epcPoints||'', tl: prop.tl||'', propType: prop.propType||'' };
+    m[uid] = { addr: prop.addr||'', rating: prop.rating||'?', epcPoints: prop.epcPoints||'',
+               tl: prop.tl||'', tt: prop.tt||'', propType: prop.propType||'',
+               lastSold: prop.lastSold||'', validUntil: prop.validUntil||'', epcExpired: !!prop.epcExpired,
+               noEpc: !!prop.noEpc, confidence: prop.confidence||'', inferred: !!prop.inferred };
     localStorage.setItem('cbMeta', JSON.stringify(m));
   } catch(e){}
 }
